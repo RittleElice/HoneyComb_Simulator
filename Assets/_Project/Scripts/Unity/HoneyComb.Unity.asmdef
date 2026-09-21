@@ -1,0 +1,5 @@
+{
+  "name": "HoneyComb.Unity",
+  "rootNamespace": "HoneyComb.Unity",
+  "references": ["HoneyComb.Simulation", "Unity.ugui"]
+}

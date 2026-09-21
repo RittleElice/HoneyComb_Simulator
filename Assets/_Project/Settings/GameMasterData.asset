@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 752da4dc9978d6a4ba2757ebd027dbd0, type: 3}
+  m_Name: GameMasterData
+  m_EditorClassIdentifier: HoneyComb.Unity::HoneyComb.Unity.Configuration.GameMasterData
+  realSecondsPerTick: 1
+  initialElapsedHours: 0
+  startAutomatic: 1
+  environmentConfig: {fileID: 11400000, guid: d670ae73055afd94299b7ed5bd811378, type: 2}
+  apiaryConfig: {fileID: 11400000, guid: 03bd2948d589f914fad8ad7e95dcdf1b, type: 2}
+  defaultAdvanceHours: 24
+  maxAdvanceHours: 876000
+  maxTicksPerFrame: 240
+  showTimeDebugPanel: 1
