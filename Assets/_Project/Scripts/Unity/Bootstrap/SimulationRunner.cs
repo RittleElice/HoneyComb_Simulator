@@ -14,6 +14,7 @@ namespace HoneyComb.Unity.Bootstrap
         public EnvironmentSystem Environment { get; private set; }
         public ApiaryState Apiary { get; private set; }
         private Vector2 debugScroll;
+        private readonly HoneyComb.Unity.Presentation.ApiaryGridDebugPanel gridPanel = new HoneyComb.Unity.Presentation.ApiaryGridDebugPanel();
         private int budget, maxAdvance;
         private bool showPanel, suspended;
         private string input, error;
@@ -130,23 +131,9 @@ namespace HoneyComb.Unity.Bootstrap
             GUILayout.Label($"Temperature     {weather.TemperatureCelsius:0.0} °C\nHumidity           {weather.HumidityPercent:0.0} %\nPrecipitation     {weather.PrecipitationMmPerHour:0.0} mm/h\nWind                 {weather.WindSpeedMetersPerSecond:0.0} m/s\nDaylight             {weather.Daylight:0.00}", label);
             GUILayout.Label($"Environment ticks: {Environment.ProcessedTicks:N0}\nLast updated hour: {Environment.LastUpdatedHour:N0}", label);
             GUILayout.Space(20);
-            GUILayout.Label("APIARY DEBUG", label);
-            GUILayout.Label($"Apiary: {Apiary.Name}\nID: {Apiary.Id}\nHive capacity: {Apiary.HiveCapacity}\nHives: {Apiary.HiveCount}", label);
-            GUI.enabled = Apiary.HiveCount < Apiary.HiveCapacity;
-            if (GUILayout.Button("Add Hive", button, GUILayout.Height(64))) Apiary.TryAddHive(out _);
-            GUI.enabled = Apiary.HiveCount > 0;
-            if (GUILayout.Button("Remove Last Hive", button, GUILayout.Height(64)))
-                Apiary.RemoveHive(Apiary.Hives[Apiary.HiveCount - 1].Id);
-            GUI.enabled = true;
-            for (int i = 0; i < Apiary.Hives.Count; i++)
-            {
-                var hive = Apiary.Hives[i];
-                GUILayout.Label($"HIVE {hive.Id}\nStatus: {hive.Status}", label);
-            }
+            gridPanel.Draw(Apiary, label, button);
             GUILayout.EndScrollView();
             GUILayout.EndArea(); GUI.matrix = previous;
         }
     }
 }
-
-
