@@ -1,5 +1,6 @@
 using HoneyComb.Simulation.Apiary;
 using UnityEngine;
+using HoneyComb.Simulation.Bees;
 namespace HoneyComb.Unity.Presentation
 {
     // UI-only selection and movement state; no Unity coordinates enter the model.
@@ -11,8 +12,10 @@ namespace HoneyComb.Unity.Presentation
         private string movingHiveId;
         private string message;
         private Vector2 scroll;
+        private readonly BeeMoveSelection beeMove=new BeeMoveSelection();
+        private readonly ApiaryPlacesDebugPanel placesPanel=new ApiaryPlacesDebugPanel();
         private readonly HiveStructureDebugPanel structurePanel=new HiveStructureDebugPanel();
-        public void Draw(ApiaryState apiary,GUIStyle label,GUIStyle button)
+        public void Draw(ApiaryState apiary,BeePopulation population,long hour,BeeSpawnSettings defaults,GUIStyle label,GUIStyle button)
         {
             GUILayout.Label("APIARY GRID",label);
             GUILayout.Label($"{apiary.Name}\nGrid: {apiary.Width} x {apiary.Height}\nHives: {apiary.HiveCount} / {apiary.CellCount}",label);
@@ -41,7 +44,7 @@ namespace HoneyComb.Unity.Presentation
                 message=apiary.TryCreateHive(selectedX,selectedY,out _) ? "Hive placed." : "Placement rejected.";
             GUI.enabled=hive!=null;
             if(GUILayout.Button("Remove Hive here",button,GUILayout.Height(60)))
-            { message=apiary.RemoveHive(selectedX,selectedY) ? "Hive removed." : "Removal rejected."; moveX=null; }
+            { message=apiary.RemoveHive(selectedX,selectedY) ? "Hive removed." : "Cannot remove a hive with a colony or resident bees."; moveX=null; }
             if(GUILayout.Button("Move: select this hive",button,GUILayout.Height(60)))
             { moveX=selectedX; moveY=selectedY; movingHiveId=hive.Id; message="Select an empty destination, then Move here."; }
             GUI.enabled=true;
@@ -60,7 +63,8 @@ namespace HoneyComb.Unity.Presentation
                 if(GUILayout.Button("Cancel move",button,GUILayout.Height(60))) moveX=null;
             }
             if(!string.IsNullOrEmpty(message)) GUILayout.Label(message,label);
-            structurePanel.Draw(apiary,apiary.GetHive(selectedX,selectedY),label,button);
+            placesPanel.Draw(apiary,population,apiary.GetHive(selectedX,selectedY),selectedX,selectedY,hour,defaults,beeMove,label,button);
+            structurePanel.Draw(apiary,apiary.GetHive(selectedX,selectedY),population,hour,defaults,beeMove,label,button);
         }
     }
 }

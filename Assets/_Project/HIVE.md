@@ -29,3 +29,5 @@ Remove Frame으로 모두 비우면 Remove selected empty Super 버튼을 사용
 다른 벌통 이동: 원본 슬롯 → Move: select this Frame → 격자에서 다른 벌통 → 빈 슬롯 → Move Frame here.
 MoveFrameTo는 목적지를 먼저 검증하고 양쪽 슬롯을 함께 갱신한다. 실패하면 원본을 유지한다.
 소비장 ID, 크기, 앞뒤 상태 배열은 그대로 유지한다. ID의 원래 벌통 접두어는 현재 위치를 뜻하지 않는다.
+
+벌 모델 추가: 벌이 있는 Frame의 RemoveFrame과 봉군/거주 벌이 있는 Hive의 RemoveHive는 참조 보존을 위해 거부한다. 소비장 이동은 가능하며 개체는 같은 Frame 위치를 유지한다. 자세한 규칙은 BEES.md 참고.

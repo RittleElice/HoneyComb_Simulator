@@ -58,7 +58,7 @@ namespace HoneyComb.Simulation.Apiary
         public bool RemoveHive(int x,int y)
         {
             var cell=GetCell(x,y);
-            if(cell==null || cell.Hive==null) return false;
+            if(cell==null || cell.Hive==null || cell.Hive.HasColony || cell.Hive.HasResidentBees) return false;
             var hive=cell.Hive; cell.Hive=null; hive.PlacementOwner=null; hives.Remove(hive); return true;
         }
         public bool MoveHive(int fromX,int fromY,int toX,int toY)

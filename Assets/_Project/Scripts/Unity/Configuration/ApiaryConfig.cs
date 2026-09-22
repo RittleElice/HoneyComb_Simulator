@@ -14,6 +14,11 @@ namespace HoneyComb.Unity.Configuration
         [Header("Frame cells per face (copied when Play starts)")]
         [Min(1)] public int frameCellWidth=90;
         [Min(1)] public int frameCellHeight=40;
+        [Header("External region (logical destination)")]
+        public string externalRegionId="outside-1";
+        public string externalRegionName="Outside environment";
+        public HoneyComb.Simulation.Environment.ExternalRegionState CreateExternalRegion()
+            => new HoneyComb.Simulation.Environment.ExternalRegionState(externalRegionId,externalRegionName);
         public ApiaryState CreateState() => new ApiaryState(apiaryId,apiaryName,width,height,initialHiveCount,frameCellWidth,frameCellHeight);
     }
 }
