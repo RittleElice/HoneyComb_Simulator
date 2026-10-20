@@ -1,7 +1,0 @@
-{
- "name":"HoneyComb.Simulation.Tests",
- "references":["HoneyComb.Simulation"],
- "includePlatforms":["Editor"],
- "optionalUnityReferences":["TestAssemblies"],
- "autoReferenced":false
-}
