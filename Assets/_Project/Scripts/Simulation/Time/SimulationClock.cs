@@ -3,24 +3,28 @@ namespace HoneyComb.Simulation.Time
 {
     public sealed class SimulationClock
     {
+        public const int MinutesPerHour = 60;
         public const int HoursPerDay = 24;
         public const int DaysPerYear = 365;
-        public long TotalHours { get; private set; }
+        public long TotalMinutes { get; private set; }
+        public long TotalHours => TotalMinutes / MinutesPerHour;
         public double AccumulatedSeconds { get; private set; }
         public long PendingTicks { get; private set; }
         public bool Automatic { get; set; }
         public double SecondsPerTick { get; }
+        // Tick is raised every minute, then HourTick at completed hour boundaries.
         public event Action<long> Tick;
-        public SimulationClock(long initialHour, double secondsPerTick, bool automatic)
+        public event Action<long> HourTick;
+        public SimulationClock(long initialMinute, double secondsPerTick, bool automatic)
         {
-            if (initialHour < 0) throw new ArgumentOutOfRangeException(nameof(initialHour));
+            if (initialMinute < 0) throw new ArgumentOutOfRangeException(nameof(initialMinute));
             if (double.IsNaN(secondsPerTick) || double.IsInfinity(secondsPerTick) || secondsPerTick <= 0)
                 throw new ArgumentOutOfRangeException(nameof(secondsPerTick));
-            TotalHours = initialHour; SecondsPerTick = secondsPerTick; Automatic = automatic;
+            TotalMinutes = initialMinute; SecondsPerTick = secondsPerTick; Automatic = automatic;
         }
         public void QueueTicks(long count)
         {
-            if (count <= 0 || count > long.MaxValue - TotalHours - PendingTicks)
+            if (count <= 0 || count > long.MaxValue - TotalMinutes - PendingTicks)
                 throw new ArgumentOutOfRangeException(nameof(count));
             PendingTicks += count;
         }
@@ -39,8 +43,9 @@ namespace HoneyComb.Simulation.Time
                 else if (!fastForwarding && Automatic && AccumulatedSeconds >= SecondsPerTick)
                     AccumulatedSeconds -= SecondsPerTick;
                 else break;
-                TotalHours = checked(TotalHours + 1);
-                Tick?.Invoke(TotalHours);
+                TotalMinutes = checked(TotalMinutes + 1);
+                Tick?.Invoke(TotalMinutes);
+                if (TotalMinutes % MinutesPerHour == 0) HourTick?.Invoke(TotalHours);
                 processed++;
             }
             return processed;

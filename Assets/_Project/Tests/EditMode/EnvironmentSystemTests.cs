@@ -10,9 +10,9 @@ namespace HoneyComb.Tests
         public void ManualHoursUpdateEnvironmentExactlyOncePerTick(int hours)
         {
             var environment = new EnvironmentSystem(new EnvironmentState(20,60,0,0,1), 100);
-            var clock = new SimulationClock(100,1,false);
-            clock.Tick += environment.TickHour;
-            clock.QueueTicks(hours);
+            var clock = new SimulationClock(6000,1,false);
+            clock.HourTick += environment.TickHour;
+            clock.QueueTicks(hours*60L);
             while(clock.PendingTicks > 0) clock.Update(0,240);
             Assert.That(environment.ProcessedTicks, Is.EqualTo(hours));
             Assert.That(environment.LastUpdatedHour, Is.EqualTo(100 + hours));
@@ -24,12 +24,12 @@ namespace HoneyComb.Tests
         {
             var environment = new EnvironmentSystem(new EnvironmentState(20,60,0,0,1),0);
             var clock = new SimulationClock(0,1,false);
-            clock.Tick += environment.TickHour;
+            clock.HourTick += environment.TickHour;
             clock.Update(100,240);
             Assert.That(environment.ProcessedTicks, Is.Zero);
-            clock.Automatic = true; clock.Update(2.5,240);
+            clock.Automatic = true; clock.Update(120.5,240);
             Assert.That(environment.ProcessedTicks, Is.EqualTo(2));
-            clock.Tick -= environment.TickHour; clock.Update(10,240);
+            clock.HourTick -= environment.TickHour; clock.Update(10,240);
             Assert.That(environment.ProcessedTicks, Is.EqualTo(2));
         }
         [Test] public void InvalidWeatherAndDuplicateTicksAreRejected()

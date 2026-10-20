@@ -89,7 +89,7 @@ namespace HoneyComb.Tests
         [Test] public void ClockBulkAdvanceMatchesHourlyAdvanceAndSupportsInitialHour()
         {
             var p=Setup(out _,out var h,out var f,Fast(),100);Add(p,h,f);
-            var clock=new SimulationClock(100,1,false);clock.Tick+=p.TickHour;clock.QueueTicks(6);clock.Update(0,6);
+            var clock=new SimulationClock(6000,5,false);clock.HourTick+=p.TickHour;clock.QueueTicks(360);clock.Update(0,360);
             Assert.That(p.CurrentHour,Is.EqualTo(106));Assert.That(p.Bees[0].AdultSinceHour,Is.EqualTo(106));
             Assert.Throws<ArgumentOutOfRangeException>(()=>p.TickHour(106));Assert.Throws<ArgumentOutOfRangeException>(()=>p.TickHour(108));
             Assert.That(p.CurrentHour,Is.EqualTo(106));
