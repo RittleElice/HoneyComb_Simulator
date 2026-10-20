@@ -1,0 +1,6 @@
+{
+  "name": "HoneyComb.Persistence",
+  "rootNamespace": "HoneyComb.Persistence",
+  "references": ["HoneyComb.Simulation"],
+  "noEngineReferences": true
+}
