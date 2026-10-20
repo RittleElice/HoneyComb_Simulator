@@ -4,7 +4,7 @@ namespace HoneyComb.Tests {
  public sealed class FrameTransferTests {
   [Test] public void TransferPreservesFrameAndBothFaces(){
    var a=new HiveState("a");var b=new HiveState("b",3,2);var sa=a.AddSuper();var sb=b.AddSuper();a.TryCreateFrame(sa.Id,0,out var f);
-   f.TrySetCell(FrameSide.Front,89,39,new CellState(CellContentType.Honey));f.TrySetCell(FrameSide.Back,10,3,new CellState(CellContentType.Pollen));
+   f.TrySetCell(FrameSide.Front,89,39,new CellState(100,CellContentType.Honey));f.TrySetCell(FrameSide.Back,10,3,new CellState(100,CellContentType.Pollen));
    Assert.That(a.MoveFrameTo(sa.Id,0,b,sb.Id,9),Is.True);Assert.That(sa.Slots[0].Frame,Is.Null);Assert.That(sb.Slots[9].Frame,Is.SameAs(f));
    Assert.That(f.TotalCellCount,Is.EqualTo(7200));Assert.That(f.GetCell(FrameSide.Front,89,39).Value.Content,Is.EqualTo(CellContentType.Honey));
    Assert.That(f.GetCell(FrameSide.Back,10,3).Value.Content,Is.EqualTo(CellContentType.Pollen));

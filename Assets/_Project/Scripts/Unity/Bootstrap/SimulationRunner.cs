@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using HoneyComb.Simulation.Time;
+using HoneyComb.Simulation.Bees;
 using HoneyComb.Simulation.Apiary;
 using HoneyComb.Simulation.Environment;
 using HoneyComb.Unity.Configuration;
@@ -13,8 +14,10 @@ namespace HoneyComb.Unity.Bootstrap
         public SimulationClock Clock { get; private set; }
         public EnvironmentSystem Environment { get; private set; }
         public ApiaryState Apiary { get; private set; }
-        private Vector2 debugScroll;
-        private readonly HoneyComb.Unity.Presentation.ApiaryGridDebugPanel gridPanel = new HoneyComb.Unity.Presentation.ApiaryGridDebugPanel();
+        public BeePopulation Population { get; private set; }
+        private BeeSpawnSettings beeDefaults;
+
+        private readonly HoneyComb.Unity.Presentation.ObservationPanel observation = new HoneyComb.Unity.Presentation.ObservationPanel();
         private int budget, maxAdvance;
         private bool showPanel, suspended;
         private string input, error;
@@ -51,6 +54,13 @@ namespace HoneyComb.Unity.Bootstrap
                 Debug.LogError("Invalid apiary master data: " + exception.Message, this);
                 enabled = false; return;
             }
+            try
+            {
+                if(masterData.beeDefaults==null) throw new ArgumentException("Bee defaults are missing.");
+                beeDefaults=masterData.beeDefaults.CreateSettings();
+                Population=new BeePopulation(Apiary,masterData.apiaryConfig.CreateExternalRegion(),masterData.beeDefaults.CreateLifecycle(),masterData.initialElapsedHours);
+            }
+            catch(ArgumentException exception) { Debug.LogError(exception.Message,this);enabled=false;return; }
             Clock = new SimulationClock(masterData.initialElapsedHours, masterData.realSecondsPerTick, masterData.startAutomatic);
             budget = masterData.maxTicksPerFrame; maxAdvance = masterData.maxAdvanceHours;
             showPanel = masterData.showTimeDebugPanel;
@@ -72,6 +82,7 @@ namespace HoneyComb.Unity.Bootstrap
             // One integration point: future systems get explicit order here,
             // rather than relying on event subscription order between objects.
             Environment.TickHour(hour);
+            Population.TickHour(hour);
         }
         private void Update()
         {
@@ -97,43 +108,40 @@ namespace HoneyComb.Unity.Bootstrap
         }
         private void OnGUI()
         {
-            if (Clock == null || !showPanel) return;
-            // Temporary development panel. Screen.safeArea excludes phone cutouts.
-            Rect safe = Screen.safeArea;
-            float scale = Mathf.Max(0.1f, Mathf.Min(safe.width / 600f, safe.height / 1040f));
-            Matrix4x4 previous = GUI.matrix;
-            GUI.matrix = Matrix4x4.TRS(new Vector3(safe.x, Screen.height - safe.yMax, 0), Quaternion.identity, Vector3.one * scale);
-            var label = new GUIStyle(GUI.skin.label) { fontSize = 24, wordWrap = true };
-            var button = new GUIStyle(GUI.skin.button) { fontSize = 24 };
-            var field = new GUIStyle(GUI.skin.textField) { fontSize = 28 };
-            GUILayout.BeginArea(new Rect(20, 20, 560, safe.height / scale - 40), GUI.skin.box);
-            debugScroll = GUILayout.BeginScrollView(debugScroll, false, true);
-            long total = Clock.TotalHours;
-            GUILayout.Label("HONEYCOMB / TIME DEBUG", label);
-            GUILayout.Space(12);
-            GUILayout.Label($"Year {total / 8760 + 1} / Day {total / 24 % 365 + 1} / {total % 24:00}:00", label);
-            GUILayout.Label($"Elapsed: {total:N0} hours\n1 tick = {Clock.SecondsPerTick:0.###} real seconds\nQueued: {Clock.PendingTicks:N0} hours", label);
-            if (GUILayout.Button(Clock.Automatic ? "Pause automatic time" : "Resume automatic time", button, GUILayout.Height(64))) Clock.Automatic = !Clock.Automatic;
-            GUI.enabled = Clock.PendingTicks == 0;
-            if (GUILayout.Button("+1 hour (1 tick)", button, GUILayout.Height(64))) AdvanceOneHour();
-            GUILayout.Label("Hours to advance (positive whole number)", label);
-            input = GUILayout.TextField(input, 12, field, GUILayout.Height(56));
-            if (GUILayout.Button("Advance entered hours", button, GUILayout.Height(64)))
+            if(Clock==null || !showPanel) return;
+            Rect safe=Screen.safeArea;
+            float scale=Mathf.Max(0.1f,Mathf.Min(safe.width/600f,safe.height/1040f));
+            Matrix4x4 previous=GUI.matrix;
+            GUI.matrix=Matrix4x4.TRS(new Vector3(safe.x,Screen.height-safe.yMax,0),Quaternion.identity,Vector3.one*scale);
+            float height=safe.height/scale;
+            Color tint=GUI.color;GUI.color=new Color(.075f,.11f,.15f);GUI.DrawTexture(new Rect(0,0,600,height),Texture2D.whiteTexture);GUI.color=tint;
+            var title=new GUIStyle(GUI.skin.label){fontSize=25,fontStyle=FontStyle.Bold};
+            var text=new GUIStyle(GUI.skin.label){fontSize=18,wordWrap=true};
+            var button=new GUIStyle(GUI.skin.button){fontSize=20};
+            var field=new GUIStyle(GUI.skin.textField){fontSize=22};
+            GUILayout.BeginArea(new Rect(20,12,560,218));
+            long hour=Clock.TotalHours;
+            GUILayout.Label($"HONEYCOMB   |   Day {hour/24+1}   {hour%24:00}:00",title);
+            GUILayout.BeginHorizontal();
+            if(GUILayout.Button(Clock.Automatic ? "Pause" : "Play",button,GUILayout.Height(45))) Clock.Automatic=!Clock.Automatic;
+            GUI.enabled=Clock.PendingTicks==0;
+            if(GUILayout.Button("+1 hour",button,GUILayout.Height(45))) Queue(1);
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            input=GUILayout.TextField(input,12,field,GUILayout.Width(180),GUILayout.Height(42));
+            if(GUILayout.Button("Advance hours",button,GUILayout.Height(42)))
             {
-                if (int.TryParse(input, NumberStyles.None, CultureInfo.InvariantCulture, out int hours) && hours > 0 && hours <= maxAdvance) Queue(hours);
-                else error = $"Enter a whole number from 1 to {maxAdvance:N0}.";
+                if(int.TryParse(input,NumberStyles.None,CultureInfo.InvariantCulture,out int hours)&&hours>0&&hours<=maxAdvance) Queue(hours);
+                else error=$"Enter 1..{maxAdvance} whole hours.";
             }
-            GUI.enabled = true;
-            if (!string.IsNullOrEmpty(error)) GUILayout.Label(error, label);
-            GUILayout.Space(20);
-            GUILayout.Label("ENVIRONMENT DEBUG", label);
-            var weather = Environment.Current;
-            GUILayout.Label($"Temperature     {weather.TemperatureCelsius:0.0} °C\nHumidity           {weather.HumidityPercent:0.0} %\nPrecipitation     {weather.PrecipitationMmPerHour:0.0} mm/h\nWind                 {weather.WindSpeedMetersPerSecond:0.0} m/s\nDaylight             {weather.Daylight:0.00}", label);
-            GUILayout.Label($"Environment ticks: {Environment.ProcessedTicks:N0}\nLast updated hour: {Environment.LastUpdatedHour:N0}", label);
-            GUILayout.Space(20);
-            gridPanel.Draw(Apiary, label, button);
-            GUILayout.EndScrollView();
-            GUILayout.EndArea(); GUI.matrix = previous;
+            GUILayout.EndHorizontal();GUI.enabled=true;
+            var weather=Environment.Current;
+            GUILayout.Label($"{weather.TemperatureCelsius:0.#} C  |  RH {weather.HumidityPercent:0.#}%  |  Queued {Clock.PendingTicks:N0}h",text);
+            if(!string.IsNullOrEmpty(error)) GUILayout.Label(error,text);
+            GUILayout.EndArea();
+            GUI.BeginGroup(new Rect(20,235,560,height-250));
+            observation.Draw(Apiary,Population,Clock.TotalHours,beeDefaults,560,height-250);
+            GUI.EndGroup();GUI.matrix=previous;
         }
     }
 }

@@ -2,15 +2,18 @@ using HoneyComb.Simulation.Hive;
 using HoneyComb.Simulation.Apiary;
 using System.Linq;
 using UnityEngine;
+using HoneyComb.Simulation.Bees;
 namespace HoneyComb.Unity.Presentation
 {
     public sealed class HiveStructureDebugPanel
     {
         private HiveState previous, sourceHive;
         private Frame movingFrame;
+        private readonly BeeDebugPanel beePanel=new BeeDebugPanel();
+        private readonly CellConstructionDebugPanel constructionPanel=new CellConstructionDebugPanel();
         private string selectedSuper,sourceSuper,sourceFrame,message;
         private int selectedSlot,sourceSlot;
-        public void Draw(ApiaryState apiary,HiveState hive,GUIStyle label,GUIStyle button)
+        public void Draw(ApiaryState apiary,HiveState hive,BeePopulation population,long hour,BeeSpawnSettings defaults,BeeMoveSelection beeMove,GUIStyle label,GUIStyle button)
         {
             if(!ReferenceEquals(previous,hive)) { previous=hive;selectedSuper=null; }
             if(sourceSuper!=null)
@@ -61,7 +64,7 @@ namespace HoneyComb.Unity.Presentation
                 { hive.RemoveSuper(selected.Id);selectedSuper=null;sourceSuper=null;GUI.enabled=true;return; }
                 GUI.enabled=target.Frame==null;
                 if(GUILayout.Button("Insert new Frame",button,GUILayout.Height(60))) hive.TryCreateFrame(selected.Id,selectedSlot,out _);
-                GUI.enabled=target.Frame!=null;
+                GUI.enabled=target.Frame!=null && target.Frame.ResidentBeeCount==0;
                 if(GUILayout.Button("Remove Frame",button,GUILayout.Height(60)))
                 { hive.RemoveFrame(selected.Id,selectedSlot);sourceSuper=null; }
                 GUI.enabled=target.Frame!=null;
@@ -81,6 +84,9 @@ namespace HoneyComb.Unity.Presentation
 
                 }
                 if(!selected.IsEmpty) GUILayout.Label("Remove all Frames before removing this Super.",label);
+                constructionPanel.Draw(target.Frame,label,button);
+                if(target.Frame!=null && target.Frame.ResidentBeeCount>0) GUILayout.Label("Remove Frame is disabled while bees are present. Moving is allowed.",label);
+                beePanel.Draw(population,hive,target.Frame,hour,defaults,beeMove,label,button);
             }
             if(!string.IsNullOrEmpty(message)) GUILayout.Label(message,label);
         }
