@@ -11,8 +11,6 @@ namespace HoneyComb.Simulation.Hive
         public string Id { get; }
         public HiveStatus Status { get; } = HiveStatus.Active;
         internal object PlacementOwner { get; set; }
-        public bool HasColony { get; internal set; }
-        public bool HasResidentBees { get { if(Base.ResidentBeeCount>0) return true; foreach(var super in supers) foreach(var slot in super.Slots) if(slot.Frame!=null && slot.Frame.ResidentBeeCount>0) return true;return false; } }
         public HiveBase Base { get; } = new HiveBase();
         // Index 0 is bottom; AddSuper appends at the top. IDs are stable after removal.
         public IReadOnlyList<Super> Supers { get; }
@@ -59,7 +57,7 @@ namespace HoneyComb.Simulation.Hive
         public bool RemoveFrame(string superId,int index)
         {
             var slot=GetSuper(superId)?.GetSlot(index);
-            if(slot?.Frame==null || slot.Frame.ResidentBeeCount>0) return false;
+            if(slot?.Frame==null) return false;
             slot.Frame.Owner=null;slot.Frame=null;return true;
         }
         public bool MoveFrame(string fromSuper,int fromIndex,string toSuper,int toIndex)

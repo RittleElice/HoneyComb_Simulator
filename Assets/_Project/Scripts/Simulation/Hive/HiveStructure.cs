@@ -4,7 +4,6 @@ namespace HoneyComb.Simulation.Hive
 {
     public sealed class HiveBase
     {
-        public int ResidentBeeCount { get; internal set; }
         public bool CanHostBees => true;
         public HiveEntrance Entrance { get; } = new HiveEntrance();
     }
@@ -35,3 +34,4 @@ namespace HoneyComb.Simulation.Hive
         public FrameSlot GetSlot(int index) => index>=0 && index<SlotCount ? Slots[index] : null;
     }
 }
+
