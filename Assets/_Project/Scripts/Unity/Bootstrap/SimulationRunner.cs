@@ -19,8 +19,7 @@ namespace HoneyComb.Unity.Bootstrap
 
         private readonly HoneyComb.Unity.Presentation.ObservationPanel observation = new HoneyComb.Unity.Presentation.ObservationPanel();
         private int budget, maxAdvance;
-        private bool showPanel, suspended, showWeather;
-        private readonly HoneyComb.Unity.Presentation.WeatherDebugPanel weatherPanel = new HoneyComb.Unity.Presentation.WeatherDebugPanel();
+        private bool showPanel, suspended;
         private string input, error;
         private double lastTime;
         public void Configure(GameMasterData data) => masterData = data;
@@ -37,10 +36,9 @@ namespace HoneyComb.Unity.Bootstrap
             }
             try
             {
-                if(masterData.weatherConfig==null)throw new ArgumentException("Missing WeatherConfig.");
-                Environment = new EnvironmentSystem(masterData.weatherConfig.CreateSimulator(masterData.InitialElapsedMinutes), masterData.InitialElapsedMinutes);
+                Environment = new EnvironmentSystem(masterData.environmentConfig.CreateSnapshot(), masterData.initialElapsedHours);
             }
-            catch (ArgumentException exception)
+            catch (ArgumentOutOfRangeException exception)
             {
                 Debug.LogError("Invalid environment master data: " + exception.Message, this);
                 enabled = false; return;
@@ -63,7 +61,7 @@ namespace HoneyComb.Unity.Bootstrap
                 Population=new BeePopulation(Apiary,masterData.apiaryConfig.CreateExternalRegion(),masterData.beeDefaults.CreateLifecycle(),masterData.initialElapsedHours);
             }
             catch(ArgumentException exception) { Debug.LogError(exception.Message,this);enabled=false;return; }
-            Clock = new SimulationClock(masterData.InitialElapsedMinutes, masterData.realSecondsPerMinute, masterData.startAutomatic);
+            Clock = new SimulationClock(masterData.initialElapsedHours, masterData.realSecondsPerTick, masterData.startAutomatic);
             budget = masterData.maxTicksPerFrame; maxAdvance = masterData.maxAdvanceHours;
             showPanel = masterData.showTimeDebugPanel;
             input = masterData.defaultAdvanceHours.ToString(CultureInfo.InvariantCulture);
@@ -72,15 +70,13 @@ namespace HoneyComb.Unity.Bootstrap
         private void OnEnable()
         {
             if (Clock == null) return;
-            Clock.Tick += HandleMinuteTick;
-            Clock.HourTick += HandleHourTick;
+            Clock.Tick += HandleHourTick;
             lastTime = UnityEngine.Time.realtimeSinceStartupAsDouble;
         }
         private void OnDisable()
         {
-            if (Clock != null) { Clock.Tick -= HandleMinuteTick; Clock.HourTick -= HandleHourTick; }
+            if (Clock != null) Clock.Tick -= HandleHourTick;
         }
-        private void HandleMinuteTick(long minute) => Environment.TickMinute(minute);
         private void HandleHourTick(long hour)
         {
             // One integration point: future systems get explicit order here,
@@ -104,11 +100,10 @@ namespace HoneyComb.Unity.Bootstrap
             suspended = !focused;
             lastTime = UnityEngine.Time.realtimeSinceStartupAsDouble;
         }
-        public void AdvanceOneMinute() => Clock.QueueTicks(1);
         public void AdvanceOneHour() => Queue(1);
         private void Queue(int hours)
         {
-            try { Clock.QueueTicks((long)hours * SimulationClock.MinutesPerHour); error = ""; }
+            try { Clock.QueueTicks(hours); error = ""; }
             catch (ArgumentOutOfRangeException) { error = "Requested time is too large."; }
         }
         private void OnGUI()
@@ -126,11 +121,10 @@ namespace HoneyComb.Unity.Bootstrap
             var field=new GUIStyle(GUI.skin.textField){fontSize=22};
             GUILayout.BeginArea(new Rect(20,12,560,218));
             long hour=Clock.TotalHours;
-            GUILayout.Label($"HONEYCOMB   |   Day {hour/24+1}   {hour%24:00}:{Clock.TotalMinutes%60:00}",title);
+            GUILayout.Label($"HONEYCOMB   |   Day {hour/24+1}   {hour%24:00}:00",title);
             GUILayout.BeginHorizontal();
             if(GUILayout.Button(Clock.Automatic ? "Pause" : "Play",button,GUILayout.Height(45))) Clock.Automatic=!Clock.Automatic;
             GUI.enabled=Clock.PendingTicks==0;
-            if(GUILayout.Button("+1 min",button,GUILayout.Height(45))) AdvanceOneMinute();
             if(GUILayout.Button("+1 hour",button,GUILayout.Height(45))) Queue(1);
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
@@ -142,14 +136,11 @@ namespace HoneyComb.Unity.Bootstrap
             }
             GUILayout.EndHorizontal();GUI.enabled=true;
             var weather=Environment.Current;
-            GUILayout.Label($"{weather.TemperatureCelsius:0.#} C  |  RH {weather.HumidityPercent:0.#}%  |  Rain {weather.PrecipitationMmPerHour:0.##} mm/h\nWind {weather.WindSpeedMetersPerSecond:0.#} m/s  |  Queued {Clock.PendingTicks:N0} min",text);
+            GUILayout.Label($"{weather.TemperatureCelsius:0.#} C  |  RH {weather.HumidityPercent:0.#}%  |  Queued {Clock.PendingTicks:N0}h",text);
             if(!string.IsNullOrEmpty(error)) GUILayout.Label(error,text);
             GUILayout.EndArea();
-            if(GUI.Button(new Rect(20,235,560,44),showWeather ? "날씨 상세 닫기 · 양봉장으로" : "날씨 상세 · 모든 생성값 보기",button))
-                showWeather=!showWeather;
-            GUI.BeginGroup(new Rect(20,290,560,height-305));
-            if(showWeather) weatherPanel.Draw(Environment.WeatherCurrent,560,height-305);
-            else observation.Draw(Apiary,Population,Clock.TotalHours,beeDefaults,560,height-305);
+            GUI.BeginGroup(new Rect(20,235,560,height-250));
+            observation.Draw(Apiary,Population,Clock.TotalHours,beeDefaults,560,height-250);
             GUI.EndGroup();GUI.matrix=previous;
         }
     }

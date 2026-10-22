@@ -12,13 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 752da4dc9978d6a4ba2757ebd027dbd0, type: 3}
   m_Name: GameMasterData
   m_EditorClassIdentifier: HoneyComb.Unity::HoneyComb.Unity.Configuration.GameMasterData
-  realSecondsPerMinute: 5
+  realSecondsPerTick: 1
   initialElapsedHours: 0
-  initialMinuteOfHour: 0
   startAutomatic: 1
   environmentConfig: {fileID: 11400000, guid: d670ae73055afd94299b7ed5bd811378, type: 2}
   apiaryConfig: {fileID: 11400000, guid: 03bd2948d589f914fad8ad7e95dcdf1b, type: 2}
-  weatherConfig: {fileID: 11400000, guid: 9835d8a539ab493ebb1ce8cfe53458ff, type: 2}
   defaultAdvanceHours: 24
   maxAdvanceHours: 876000
   maxTicksPerFrame: 240
