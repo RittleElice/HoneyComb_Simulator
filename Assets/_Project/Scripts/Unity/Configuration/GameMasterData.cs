@@ -13,8 +13,6 @@ namespace HoneyComb.Unity.Configuration
         public EnvironmentConfig environmentConfig;
         [Header("Apiary master data")]
         public ApiaryConfig apiaryConfig;
-        [Header("Bee creation defaults")]
-        public BeeMasterData beeDefaults=new BeeMasterData();
         [Header("Development controls")]
         [Min(1)] public int defaultAdvanceHours = 24;
         [Min(1)] public int maxAdvanceHours = 876000;
@@ -26,3 +24,5 @@ namespace HoneyComb.Unity.Configuration
             && defaultAdvanceHours > 0 && maxAdvanceHours >= defaultAdvanceHours && maxTicksPerFrame > 0;
     }
 }
+
+
