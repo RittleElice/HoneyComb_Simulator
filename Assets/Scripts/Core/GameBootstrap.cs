@@ -2,33 +2,45 @@ using UnityEngine;
 
 public class GameBootstrap : MonoBehaviour
 {
-    private GameWorld gameWorld;
+    public static GameBootstrap Instance { get; private set; }
+
+    public GameWorld GameWorld { get; private set; }
+    public GameFlowManager GameFlow { get; private set; }
 
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+
         InitializeGame();
     }
 
     private void InitializeGame()
     {
-        Debug.Log("[GameBootstrap] 게임 초기화 시작");
+        Debug.Log("[GameBootstrap] 시스템 초기화 시작");
 
-        gameWorld = new GameWorld();
-        
+        GameFlow = new GameFlowManager();
+
+        Debug.Log("[GameBootstrap] 시스템 초기화 완료");
+
+        GameFlow.OpenMainMenu();
+    }
+
+    public void StartNewGame()
+    {
+        GameWorld = new GameWorld();
+
         Debug.Log(
-            $"[GameWorld] 양봉장: {gameWorld.Apiary.Name}"
+            $"[GameBootstrap] 새 게임 시작: " +
+            $"{GameWorld.Year}년 {GameWorld.Month}월 {GameWorld.Day}일"
         );
 
-
-        Debug.Log(
-            $"[GameWorld] 시작 날짜: " +
-            $"{gameWorld.Year}년 " +
-            $"{gameWorld.Month}월 " +
-            $"{gameWorld.Day}일 " +
-            $"{gameWorld.Hour:D2}:" +
-            $"{gameWorld.Minute:D2}"
-        );
-
-        Debug.Log("[GameBootstrap] 게임 초기화 완료");
+        GameFlow.OpenApiary();
     }
 }
