@@ -16,5 +16,7 @@ public class GameWorld
         Minute = 0;
         
         Apiary = new ApiaryData("양봉장");
+        Apiary.AddHive(new HiveData(1, 0, 0));
+
     }
 }
