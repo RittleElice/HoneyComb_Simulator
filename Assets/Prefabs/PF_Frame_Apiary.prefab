@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 7775702591912798821}
   - component: {fileID: 123162756745773909}
   m_Layer: 0
-  m_Name: HivePrefab
+  m_Name: PF_Frame_Apiary
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -83,7 +83,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 112980336061508253, guid: 80c21250a63236c42800e50d7c997fb4, type: 3}
+  m_Sprite: {fileID: -3497784688126940612, guid: a49c9db726feadc45827908c838f7f45, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -106,7 +106,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73499b867ab512f4197ee6227864a8dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HiveView
-  spriteRenderer: {fileID: 0}
   widthRatio: 0.8
   heightRatio: 0.5
   positionX: 0.5
