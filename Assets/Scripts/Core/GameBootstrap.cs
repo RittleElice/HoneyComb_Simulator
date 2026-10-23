@@ -35,6 +35,25 @@ public class GameBootstrap : MonoBehaviour
     public void StartNewGame()
     {
         GameWorld = new GameWorld();
+        
+        ApiaryData apiary = GameWorld.Apiary;
+
+        Debug.Log(
+            $"[ApiaryGrid] 크기: {apiary.Grid.Width} x {apiary.Grid.Height}"
+        );
+
+        Debug.Log(
+            $"[ApiaryGrid] (0,0) 벌통 ID: {apiary.Grid.GetHiveId(0, 0)}"
+        );
+
+        Debug.Log(
+            $"[ApiaryGrid] (1,0) 빈 칸: {apiary.Grid.IsEmpty(1, 0)}"
+        );
+
+        Debug.Log(
+            $"[ApiaryGrid] (0,0) 빈 칸: {apiary.Grid.IsEmpty(0, 0)}"
+        );
+
 
         Debug.Log(
             $"[GameBootstrap] 새 게임 시작: " +

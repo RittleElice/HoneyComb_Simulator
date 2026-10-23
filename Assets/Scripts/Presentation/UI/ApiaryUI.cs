@@ -1,41 +1,33 @@
-
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 
 public class ApiaryUI : MonoBehaviour
 {
-    [SerializeField]
-    private TMP_Text apiaryNameText;
-    
-    [SerializeField]
-    private TMP_Text hiveCountText;
+    [Header("UI")]
+    [SerializeField] private TMP_Text apiaryNameText;
+    [SerializeField] private TMP_Text hiveCountText;
+
+    [Header("벌통 표시")]
+    [SerializeField] private HiveView hivePrefab;
+    [SerializeField] private ApiaryGridView gridView;
 
     private void Start()
     {
-        GameBootstrap bootstrap = GameBootstrap.Instance;
-
-        if (bootstrap == null || bootstrap.GameWorld == null)
-        {
-            Debug.LogError("[ApiaryUI] GameWorld가 없습니다.");
-            return;
-        }
-
-        ApiaryData apiary = bootstrap.GameWorld.Apiary;
+        ApiaryData apiary =
+            GameBootstrap.Instance.GameWorld.Apiary;
 
         apiaryNameText.text = apiary.Name;
-        
-        if (hiveCountText != null)
+        hiveCountText.text = $"벌통 수: {apiary.Hives.Count}";
+
+        foreach (HiveData hive in apiary.Hives)
         {
-            hiveCountText.text = $"벌통 수: {apiary.Hives.Count}";
+            HiveView view = Instantiate(hivePrefab);
+
+            view.Initialize(
+                hive,
+                apiary.Grid.Width,
+                gridView.CellSize
+            );
         }
-
-        Debug.Log(
-            $"[ApiaryUI] 등록된 벌통 수: {apiary.Hives.Count}"
-        );
-
-
-        Debug.Log(
-            $"[ApiaryUI] 양봉장 데이터 연결: {apiary.Name}"
-        );
     }
 }

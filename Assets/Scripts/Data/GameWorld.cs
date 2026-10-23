@@ -15,7 +15,7 @@ public class GameWorld
         Hour = 0;
         Minute = 0;
         
-        Apiary = new ApiaryData("양봉장");
+        Apiary = new ApiaryData("양봉장", 8, 5);
         Apiary.AddHive(new HiveData(1, 0, 0));
 
     }

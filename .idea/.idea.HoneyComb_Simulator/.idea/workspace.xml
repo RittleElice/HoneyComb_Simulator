@@ -4,7 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="" />
+    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scenes/Apiary.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scenes/Apiary.unity" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scenes/Bootstrap.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scenes/Bootstrap.unity" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Core/GameBootstrap.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Core/GameBootstrap.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/ApiaryData.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/ApiaryData.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/GameWorld.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/GameWorld.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ApiaryUI.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ApiaryUI.cs" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -16,6 +24,8 @@
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/Assets/Scripts/Core/GameBootstrap.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Assets/Scripts/Core/GameFlowManager.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Assets/Scripts/Data/ApiaryGrid.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Assets/Scripts/Presentation/ApiaryCameraController.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Assets/Scripts/Presentation/UI/MainMenuUI.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="ProjectColorInfo">{
@@ -104,7 +114,8 @@
       <option name="presentableId" value="Default" />
       <updated>1792664630988</updated>
       <workItem from="1792664633032" duration="609000" />
-      <workItem from="1792667069097" duration="851000" />
+      <workItem from="1792667069097" duration="2179000" />
+      <workItem from="1792747097889" duration="6259000" />
     </task>
     <servers />
   </component>
