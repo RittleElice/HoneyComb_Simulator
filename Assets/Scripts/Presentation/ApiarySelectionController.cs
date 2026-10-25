@@ -163,10 +163,12 @@ public class ApiarySelectionController : MonoBehaviour
         return true;
     }
 
+    
     private bool TrySelectGridAt(Ray ray)
     {
         if (GameBootstrap.Instance == null ||
-            GameBootstrap.Instance.GameWorld == null)
+            GameBootstrap.Instance.GameWorld == null ||
+            gridView == null)
             return false;
 
         ApiaryGrid grid =
@@ -177,25 +179,29 @@ public class ApiarySelectionController : MonoBehaviour
         if (cellSize <= 0f)
             return false;
 
-        Plane ground =
-            new Plane(gridView.transform.up, gridView.transform.position);
+        // 격자가 놓인 바닥 평면
+        Plane ground = new Plane(
+            gridView.transform.up,
+            gridView.transform.position);
 
         if (!ground.Raycast(ray, out float distance))
             return false;
 
+        // 월드 좌표 계산
         Vector3 worldPosition =
-            gridView.transform.InverseTransformPoint(ray.GetPoint(distance));
+            ray.GetPoint(distance);
 
-        float totalWidth =
-            grid.Width * cellSize;
+        // 월드 좌표를 격자 로컬 좌표로 변환
+        Vector3 localPosition =
+            gridView.transform.InverseTransformPoint(
+                worldPosition);
 
+        // 초기 8열 기준 고정 원점 사용
         int gridX = Mathf.FloorToInt(
-            (worldPosition.x + totalWidth / 2f) / cellSize
-        );
+            (localPosition.x - gridView.OriginX) / cellSize);
 
         int gridY = Mathf.FloorToInt(
-            worldPosition.z / cellSize
-        );
+            localPosition.z / cellSize);
 
         if (!grid.IsInside(gridX, gridY))
             return false;
@@ -203,6 +209,7 @@ public class ApiarySelectionController : MonoBehaviour
         SetSelection(gridX, gridY);
         return true;
     }
+
 
     private void SetSelection(int x, int y)
     {

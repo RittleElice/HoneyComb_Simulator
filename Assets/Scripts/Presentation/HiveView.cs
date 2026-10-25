@@ -88,11 +88,11 @@ public class HiveView : MonoBehaviour
         if (spriteRenderer == null)
             spriteRenderer = GetComponent<SpriteRenderer>();
 
-        float totalWidth = gridWidth * cellSize;
+        float originX =
+            -ApiaryGrid.InitialUnlockedWidth * cellSize * 0.5f;
 
         float worldX =
-            (x + positionX) * cellSize
-            - totalWidth / 2f;
+            originX + (x + positionX) * cellSize;
 
         float worldZ =
             (y + positionZ) * cellSize;

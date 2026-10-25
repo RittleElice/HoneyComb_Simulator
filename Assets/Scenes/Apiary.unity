@@ -924,6 +924,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ApiaryGridView
   lineMaterial: {fileID: 2100000, guid: e0a781b5da48a2b4e8c66e3a8ad2d965, type: 2}
   cellSize: 1
+  lockedColor: {r: 0.12, g: 0.14, b: 0.18, a: 0.65}
+  lockedMaterial: {fileID: 0}
 --- !u!4 &896826480
 Transform:
   m_ObjectHideFlags: 0
@@ -1333,7 +1335,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ApiaryCameraController
   targetCamera: {fileID: 1851353667}
+  gridView: {fileID: 896826479}
   dragSensitivity: 1
+  limitCameraMovement: 1
+  boundaryPadding: 1
+  referenceDistance: 12
 --- !u!114 &1851353670
 MonoBehaviour:
   m_ObjectHideFlags: 0

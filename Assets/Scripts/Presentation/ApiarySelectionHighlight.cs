@@ -312,13 +312,13 @@ public class ApiarySelectionHighlight : MonoBehaviour
         if (!grid.IsInside(selectedX, selectedY))
             return;
 
-        float cellSize = gridView.CellSize;
-        float totalWidth = grid.Width * cellSize;
-
-        float xMin =
-            selectedX * cellSize - totalWidth / 2f;
-
-        float xMax = xMin + cellSize;
+       float cellSize = gridView.CellSize;
+       
+       // ApiaryGridView와 동일한 고정 원점 사용
+       float xMin =
+           gridView.OriginX + selectedX * cellSize;
+       
+       float xMax = xMin + cellSize;
 
         float zMin = selectedY * cellSize;
         float zMax = zMin + cellSize;

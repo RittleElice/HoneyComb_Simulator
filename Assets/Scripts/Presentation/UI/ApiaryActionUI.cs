@@ -1,5 +1,4 @@
 
-
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -133,7 +132,45 @@ public class ApiaryActionUI : MonoBehaviour
             return;
 
         GameWorld world = bootstrap.GameWorld;
+        ApiaryGrid grid = world.Apiary.Grid;
 
+        if (!grid.IsInside(x, y))
+            return;
+
+        // 잠긴 영역: 부지 해금 메뉴
+        if (grid.IsLocked(x, y))
+        {
+            CreateButton("부지 해금", () =>
+            {
+                bool success = grid.TryUnlockNextColumn();
+
+                if (!success)
+                {
+                    Debug.LogWarning(
+                        "[ApiaryActionUI] 부지 해금 실패");
+                    return;
+                }
+
+                Debug.Log(
+                    $"[ApiaryActionUI] 부지 해금 완료: " +
+                    $"{grid.UnlockedWidth} × {grid.Height}");
+
+                // 해금 후 격자 표시 즉시 갱신
+                if (gridView != null)
+                    gridView.Rebuild();
+
+                // 선택 및 메뉴 닫기
+                if (selectionController != null)
+                    selectionController.ClearSelection();
+
+                HidePanel();
+            });
+
+            ShowPanel(x, y);
+            return;
+        }
+
+        // 해금된 일반 격자
         ItemSlot gridSlot = world.Apiary.GetItemSlot(x, y);
         ItemSlot handSlot = world.Hand.Slot;
 
@@ -191,7 +228,7 @@ public class ApiaryActionUI : MonoBehaviour
                     OnActionCompleted(success, x, y);
                 });
             }
-            // 장비가 있는 격자에는 결합 가능 여부 확인
+            // 기존 장비에 조립 가능한 경우
             else if (!gridSlot.IsEmpty &&
                      gridSlot.CanCombineFrom(handSlot))
             {
@@ -205,6 +242,14 @@ public class ApiaryActionUI : MonoBehaviour
             }
         }
 
+        if (activeButtons.Count == 0)
+            return;
+
+        ShowPanel(x, y);
+    }
+
+    private void ShowPanel(int x, int y)
+    {
         if (activeButtons.Count == 0)
             return;
 
@@ -232,7 +277,7 @@ public class ApiaryActionUI : MonoBehaviour
         if (inventoryUI != null)
             inventoryUI.Refresh();
 
-        // 모든 행동 성공 후 메뉴 닫기
+        // 모든 행동 성공 후 선택 및 메뉴 닫기
         if (selectionController != null)
             selectionController.ClearSelection();
 
@@ -261,9 +306,11 @@ public class ApiaryActionUI : MonoBehaviour
             return false;
 
         float cellSize = gridView.CellSize;
-        float totalWidth = grid.Width * cellSize;
 
-        float left = x * cellSize - totalWidth / 2f;
+        // 초기 8열 기준 고정 원점 사용
+        float left =
+            gridView.OriginX + x * cellSize;
+
         float right = left + cellSize;
 
         float near = y * cellSize;
@@ -328,7 +375,6 @@ public class ApiaryActionUI : MonoBehaviour
             return;
         }
 
-        // 선택한 격자에 장비가 있는지 확인
         Rect equipmentBounds = default;
 
         bool hasEquipment =
@@ -348,19 +394,17 @@ public class ApiaryActionUI : MonoBehaviour
                 equipmentBounds.xMax,
                 equipmentBounds.center.y);
 
-            // 메뉴의 왼쪽 중앙을 기준으로 배치
             panelRect.pivot = new Vector2(0f, 0.5f);
         }
         else
         {
-            // 빈 격자는 격자 자체의 중앙
+            // 빈 격자 또는 잠긴 격자의 중앙
             screenPosition = gridBounds.center;
 
-            // 메뉴 자체의 중앙을 기준으로 배치
             panelRect.pivot = new Vector2(0.5f, 0.5f);
         }
 
-        // 장비가 있을 때만 오른쪽 간격 적용
+        // 장비가 있는 경우에만 간격 적용
         Vector2 appliedOffset =
             hasEquipment ? popupOffset : Vector2.zero;
 
@@ -394,7 +438,6 @@ public class ApiaryActionUI : MonoBehaviour
         panelRect.anchoredPosition =
             localPosition - anchorReference;
 
-        // 화면 안으로 돌아오면 다시 표시
         if (panelVisible && panelCanvasGroup != null)
         {
             panelCanvasGroup.alpha = 1f;
@@ -449,5 +492,3 @@ public class ApiaryActionUI : MonoBehaviour
         activeButtons.Clear();
     }
 }
-
-

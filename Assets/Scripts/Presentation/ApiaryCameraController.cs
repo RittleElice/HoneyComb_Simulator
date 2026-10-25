@@ -6,13 +6,26 @@ using UnityEngine.EventSystems;
 
 public class ApiaryCameraController : MonoBehaviour
 {
+    [Header("References")]
     [SerializeField] private Camera targetCamera;
-    [SerializeField] private float dragSensitivity = 1f;
+    [SerializeField] private ApiaryGridView gridView;
+
+    [Header("Drag")]
+    [SerializeField, Min(0.01f)]
+    private float dragSensitivity = 1f;
+
+    [Header("Camera Bounds")]
+    [SerializeField]
+    private bool limitCameraMovement = true;
+
+    [SerializeField, Min(0f)]
+    private float boundaryPadding = 0.5f;
+
+    [SerializeField, Min(0.01f)]
+    private float referenceDistance = 12f;
 
     private Vector2 lastPointerPosition;
     private bool isDragging;
-
-    // UI에서 시작한 드래그인지 저장
     private bool dragStartedOverUI;
 
     private readonly List<RaycastResult> uiRaycastResults =
@@ -22,12 +35,19 @@ public class ApiaryCameraController : MonoBehaviour
     {
         if (targetCamera == null)
             targetCamera = Camera.main;
+
+        if (gridView == null)
+            gridView = FindAnyObjectByType<ApiaryGridView>();
     }
 
     private void Update()
     {
         if (targetCamera == null)
             return;
+
+        // 해금이나 화면 크기 변경 시에도 경계 유지
+        if (limitCameraMovement)
+            ClampCameraPosition();
 
         Vector2 pointerPosition;
         bool pressed;
@@ -57,7 +77,6 @@ public class ApiaryCameraController : MonoBehaviour
             return;
         }
 
-        // 드래그 시작 시 UI 위인지 확인
         if (pressedThisFrame)
         {
             lastPointerPosition = pointerPosition;
@@ -75,19 +94,27 @@ public class ApiaryCameraController : MonoBehaviour
             return;
         }
 
-        // UI에서 시작한 입력은 카메라 이동 차단
         if (dragStartedOverUI || !isDragging)
             return;
 
-        float distance = 12f;
+        float unitsPerPixel;
 
-        float unitsPerPixel =
-            2f * distance *
-            Mathf.Tan(
-                targetCamera.fieldOfView *
-                0.5f *
-                Mathf.Deg2Rad
-            ) / targetCamera.pixelHeight;
+        if (targetCamera.orthographic)
+        {
+            unitsPerPixel =
+                2f * targetCamera.orthographicSize /
+                Mathf.Max(1, targetCamera.pixelHeight);
+        }
+        else
+        {
+            unitsPerPixel =
+                2f * referenceDistance *
+                Mathf.Tan(
+                    targetCamera.fieldOfView *
+                    0.5f *
+                    Mathf.Deg2Rad) /
+                Mathf.Max(1, targetCamera.pixelHeight);
+        }
 
         float deltaX =
             (pointerPosition.x - lastPointerPosition.x) *
@@ -97,7 +124,97 @@ public class ApiaryCameraController : MonoBehaviour
         targetCamera.transform.position -=
             new Vector3(deltaX, 0f, 0f);
 
+        if (limitCameraMovement)
+            ClampCameraPosition();
+
         lastPointerPosition = pointerPosition;
+    }
+
+    private void ClampCameraPosition()
+    {
+        if (gridView == null ||
+            targetCamera == null ||
+            GameBootstrap.Instance == null ||
+            GameBootstrap.Instance.GameWorld == null)
+            return;
+
+        ApiaryGrid grid =
+            GameBootstrap.Instance.GameWorld.Apiary.Grid;
+
+        float cellSize = gridView.CellSize;
+
+        // 양봉장의 실제 월드 좌우 경계
+        float leftBoundary =
+            gridView.transform.TransformPoint(
+                new Vector3(
+                    gridView.OriginX,
+                    0f,
+                    0f)).x;
+
+        float rightBoundary =
+            gridView.transform.TransformPoint(
+                new Vector3(
+                    gridView.OriginX + grid.Width * cellSize,
+                    0f,
+                    0f)).x;
+
+        leftBoundary -= boundaryPadding;
+        rightBoundary += boundaryPadding;
+
+        // 카메라 화면의 좌우 가장자리가
+        // 바닥 평면과 만나는 위치를 계산
+        Plane ground = new Plane(
+            gridView.transform.up,
+            gridView.transform.position);
+
+        Ray leftRay =
+            targetCamera.ViewportPointToRay(
+                new Vector3(0f, 0.5f, 0f));
+
+        Ray rightRay =
+            targetCamera.ViewportPointToRay(
+                new Vector3(1f, 0.5f, 0f));
+
+        if (!ground.Raycast(leftRay, out float leftDistance) ||
+            !ground.Raycast(rightRay, out float rightDistance))
+            return;
+
+        float visibleLeft =
+            leftRay.GetPoint(leftDistance).x;
+
+        float visibleRight =
+            rightRay.GetPoint(rightDistance).x;
+
+        float visibleWidth =
+            visibleRight - visibleLeft;
+
+        float availableWidth =
+            rightBoundary - leftBoundary;
+
+        Vector3 position =
+            targetCamera.transform.position;
+
+        // 화면이 양봉장보다 넓으면 중앙에 고정
+        if (visibleWidth >= availableWidth)
+        {
+            float visibleCenter =
+                (visibleLeft + visibleRight) * 0.5f;
+
+            float targetCenter =
+                (leftBoundary + rightBoundary) * 0.5f;
+
+            position.x += targetCenter - visibleCenter;
+        }
+        else
+        {
+            if (visibleLeft < leftBoundary)
+                position.x += leftBoundary - visibleLeft;
+
+            if (visibleRight > rightBoundary)
+                position.x -= visibleRight - rightBoundary;
+        }
+
+        targetCamera.transform.position = position;
     }
 
     private bool IsPointerOverUI(Vector2 screenPosition)
@@ -114,8 +231,7 @@ public class ApiaryCameraController : MonoBehaviour
 
         EventSystem.current.RaycastAll(
             pointerData,
-            uiRaycastResults
-        );
+            uiRaycastResults);
 
         return uiRaycastResults.Count > 0;
     }
