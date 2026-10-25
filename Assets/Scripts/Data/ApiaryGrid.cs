@@ -1,108 +1,64 @@
 
+using System;
+
 public class ApiaryGrid
 {
     public int Width { get; private set; }
     public int Height { get; private set; }
 
-    // 기존 벌통 ID 관리 (마이그레이션 완료 후 제거 예정)
-    private int[,] occupiedBy;
-
-    // 각 격자의 아이템 슬롯
+    // 격자 점유 정보는 ItemSlot에서만 관리
     private ItemSlot[,] itemSlots;
 
     public ApiaryGrid(int width, int height)
     {
+        if (width <= 0 || height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(width),
+                "격자 크기는 1 이상이어야 합니다.");
+        }
+
         Width = width;
         Height = height;
 
-        occupiedBy = new int[width, height];
         itemSlots = new ItemSlot[width, height];
 
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
             {
-                itemSlots[x, y] = new ItemSlot();
+                // 양봉장 배치 제한 + 장비 조립 허용
+                itemSlots[x, y] = CreateApiarySlot();
             }
         }
     }
 
+    // 모든 양봉장 격자에 동일한 규칙 적용
+    private static ItemSlot CreateApiarySlot()
+    {
+        return new ItemSlot(
+            ApiaryPlacementRules.CanPlace,
+            true
+        );
+    }
+
     public bool IsInside(int x, int y)
     {
-        return x >= 0 && x < Width &&
-               y >= 0 && y < Height;
+        return x >= 0 &&
+               x < Width &&
+               y >= 0 &&
+               y < Height;
     }
 
-    // 기존 벌통 또는 새로운 장비가 있는지 함께 확인
+    // 슬롯이 비어 있는지 확인
     public bool IsEmpty(int x, int y)
     {
-        return IsInside(x, y) &&
-               occupiedBy[x, y] == 0 &&
-               itemSlots[x, y].IsEmpty;
+        ItemSlot slot = GetItemSlot(x, y);
+
+        return slot != null && slot.IsEmpty;
     }
 
-    // 기존 벌통 배치 기능
-    public bool TryPlace(int hiveId, int x, int y)
-    {
-        if (hiveId <= 0 || !IsEmpty(x, y))
-            return false;
-
-        occupiedBy[x, y] = hiveId;
-        return true;
-    }
-
-    // 기존 벌통 ID 조회
-    public int GetHiveId(int x, int y)
-    {
-        if (!IsInside(x, y))
-            return 0;
-
-        return occupiedBy[x, y];
-    }
-
-    // 기존 벌통 점유 정보를 제거
-    public bool TryRemoveLegacyHive(int hiveId, int x, int y)
-    {
-        if (hiveId <= 0 || !IsInside(x, y))
-            return false;
-
-        if (occupiedBy[x, y] != hiveId)
-            return false;
-
-        occupiedBy[x, y] = 0;
-        return true;
-    }
-
-    // 기존 벌통을 새 아이템 슬롯으로 이전
-    public bool TryMigrateHive(
-        int hiveId,
-        int x,
-        int y,
-        ItemData broodBox)
-    {
-        if (hiveId <= 0 ||
-            broodBox == null ||
-            broodBox.Kind != ItemKind.BroodBox ||
-            !IsInside(x, y))
-            return false;
-
-        if (occupiedBy[x, y] != hiveId)
-            return false;
-
-        ItemSlot target = itemSlots[x, y];
-
-        if (!target.IsEmpty)
-            return false;
-
-        if (!target.TryInsert(broodBox))
-            return false;
-
-        // 슬롯 등록이 성공한 경우에만 기존 점유 정보 제거
-        occupiedBy[x, y] = 0;
-
-        return true;
-    }
-
+    // 격자 슬롯 조회
     public ItemSlot GetItemSlot(int x, int y)
     {
         if (!IsInside(x, y))
@@ -111,7 +67,43 @@ public class ApiaryGrid
         return itemSlots[x, y];
     }
 
-    // 격자 확장
+    // 기존 코드 호환용 벌통 ID 조회
+    public int GetHiveId(int x, int y)
+    {
+        ItemSlot slot = GetItemSlot(x, y);
+
+        if (slot == null || slot.IsEmpty)
+            return 0;
+
+        if (slot.Value is ItemData item)
+            return GetHiveIdFromPart(item);
+
+        if (slot.Value is ItemAssembly assembly)
+        {
+            foreach (ItemData part in assembly.Parts)
+            {
+                int hiveId = GetHiveIdFromPart(part);
+
+                if (hiveId > 0)
+                    return hiveId;
+            }
+        }
+
+        return 0;
+    }
+
+    private static int GetHiveIdFromPart(ItemData item)
+    {
+        if (item == null ||
+            item.Kind != ItemKind.BroodBox)
+            return 0;
+
+        HiveData hive = item.GetContent<HiveData>();
+
+        return hive != null ? hive.Id : 0;
+    }
+
+    // 기존 슬롯 객체를 보존하면서 격자 확장
     public bool Expand(int newWidth, int newHeight)
     {
         if (newWidth < Width || newHeight < Height)
@@ -120,7 +112,6 @@ public class ApiaryGrid
         if (newWidth == Width && newHeight == Height)
             return false;
 
-        int[,] expanded = new int[newWidth, newHeight];
         ItemSlot[,] expandedSlots =
             new ItemSlot[newWidth, newHeight];
 
@@ -130,17 +121,17 @@ public class ApiaryGrid
             {
                 if (x < Width && y < Height)
                 {
-                    expanded[x, y] = occupiedBy[x, y];
+                    // 기존 장비 및 소유 관계 유지
                     expandedSlots[x, y] = itemSlots[x, y];
                 }
                 else
                 {
-                    expandedSlots[x, y] = new ItemSlot();
+                    // 새 격자에도 동일한 배치·조립 규칙 적용
+                    expandedSlots[x, y] = CreateApiarySlot();
                 }
             }
         }
 
-        occupiedBy = expanded;
         itemSlots = expandedSlots;
 
         Width = newWidth;

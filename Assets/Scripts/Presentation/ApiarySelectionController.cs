@@ -229,14 +229,15 @@ public class ApiarySelectionController : MonoBehaviour
         return true;
     }
 
+   
     private void SetSelection(int x, int y)
     {
-        if (GameBootstrap.Instance == null ||
-            GameBootstrap.Instance.GameWorld == null)
+        GameBootstrap bootstrap = GameBootstrap.Instance;
+
+        if (bootstrap == null || bootstrap.GameWorld == null)
             return;
 
-        ApiaryData apiary =
-            GameBootstrap.Instance.GameWorld.Apiary;
+        ApiaryData apiary = bootstrap.GameWorld.Apiary;
 
         if (!apiary.Grid.IsInside(x, y))
             return;
@@ -244,19 +245,9 @@ public class ApiarySelectionController : MonoBehaviour
         SelectedX = x;
         SelectedY = y;
 
-        ItemSlot slot =
-            apiary.GetItemSlot(x, y);
+        ItemSlot slot = apiary.GetItemSlot(x, y);
 
-        int hiveId =
-            apiary.Grid.GetHiveId(x, y);
-
-        if (hiveId > 0)
-        {
-            Debug.Log(
-                $"기존 벌통 선택: ID={hiveId}, 좌표=({x}, {y})"
-            );
-        }
-        else if (slot != null && !slot.IsEmpty)
+        if (slot != null && !slot.IsEmpty)
         {
             Debug.Log(
                 $"아이템 선택: {slot.Value.Name}, 좌표=({x}, {y})"
@@ -271,6 +262,7 @@ public class ApiarySelectionController : MonoBehaviour
 
         OnSelectionChanged?.Invoke(x, y);
     }
+
 
     public void ClearSelection()
     {

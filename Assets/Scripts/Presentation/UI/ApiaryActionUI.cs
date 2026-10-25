@@ -1,8 +1,9 @@
 
+
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 public class ApiaryActionUI : MonoBehaviour
 {
@@ -17,13 +18,18 @@ public class ApiaryActionUI : MonoBehaviour
     [Header("Popup Position")]
     [SerializeField] private ApiaryGridView gridView;
     [SerializeField] private Camera targetCamera;
-    [SerializeField] private Vector2 popupOffset = new Vector2(20f, 20f);
+    [SerializeField] private Vector2 popupOffset =
+        new Vector2(15f, 0f);
+
+    [Header("Equipment Bounds")]
+    [SerializeField] private ApiaryItemView itemView;
 
     [Header("UI Refresh")]
     [SerializeField] private HandUI handUI;
     [SerializeField] private InventoryUI inventoryUI;
 
-    private readonly List<Button> activeButtons = new List<Button>();
+    private readonly List<Button> activeButtons =
+        new List<Button>();
 
     private RectTransform panelRect;
     private RectTransform parentRect;
@@ -37,7 +43,9 @@ public class ApiaryActionUI : MonoBehaviour
             panelCanvasGroup = GetComponent<CanvasGroup>();
 
         panelRect = GetComponent<RectTransform>();
-        parentRect = panelRect.parent as RectTransform;
+
+        if (panelRect != null)
+            parentRect = panelRect.parent as RectTransform;
 
         rootCanvas = GetComponentInParent<Canvas>();
 
@@ -52,6 +60,9 @@ public class ApiaryActionUI : MonoBehaviour
 
     private void Start()
     {
+        if (itemView == null)
+            itemView = FindAnyObjectByType<ApiaryItemView>();
+
         if (selectionController == null ||
             buttonContainer == null ||
             buttonPrefab == null ||
@@ -63,8 +74,9 @@ public class ApiaryActionUI : MonoBehaviour
             rootCanvas == null)
         {
             Debug.LogError(
-                "[ApiaryActionUI] UI 또는 격자 참조가 설정되지 않았습니다."
-            );
+                "[ApiaryActionUI] UI 또는 격자 참조가 설정되지 않았습니다.");
+
+            enabled = false;
             return;
         }
 
@@ -75,8 +87,7 @@ public class ApiaryActionUI : MonoBehaviour
         {
             RefreshActions(
                 selectionController.SelectedX,
-                selectionController.SelectedY
-            );
+                selectionController.SelectedY);
         }
     }
 
@@ -93,8 +104,7 @@ public class ApiaryActionUI : MonoBehaviour
 
         UpdatePopupPosition(
             selectionController.SelectedX,
-            selectionController.SelectedY
-        );
+            selectionController.SelectedY);
     }
 
     private void OnDestroy()
@@ -130,10 +140,6 @@ public class ApiaryActionUI : MonoBehaviour
         if (gridSlot == null || handSlot == null)
             return;
 
-        // 기존 HiveData는 아직 새 ItemSlot에 등록되지 않음
-        if (world.Apiary.Grid.GetHiveId(x, y) > 0)
-            return;
-
         if (handSlot.IsEmpty)
         {
             if (gridSlot.IsEmpty)
@@ -143,7 +149,8 @@ public class ApiaryActionUI : MonoBehaviour
 
             if (item is ItemAssembly assembly)
             {
-                for (int i = 0; i < assembly.Parts.Count; i++)
+                // 위층부터 아래층 순서로 버튼 생성
+                for (int i = assembly.Parts.Count - 1; i >= 0; i--)
                 {
                     ItemData part = assembly.Parts[i];
 
@@ -157,8 +164,7 @@ public class ApiaryActionUI : MonoBehaviour
                     {
                         bool success = gridSlot.TrySplitTo(
                             index,
-                            handSlot
-                        );
+                            handSlot);
 
                         OnActionCompleted(success, x, y);
                     });
@@ -175,8 +181,9 @@ public class ApiaryActionUI : MonoBehaviour
         }
         else
         {
-            // 빈 격자: 손의 아이템 배치
-            if (gridSlot.IsEmpty)
+            // 빈 격자에는 허용된 장비만 배치
+            if (gridSlot.IsEmpty &&
+                ApiaryPlacementRules.CanPlace(handSlot.Value))
             {
                 CreateButton("놓기", () =>
                 {
@@ -184,12 +191,15 @@ public class ApiaryActionUI : MonoBehaviour
                     OnActionCompleted(success, x, y);
                 });
             }
-            // 장비가 있는 격자: 조립 가능한 경우 결합
-            else if (gridSlot.CanCombineFrom(handSlot))
+            // 장비가 있는 격자에는 결합 가능 여부 확인
+            else if (!gridSlot.IsEmpty &&
+                     gridSlot.CanCombineFrom(handSlot))
             {
                 CreateButton("결합하기", () =>
                 {
-                    bool success = gridSlot.TryCombineFrom(handSlot);
+                    bool success =
+                        gridSlot.TryCombineFrom(handSlot);
+
                     OnActionCompleted(success, x, y);
                 });
             }
@@ -209,27 +219,93 @@ public class ApiaryActionUI : MonoBehaviour
         if (!success)
         {
             Debug.LogWarning(
-                $"[ApiaryActionUI] 아이템 이동 실패: ({x}, {y})"
-            );
+                $"[ApiaryActionUI] 아이템 이동 실패: ({x}, {y})");
             return;
         }
 
         Debug.Log(
-            $"[ApiaryActionUI] 아이템 이동 성공: ({x}, {y})"
-        );
+            $"[ApiaryActionUI] 아이템 이동 성공: ({x}, {y})");
 
-        // 손 UI 갱신
         if (handUI != null)
             handUI.Refresh();
 
-        // 소지품 UI 갱신
         if (inventoryUI != null)
             inventoryUI.Refresh();
 
-        // 현재 격자의 행동 메뉴 재구성
-        RefreshActions(x, y);
+        // 모든 행동 성공 후 메뉴 닫기
+        if (selectionController != null)
+            selectionController.ClearSelection();
+
+        HidePanel();
     }
 
+    // 선택한 격자의 화면상 경계 계산
+    private bool TryGetGridScreenBounds(
+        int x,
+        int y,
+        out Rect screenBounds)
+    {
+        screenBounds = default;
+
+        GameBootstrap bootstrap = GameBootstrap.Instance;
+
+        if (bootstrap == null ||
+            bootstrap.GameWorld == null ||
+            gridView == null ||
+            targetCamera == null)
+            return false;
+
+        ApiaryGrid grid = bootstrap.GameWorld.Apiary.Grid;
+
+        if (!grid.IsInside(x, y))
+            return false;
+
+        float cellSize = gridView.CellSize;
+        float totalWidth = grid.Width * cellSize;
+
+        float left = x * cellSize - totalWidth / 2f;
+        float right = left + cellSize;
+
+        float near = y * cellSize;
+        float far = near + cellSize;
+
+        Vector3[] corners =
+        {
+            new Vector3(left, 0f, near),
+            new Vector3(left, 0f, far),
+            new Vector3(right, 0f, near),
+            new Vector3(right, 0f, far)
+        };
+
+        float minX = float.PositiveInfinity;
+        float minY = float.PositiveInfinity;
+        float maxX = float.NegativeInfinity;
+        float maxY = float.NegativeInfinity;
+
+        foreach (Vector3 corner in corners)
+        {
+            Vector3 worldPoint =
+                gridView.transform.TransformPoint(corner);
+
+            Vector3 screenPoint =
+                targetCamera.WorldToScreenPoint(worldPoint);
+
+            if (screenPoint.z <= 0f)
+                return false;
+
+            minX = Mathf.Min(minX, screenPoint.x);
+            minY = Mathf.Min(minY, screenPoint.y);
+            maxX = Mathf.Max(maxX, screenPoint.x);
+            maxY = Mathf.Max(maxY, screenPoint.y);
+        }
+
+        screenBounds = Rect.MinMaxRect(
+            minX, minY, maxX, maxY);
+
+        return true;
+    }
+
+    // 빈 격자: 중앙 / 장비: 전체 이미지 오른쪽 중앙
     private void UpdatePopupPosition(int x, int y)
     {
         if (targetCamera == null ||
@@ -239,57 +315,69 @@ public class ApiaryActionUI : MonoBehaviour
             rootCanvas == null)
             return;
 
-        GameBootstrap bootstrap = GameBootstrap.Instance;
-
-        if (bootstrap == null || bootstrap.GameWorld == null)
-            return;
-
-        float cellSize = gridView.CellSize;
-
-        int gridWidth =
-            bootstrap.GameWorld.Apiary.Grid.Width;
-
-        float totalWidth = gridWidth * cellSize;
-
-        Vector3 localCellCenter = new Vector3(
-            (x + 0.5f) * cellSize - totalWidth / 2f,
-            0f,
-            (y + 0.5f) * cellSize
-        );
-
-        Vector3 worldPosition =
-            gridView.transform.TransformPoint(localCellCenter);
-
-        Vector3 screenPosition =
-            targetCamera.WorldToScreenPoint(worldPosition);
-
-        if (screenPosition.z <= 0f)
+        if (!TryGetGridScreenBounds(
+                x, y, out Rect gridBounds))
         {
-            panelCanvasGroup.alpha = 0f;
-            panelCanvasGroup.interactable = false;
-            panelCanvasGroup.blocksRaycasts = false;
+            if (panelCanvasGroup != null)
+            {
+                panelCanvasGroup.alpha = 0f;
+                panelCanvasGroup.interactable = false;
+                panelCanvasGroup.blocksRaycasts = false;
+            }
+
             return;
         }
 
-        panelCanvasGroup.alpha = 1f;
-        panelCanvasGroup.interactable = true;
-        panelCanvasGroup.blocksRaycasts = true;
+        // 선택한 격자에 장비가 있는지 확인
+        Rect equipmentBounds = default;
+
+        bool hasEquipment =
+            itemView != null &&
+            itemView.TryGetEquipmentScreenBounds(
+                x,
+                y,
+                targetCamera,
+                out equipmentBounds);
+
+        Vector2 screenPosition;
+
+        if (hasEquipment)
+        {
+            // 장비 전체 이미지의 오른쪽 중앙
+            screenPosition = new Vector2(
+                equipmentBounds.xMax,
+                equipmentBounds.center.y);
+
+            // 메뉴의 왼쪽 중앙을 기준으로 배치
+            panelRect.pivot = new Vector2(0f, 0.5f);
+        }
+        else
+        {
+            // 빈 격자는 격자 자체의 중앙
+            screenPosition = gridBounds.center;
+
+            // 메뉴 자체의 중앙을 기준으로 배치
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        // 장비가 있을 때만 오른쪽 간격 적용
+        Vector2 appliedOffset =
+            hasEquipment ? popupOffset : Vector2.zero;
+
+        Vector2 finalScreenPosition =
+            screenPosition + appliedOffset;
 
         Camera uiCamera =
             rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay
                 ? null
                 : rootCanvas.worldCamera;
 
-        Vector2 localPosition;
-
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 parentRect,
-                screenPosition,
+                finalScreenPosition,
                 uiCamera,
-                out localPosition))
+                out Vector2 localPosition))
             return;
-
-        Vector2 desiredPosition = localPosition + popupOffset;
 
         Rect bounds = parentRect.rect;
 
@@ -297,18 +385,22 @@ public class ApiaryActionUI : MonoBehaviour
             Mathf.Lerp(
                 bounds.xMin,
                 bounds.xMax,
-                panelRect.anchorMin.x
-            ),
+                panelRect.anchorMin.x),
             Mathf.Lerp(
                 bounds.yMin,
                 bounds.yMax,
-                panelRect.anchorMin.y
-            )
-        );
+                panelRect.anchorMin.y));
 
-        // 화면 경계 제한 없이 격자를 따라 이동
         panelRect.anchoredPosition =
-            desiredPosition - anchorReference;
+            localPosition - anchorReference;
+
+        // 화면 안으로 돌아오면 다시 표시
+        if (panelVisible && panelCanvasGroup != null)
+        {
+            panelCanvasGroup.alpha = 1f;
+            panelCanvasGroup.interactable = true;
+            panelCanvasGroup.blocksRaycasts = true;
+        }
     }
 
     private void SetPanelVisible(bool visible)
@@ -327,11 +419,14 @@ public class ApiaryActionUI : MonoBehaviour
         string label,
         UnityEngine.Events.UnityAction action)
     {
-        Button button = Instantiate(buttonPrefab, buttonContainer);
+        Button button = Instantiate(
+            buttonPrefab,
+            buttonContainer);
 
         button.gameObject.SetActive(true);
 
-        TMP_Text text = button.GetComponentInChildren<TMP_Text>();
+        TMP_Text text =
+            button.GetComponentInChildren<TMP_Text>();
 
         if (text != null)
             text.text = label;
@@ -354,3 +449,5 @@ public class ApiaryActionUI : MonoBehaviour
         activeButtons.Clear();
     }
 }
+
+

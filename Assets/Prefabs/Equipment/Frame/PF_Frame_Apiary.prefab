@@ -106,8 +106,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73499b867ab512f4197ee6227864a8dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HiveView
-  widthRatio: 0.8
-  heightRatio: 0.5
+  widthRatio: 0.025
+  heightRatio: 0.4
   positionX: 0.5
   positionZ: 0.1
   faceCamera: 1

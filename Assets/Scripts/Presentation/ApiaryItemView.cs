@@ -7,8 +7,9 @@ public class ApiaryItemView : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private ApiaryGridView gridView;
+    [SerializeField] private ItemPrefabRegistry prefabRegistry;
 
-    [Header("Equipment Prefabs")]
+    [Header("Fallback Equipment Prefabs")]
     [SerializeField] private GameObject broodBoxPrefab;
     [SerializeField] private GameObject superPrefab;
     [SerializeField] private GameObject lidPrefab;
@@ -18,11 +19,15 @@ public class ApiaryItemView : MonoBehaviour
     [Header("Sorting")]
     [SerializeField] private int sortingOrder = 10;
 
-    private readonly Dictionary<ItemSlot, MovableItem> cachedItems =
-        new Dictionary<ItemSlot, MovableItem>();
+    private sealed class PartVisual
+    {
+        public GameObject Object;
+        public HiveView View;
+        public SpriteRenderer Renderer;
 
-    private readonly List<GameObject> visualObjects =
-        new List<GameObject>();
+        public int GridX;
+        public int GridY;
+    }
 
     private struct StackLink
     {
@@ -30,40 +35,18 @@ public class ApiaryItemView : MonoBehaviour
         public SpriteRenderer Upper;
     }
 
-    private readonly List<StackLink> stackLinks = new List<StackLink>();
-    private SpriteRenderer previousPart;
+    private readonly Dictionary<ItemData, PartVisual> partViews =
+        new Dictionary<ItemData, PartVisual>();
 
-    private void RegisterPart(SpriteRenderer renderer)
-    {
-        if (previousPart != null)
-            stackLinks.Add(new StackLink { Lower = previousPart, Upper = renderer });
-        previousPart = renderer;
-    }
+    private readonly Dictionary<ItemSlot, MovableItem> cachedItems =
+        new Dictionary<ItemSlot, MovableItem>();
 
-    // HiveView.LateUpdate의 회전이 끝난 뒤 실제 Sprite 경계를 맞춘다.
-    private void LateUpdate()
-    {
-        foreach (StackLink link in stackLinks)
-        {
-            if (link.Lower == null || link.Upper == null)
-                continue;
+    private readonly HashSet<ItemData> activeParts =
+        new HashSet<ItemData>();
 
-            Transform lower = link.Lower.transform;
-            Transform upper = link.Upper.transform;
-            upper.rotation = lower.rotation;
+    private readonly List<StackLink> stackLinks =
+        new List<StackLink>();
 
-            Bounds lowerBounds = link.Lower.sprite.bounds;
-            Bounds upperBounds = link.Upper.sprite.bounds;
-            Vector3 top = lower.TransformPoint(new Vector3(
-                lowerBounds.center.x, lowerBounds.max.y, lowerBounds.center.z));
-            Vector3 bottom = upper.TransformPoint(new Vector3(
-                upperBounds.center.x, upperBounds.min.y, upperBounds.center.z));
-
-            upper.position += top - bottom;
-        }
-    }
-
-    private ApiaryUI apiaryUI;
     private ApiaryGrid grid;
     private Transform visualRoot;
 
@@ -71,6 +54,10 @@ public class ApiaryItemView : MonoBehaviour
     {
         if (gridView == null)
             gridView = GetComponent<ApiaryGridView>();
+
+        if (prefabRegistry == null)
+            prefabRegistry =
+                FindAnyObjectByType<ItemPrefabRegistry>();
 
         GameBootstrap bootstrap = GameBootstrap.Instance;
 
@@ -85,19 +72,10 @@ public class ApiaryItemView : MonoBehaviour
             return;
         }
 
-        apiaryUI = FindAnyObjectByType<ApiaryUI>();
-        if (apiaryUI == null)
-        {
-            Debug.LogError("[ApiaryItemView] ApiaryUI가 없습니다.");
-            enabled = false;
-            return;
-        }
-
         grid = bootstrap.GameWorld.Apiary.Grid;
 
         GameObject root = new GameObject("EquipmentVisuals");
         visualRoot = root.transform;
-        // 월드 루트에 두어 기존 Hive_1과 같은 좌표 및 스케일 기준을 사용한다.
 
         Refresh();
     }
@@ -123,7 +101,7 @@ public class ApiaryItemView : MonoBehaviour
                 count++;
 
                 if (!cachedItems.TryGetValue(
-                        slot, out MovableItem previous))
+                    slot, out MovableItem previous))
                     return true;
 
                 if (!ReferenceEquals(previous, slot.Value))
@@ -139,9 +117,8 @@ public class ApiaryItemView : MonoBehaviour
         if (grid == null)
             return;
 
-        apiaryUI.EnsureHiveViews();
-        apiaryUI.HideHiveViews();
-        ClearVisuals();
+        activeParts.Clear();
+        stackLinks.Clear();
         cachedItems.Clear();
 
         for (int x = 0; x < grid.Width; x++)
@@ -149,23 +126,44 @@ public class ApiaryItemView : MonoBehaviour
             for (int y = 0; y < grid.Height; y++)
             {
                 ItemSlot slot = grid.GetItemSlot(x, y);
-
                 cachedItems[slot] = slot.Value;
 
                 if (!slot.IsEmpty)
                     DrawItem(x, y, slot.Value);
             }
         }
+
+        foreach (var pair in partViews)
+        {
+            if (!activeParts.Contains(pair.Key) &&
+                pair.Value.Object != null)
+            {
+                pair.Value.Object.SetActive(false);
+            }
+        }
     }
 
     private void DrawItem(int x, int y, MovableItem item)
     {
-        previousPart = null;
+        SpriteRenderer previous = null;
 
         if (item is ItemAssembly assembly)
         {
             foreach (ItemData part in assembly.Parts)
-                DrawPart(x, y, part);
+            {
+                SpriteRenderer current = DrawPart(x, y, part);
+
+                if (previous != null && current != null)
+                {
+                    stackLinks.Add(new StackLink
+                    {
+                        Lower = previous,
+                        Upper = current
+                    });
+                }
+
+                previous = current;
+            }
         }
         else if (item is ItemData single)
         {
@@ -173,69 +171,132 @@ public class ApiaryItemView : MonoBehaviour
         }
     }
 
-    private void DrawPart(int x, int y, ItemData item)
+    private SpriteRenderer DrawPart(int x, int y, ItemData item)
     {
-        HiveData hive = item.GetContent<HiveData>();
-        if (item.Kind == ItemKind.BroodBox &&
-            hive != null &&
-            apiaryUI.TryGetHiveView(hive, out HiveView existing))
+        activeParts.Add(item);
+
+        if (!partViews.TryGetValue(item, out PartVisual visual) ||
+            visual.Object == null)
         {
-            hive.SetPosition(x, y);
-            existing.gameObject.SetActive(true);
-            existing.Initialize(hive, grid.Width, gridView.CellSize);
-            SpriteRenderer existingRenderer = existing.GetComponent<SpriteRenderer>();
-            ApplyGridSorting(existingRenderer, y);
-            RegisterPart(existingRenderer);
-            return;
+            visual = CreatePartVisual(item);
+
+            if (visual == null)
+                return null;
+
+            partViews[item] = visual;
         }
 
+        visual.GridX = x;
+        visual.GridY = y;
+
+        visual.Object.SetActive(true);
+
+        HiveData hive = item.GetContent<HiveData>();
+
+        if (item.Kind == ItemKind.BroodBox && hive != null)
+        {
+            visual.View.Initialize(
+                hive,
+                grid.Width,
+                gridView.CellSize
+            );
+        }
+
+        // 실제 위치는 격자 슬롯 좌표를 사용
+        visual.View.ApplyLayout(
+            x,
+            y,
+            grid.Width,
+            gridView.CellSize
+        );
+
+        ApplyGridSorting(visual.Renderer, y);
+
+        return visual.Renderer;
+    }
+
+    private PartVisual CreatePartVisual(ItemData item)
+    {
         GameObject prefab = GetPrefab(item.Kind);
+
         if (prefab == null)
         {
-            Debug.LogWarning($"[ApiaryItemView] {item.Kind} 프리팹이 없습니다.");
-            previousPart = null;
-            return;
+            Debug.LogWarning(
+                $"[ApiaryItemView] {item.Kind} 프리팹이 없습니다.");
+            return null;
         }
 
         GameObject obj = Instantiate(prefab, visualRoot);
-        obj.name = item.Name;
 
-        SpriteRenderer renderer = obj.GetComponent<SpriteRenderer>();
         HiveView view = obj.GetComponent<HiveView>();
-        if (renderer == null || renderer.sprite == null || view == null ||
+        SpriteRenderer renderer = obj.GetComponent<SpriteRenderer>();
+
+        if (view == null ||
+            renderer == null ||
+            renderer.sprite == null ||
             renderer.sprite.bounds.size.x <= 0f ||
             renderer.sprite.bounds.size.y <= 0f)
         {
             Debug.LogWarning(
-                $"[ApiaryItemView] {prefab.name}의 루트에 HiveView와 유효한 SpriteRenderer가 필요합니다.");
+                $"[ApiaryItemView] {prefab.name}의 루트에 " +
+                "유효한 HiveView와 SpriteRenderer가 필요합니다.");
+
             obj.SetActive(false);
             Destroy(obj);
-            previousPart = null;
-            return;
+            return null;
         }
 
-        // 기존 Hive_1과 동일한 배치 함수. 장비마다 프리팹 설정을 사용한다.
-        view.ApplyLayout(x, y, grid.Width, gridView.CellSize);
-        ApplyGridSorting(renderer, y);
+        obj.name = item.Name;
 
-        foreach (Collider collider in obj.GetComponentsInChildren<Collider>(true))
-            collider.enabled = false;
-        foreach (Collider2D collider in obj.GetComponentsInChildren<Collider2D>(true))
-            collider.enabled = false;
+        HiveData hive = item.GetContent<HiveData>();
 
-        visualObjects.Add(obj);
-        RegisterPart(renderer);
-    }
-    public void ApplyGridSorting(SpriteRenderer renderer, int gridY)
-    {
-        // 현재 카메라에서는 Y=0이 앞줄이다. 높이나 생성 순서 대신 소속 행으로 정한다.
-        // 같은 격자의 모든 부품에 같은 순서를 부여해 뒤쪽 장비가 끼어들지 않게 한다.
-        renderer.sortingOrder = Mathf.Clamp(sortingOrder - gridY, -32768, 32767);
-
-        // Sorting Layer도 단상 프리팹과 통일한다.
-        if (broodBoxPrefab != null)
+        if (item.Kind == ItemKind.BroodBox && hive != null)
         {
-            SpriteRenderer reference = broodBoxPrefab.GetComponent<SpriteRenderer>();
+            view.Initialize(
+                hive,
+                grid.Width,
+                gridView.CellSize
+            );
+        }
+
+        foreach (Collider collider in
+            obj.GetComponentsInChildren<Collider>(true))
+        {
+            collider.enabled = false;
+        }
+
+        foreach (Collider2D collider in
+            obj.GetComponentsInChildren<Collider2D>(true))
+        {
+            collider.enabled = false;
+        }
+
+        return new PartVisual
+        {
+            Object = obj,
+            View = view,
+            Renderer = renderer
+        };
+    }
+
+    public void ApplyGridSorting(
+        SpriteRenderer renderer,
+        int gridY)
+    {
+        if (renderer == null)
+            return;
+
+        renderer.sortingOrder =
+            Mathf.Clamp(sortingOrder - gridY, -32768, 32767);
+
+        GameObject referencePrefab =
+            GetPrefab(ItemKind.BroodBox);
+
+        if (referencePrefab != null)
+        {
+            SpriteRenderer reference =
+                referencePrefab.GetComponent<SpriteRenderer>();
+
             if (reference != null)
                 renderer.sortingLayerID = reference.sortingLayerID;
         }
@@ -243,6 +304,18 @@ public class ApiaryItemView : MonoBehaviour
 
     private GameObject GetPrefab(ItemKind kind)
     {
+        if (prefabRegistry != null)
+        {
+            GameObject registeredPrefab =
+                prefabRegistry.GetPrefab(
+                    kind,
+                    ItemViewContext.Apiary
+                );
+
+            if (registeredPrefab != null)
+                return registeredPrefab;
+        }
+
         switch (kind)
         {
             case ItemKind.BroodBox:
@@ -262,25 +335,117 @@ public class ApiaryItemView : MonoBehaviour
         }
     }
 
-    private void ClearVisuals()
+    // 조립체의 부품을 위아래로 정렬
+    private void LateUpdate()
     {
-        stackLinks.Clear();
-        previousPart = null;
-        foreach (GameObject obj in visualObjects)
+        foreach (StackLink link in stackLinks)
         {
-            if (obj == null)
+            if (link.Lower == null || link.Upper == null)
                 continue;
 
-            obj.SetActive(false);
-            Destroy(obj);
+            Transform lower = link.Lower.transform;
+            Transform upper = link.Upper.transform;
+
+            upper.rotation = lower.rotation;
+
+            Bounds lowerBounds = link.Lower.sprite.bounds;
+            Bounds upperBounds = link.Upper.sprite.bounds;
+
+            Vector3 top = lower.TransformPoint(new Vector3(
+                lowerBounds.center.x,
+                lowerBounds.max.y,
+                lowerBounds.center.z));
+
+            Vector3 bottom = upper.TransformPoint(new Vector3(
+                upperBounds.center.x,
+                upperBounds.min.y,
+                upperBounds.center.z));
+
+            upper.position += top - bottom;
+        }
+    }
+
+    // 선택한 격자의 모든 장비가 차지하는 화면 영역 계산
+    public bool TryGetEquipmentScreenBounds(
+        int gridX,
+        int gridY,
+        Camera camera,
+        out Rect screenBounds)
+    {
+        screenBounds = default;
+
+        if (camera == null || grid == null ||
+            !grid.IsInside(gridX, gridY))
+            return false;
+
+        bool found = false;
+
+        float minX = float.PositiveInfinity;
+        float minY = float.PositiveInfinity;
+        float maxX = float.NegativeInfinity;
+        float maxY = float.NegativeInfinity;
+
+        foreach (var pair in partViews)
+        {
+            PartVisual visual = pair.Value;
+
+            if (!activeParts.Contains(pair.Key) ||
+                visual.Object == null ||
+                !visual.Object.activeInHierarchy ||
+                visual.GridX != gridX ||
+                visual.GridY != gridY ||
+                visual.Renderer == null ||
+                !visual.Renderer.enabled ||
+                visual.Renderer.sprite == null)
+                continue;
+
+            SpriteRenderer renderer = visual.Renderer;
+            Bounds bounds = renderer.localBounds;
+            Transform partTransform = renderer.transform;
+
+            // Sprite의 네 꼭짓점을 월드 좌표로 변환
+            Vector3[] corners =
+            {
+                new Vector3(bounds.min.x, bounds.min.y, bounds.center.z),
+                new Vector3(bounds.min.x, bounds.max.y, bounds.center.z),
+                new Vector3(bounds.max.x, bounds.min.y, bounds.center.z),
+                new Vector3(bounds.max.x, bounds.max.y, bounds.center.z)
+            };
+
+            foreach (Vector3 corner in corners)
+            {
+                Vector3 worldPoint =
+                    partTransform.TransformPoint(corner);
+
+                Vector3 screenPoint =
+                    camera.WorldToScreenPoint(worldPoint);
+
+                if (screenPoint.z <= 0f)
+                    continue;
+
+                minX = Mathf.Min(minX, screenPoint.x);
+                minY = Mathf.Min(minY, screenPoint.y);
+                maxX = Mathf.Max(maxX, screenPoint.x);
+                maxY = Mathf.Max(maxY, screenPoint.y);
+
+                found = true;
+            }
         }
 
-        visualObjects.Clear();
+        if (!found)
+            return false;
+
+        screenBounds = Rect.MinMaxRect(
+            minX, minY, maxX, maxY);
+
+        return true;
     }
 
     private void OnDestroy()
     {
-        ClearVisuals();
+        partViews.Clear();
+        stackLinks.Clear();
+
         if (visualRoot != null)
             Destroy(visualRoot.gameObject);
     }

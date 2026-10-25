@@ -1,3 +1,5 @@
+
+using System;
 using System.Collections.Generic;
 
 public class ApiaryData
@@ -6,7 +8,7 @@ public class ApiaryData
 
     public ApiaryGrid Grid { get; private set; }
 
-    // 기존 벌통 목록 (추후 제거 예정)
+    // 벌통의 생물학적 데이터 목록
     public List<HiveData> Hives { get; private set; }
 
     public ApiaryData(string name, int width, int height)
@@ -16,10 +18,17 @@ public class ApiaryData
         Hives = new List<HiveData>();
     }
 
-    // 기존 벌통 배치 기능 유지
-    public bool AddHive(HiveData hive)
+    // 벌통 데이터와 단상 장비를 함께 등록
+    public bool AddHive(HiveData hive, ItemData broodBox)
     {
-        if (hive == null)
+        if (hive == null || broodBox == null)
+            return false;
+
+        if (broodBox.Kind != ItemKind.BroodBox)
+            return false;
+
+        if (!ReferenceEquals(
+                broodBox.GetContent<HiveData>(), hive))
             return false;
 
         foreach (HiveData existing in Hives)
@@ -28,20 +37,20 @@ public class ApiaryData
                 return false;
         }
 
-        // 새 아이템이 있는 격자에는 기존 벌통 배치 금지
         ItemSlot target = Grid.GetItemSlot(hive.X, hive.Y);
 
         if (target == null || !target.IsEmpty)
             return false;
 
-        if (!Grid.TryPlace(hive.Id, hive.X, hive.Y))
+        // 슬롯 등록에 성공한 경우에만 목록에 추가
+        if (!target.TryInsert(broodBox))
             return false;
 
         Hives.Add(hive);
+
         return true;
     }
 
-    // 특정 격자의 아이템 슬롯 가져오기
     public ItemSlot GetItemSlot(int x, int y)
     {
         return Grid.GetItemSlot(x, y);
@@ -55,17 +64,67 @@ public class ApiaryData
 
         ItemSlot target = Grid.GetItemSlot(x, y);
 
-        if (target == null)
-            return false;
-
-        // 기존 HiveData가 차지한 격자에는 배치 금지
-        if (!Grid.IsEmpty(x, y))
-            return false;
-
-        // 이미 아이템이 있는 격자에는 배치 금지
-        if (!target.IsEmpty)
+        if (target == null || !target.IsEmpty)
             return false;
 
         return source.TryMoveTo(target);
+    }
+
+    // 실제 격자에서 벌통의 현재 위치 조회
+    public bool TryGetHivePosition(
+        HiveData hive,
+        out int x,
+        out int y)
+    {
+        x = -1;
+        y = -1;
+
+        if (hive == null)
+            return false;
+
+        for (int gridX = 0; gridX < Grid.Width; gridX++)
+        {
+            for (int gridY = 0; gridY < Grid.Height; gridY++)
+            {
+                ItemSlot slot = Grid.GetItemSlot(gridX, gridY);
+
+                if (slot == null || slot.IsEmpty)
+                    continue;
+
+                if (slot.Value is ItemData item)
+                {
+                    if (IsHivePart(item, hive))
+                    {
+                        x = gridX;
+                        y = gridY;
+                        return true;
+                    }
+                }
+                else if (slot.Value is ItemAssembly assembly)
+                {
+                    foreach (ItemData part in assembly.Parts)
+                    {
+                        if (IsHivePart(part, hive))
+                        {
+                            x = gridX;
+                            y = gridY;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // 해당 단상이 지정한 벌통 데이터를 보유하는지 확인
+    private static bool IsHivePart(ItemData item, HiveData hive)
+    {
+        return item != null &&
+               item.Kind == ItemKind.BroodBox &&
+               ReferenceEquals(
+                   item.GetContent<HiveData>(),
+                   hive);
     }
 }

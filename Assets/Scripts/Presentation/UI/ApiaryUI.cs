@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+
 using TMPro;
 using UnityEngine;
 
@@ -8,55 +8,80 @@ public class ApiaryUI : MonoBehaviour
     [SerializeField] private TMP_Text apiaryNameText;
     [SerializeField] private TMP_Text hiveCountText;
 
-    [Header("벌통 표시")]
-    [SerializeField] private HiveView hivePrefab;
-    [SerializeField] private ApiaryGridView gridView;
-
-    private readonly Dictionary<HiveData, HiveView> hiveViews =
-        new Dictionary<HiveData, HiveView>();
+    private ApiaryData apiary;
+    private int previousHiveCount = -1;
 
     private void Start()
     {
-        ApiaryData apiary = GameBootstrap.Instance.GameWorld.Apiary;
-        apiaryNameText.text = apiary.Name;
-        hiveCountText.text = $"벌통 수: {apiary.Hives.Count}";
-        EnsureHiveViews();
-    }
+        GameBootstrap bootstrap = GameBootstrap.Instance;
 
-    // Start 호출 순서와 무관하게 기존 객체를 한 번만 생성한다.
-    public void EnsureHiveViews()
-    {
-        ApiaryItemView itemView = FindAnyObjectByType<ApiaryItemView>();
-        ApiaryData apiary = GameBootstrap.Instance.GameWorld.Apiary;
-        foreach (HiveData hive in apiary.Hives)
+        if (bootstrap == null || bootstrap.GameWorld == null)
         {
-            if (hiveViews.TryGetValue(hive, out HiveView existing) &&
-                existing != null)
-                continue;
-
-            HiveView view = Instantiate(hivePrefab);
-            view.Initialize(hive, apiary.Grid.Width, gridView.CellSize);
-
-            // 최초 생성 시에도 새 장비와 동일한 표시 순서를 즉시 적용한다.
-            // 이 함수는 ApiaryItemView.Start 실행 전에도 호출할 수 있다.
-            if (itemView != null)
-                itemView.ApplyGridSorting(
-                    view.GetComponent<SpriteRenderer>(), hive.Y);
-            hiveViews[hive] = view;
+            Debug.LogError(
+                "[ApiaryUI] GameWorld가 없습니다.");
+            enabled = false;
+            return;
         }
+
+        apiary = bootstrap.GameWorld.Apiary;
+
+        if (apiaryNameText != null)
+            apiaryNameText.text = apiary.Name;
+
+        RefreshHiveCount();
     }
 
-    public bool TryGetHiveView(HiveData data, out HiveView view)
+    private void Update()
     {
-        return hiveViews.TryGetValue(data, out view) && view != null;
+        if (apiary == null)
+            return;
+
+        RefreshHiveCount();
     }
 
-    public void HideHiveViews()
+    private void RefreshHiveCount()
     {
-        foreach (HiveView view in hiveViews.Values)
+        int count = CountPlacedHives();
+
+        if (count == previousHiveCount)
+            return;
+
+        previousHiveCount = count;
+
+        if (hiveCountText != null)
+            hiveCountText.text = $"벌통 수: {count}";
+    }
+
+    private int CountPlacedHives()
+    {
+        ApiaryGrid grid = apiary.Grid;
+        int count = 0;
+
+        for (int x = 0; x < grid.Width; x++)
         {
-            if (view != null)
-                view.gameObject.SetActive(false);
+            for (int y = 0; y < grid.Height; y++)
+            {
+                ItemSlot slot = grid.GetItemSlot(x, y);
+
+                if (slot == null || slot.IsEmpty)
+                    continue;
+
+                if (slot.Value is ItemData item)
+                {
+                    if (item.Kind == ItemKind.BroodBox)
+                        count++;
+                }
+                else if (slot.Value is ItemAssembly assembly)
+                {
+                    foreach (ItemData part in assembly.Parts)
+                    {
+                        if (part.Kind == ItemKind.BroodBox)
+                            count++;
+                    }
+                }
+            }
         }
+
+        return count;
     }
 }
