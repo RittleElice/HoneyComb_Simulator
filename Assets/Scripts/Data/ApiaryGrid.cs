@@ -3,37 +3,45 @@ using System;
 
 public class ApiaryGrid
 {
+    public const int InitialUnlockedWidth = 8;
+
+    // 전체 생성된 격자 너비 (잠긴 열 포함)
     public int Width { get; private set; }
+
     public int Height { get; private set; }
 
-    // 격자 점유 정보는 ItemSlot에서만 관리
+    // 실제 사용 가능한 너비
+    public int UnlockedWidth { get; private set; }
+
+    // 다음 해금 대상 열
+    public int LockedColumnX => UnlockedWidth;
+
     private ItemSlot[,] itemSlots;
 
     public ApiaryGrid(int width, int height)
     {
-        if (width <= 0 || height <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(width),
-                "격자 크기는 1 이상이어야 합니다.");
-        }
+        if (width <= 0)
+            throw new ArgumentOutOfRangeException(nameof(width));
 
-        Width = width;
+        if (height <= 0)
+            throw new ArgumentOutOfRangeException(nameof(height));
+
+        UnlockedWidth = width;
+        Width = checked(width + 1);
         Height = height;
 
-        itemSlots = new ItemSlot[width, height];
+        itemSlots = new ItemSlot[Width, Height];
 
-        for (int x = 0; x < width; x++)
+        // 해금된 영역만 슬롯 생성
+        for (int x = 0; x < UnlockedWidth; x++)
         {
-            for (int y = 0; y < height; y++)
+            for (int y = 0; y < Height; y++)
             {
-                // 양봉장 배치 제한 + 장비 조립 허용
                 itemSlots[x, y] = CreateApiarySlot();
             }
         }
     }
 
-    // 모든 양봉장 격자에 동일한 규칙 적용
     private static ItemSlot CreateApiarySlot()
     {
         return new ItemSlot(
@@ -50,7 +58,18 @@ public class ApiaryGrid
                y < Height;
     }
 
-    // 슬롯이 비어 있는지 확인
+    public bool IsUnlocked(int x, int y)
+    {
+        return IsInside(x, y) &&
+               x < UnlockedWidth;
+    }
+
+    public bool IsLocked(int x, int y)
+    {
+        return IsInside(x, y) &&
+               x >= UnlockedWidth;
+    }
+
     public bool IsEmpty(int x, int y)
     {
         ItemSlot slot = GetItemSlot(x, y);
@@ -58,16 +77,15 @@ public class ApiaryGrid
         return slot != null && slot.IsEmpty;
     }
 
-    // 격자 슬롯 조회
+    // 잠긴 격자는 슬롯을 반환하지 않음
     public ItemSlot GetItemSlot(int x, int y)
     {
-        if (!IsInside(x, y))
+        if (!IsUnlocked(x, y))
             return null;
 
         return itemSlots[x, y];
     }
 
-    // 기존 코드 호환용 벌통 ID 조회
     public int GetHiveId(int x, int y)
     {
         ItemSlot slot = GetItemSlot(x, y);
@@ -103,13 +121,45 @@ public class ApiaryGrid
         return hive != null ? hive.Id : 0;
     }
 
-    // 기존 슬롯 객체를 보존하면서 격자 확장
-    public bool Expand(int newWidth, int newHeight)
+    // 잠긴 1열 해금
+    public bool TryUnlockNextColumn()
     {
-        if (newWidth < Width || newHeight < Height)
+        if (UnlockedWidth >= int.MaxValue - 1)
             return false;
 
-        if (newWidth == Width && newHeight == Height)
+        int nextUnlockedWidth = UnlockedWidth + 1;
+        int nextTotalWidth = nextUnlockedWidth + 1;
+
+        // 새 잠긴 열까지 공간 확보
+        if (!Expand(nextTotalWidth, Height))
+            return false;
+
+        // 이전 잠긴 열에 슬롯 생성
+        int newColumn = UnlockedWidth;
+
+        for (int y = 0; y < Height; y++)
+        {
+            if (itemSlots[newColumn, y] == null)
+            {
+                itemSlots[newColumn, y] =
+                    CreateApiarySlot();
+            }
+        }
+
+        UnlockedWidth = nextUnlockedWidth;
+
+        return true;
+    }
+
+    // 기존 슬롯을 보존하면서 전체 격자 확장
+    public bool Expand(int newWidth, int newHeight)
+    {
+        if (newWidth < Width ||
+            newHeight < Height)
+            return false;
+
+        if (newWidth == Width &&
+            newHeight == Height)
             return false;
 
         ItemSlot[,] expandedSlots =
@@ -121,13 +171,13 @@ public class ApiaryGrid
             {
                 if (x < Width && y < Height)
                 {
-                    // 기존 장비 및 소유 관계 유지
-                    expandedSlots[x, y] = itemSlots[x, y];
+                    expandedSlots[x, y] =
+                        itemSlots[x, y];
                 }
-                else
+                else if (x < UnlockedWidth)
                 {
-                    // 새 격자에도 동일한 배치·조립 규칙 적용
-                    expandedSlots[x, y] = CreateApiarySlot();
+                    expandedSlots[x, y] =
+                        CreateApiarySlot();
                 }
             }
         }

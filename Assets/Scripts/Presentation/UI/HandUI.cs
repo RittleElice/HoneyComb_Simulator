@@ -16,10 +16,20 @@ public class HandUI : MonoBehaviour
     [Header("기본 아이템 프리팹")]
     [SerializeField] private ItemIconView itemPrefab;
 
-    private HandData hand;
+    [Header("손 장비 표시 크기")]
+    [SerializeField, Min(1f)]
+    private float displayWidth = 800f;
 
-    private ItemIconView currentView;
-    private GameObject currentPrefab;
+    [SerializeField, Min(1f)]
+    private float displayHeight = 1200f;
+
+    [Header("손 장비 하단 위치")]
+    [SerializeField]
+    private Vector2 bottomOffset = Vector2.zero;
+
+    private HandData hand;
+    private ItemAssemblyView currentView;
+    private MovableItem cachedItem;
 
     private void Start()
     {
@@ -36,43 +46,13 @@ public class HandUI : MonoBehaviour
 
         hand = bootstrap.GameWorld.Hand;
 
+        if (prefabRegistry == null)
+        {
+            prefabRegistry =
+                FindAnyObjectByType<ItemPrefabRegistry>();
+        }
+
         Refresh();
-    }
-
-    // 아이템 종류 확인
-    private ItemKind GetItemKind(MovableItem item)
-    {
-        if (item is ItemData data)
-            return data.Kind;
-
-        if (item is ItemAssembly assembly &&
-            assembly.Parts.Count > 0)
-        {
-            // 조립체는 우선 최하단 장비의 종류 사용
-            return assembly.Parts[0].Kind;
-        }
-
-        return ItemKind.Generic;
-    }
-
-    // 손에 사용할 프리팹 선택
-    private GameObject GetItemPrefab(MovableItem item)
-    {
-        ItemKind kind = GetItemKind(item);
-
-        if (prefabRegistry != null)
-        {
-            GameObject prefab = prefabRegistry.GetPrefab(
-                kind,
-                ItemViewContext.Hand);
-
-            if (prefab != null)
-                return prefab;
-        }
-
-        return itemPrefab != null
-            ? itemPrefab.gameObject
-            : null;
     }
 
     public void Refresh()
@@ -87,75 +67,60 @@ public class HandUI : MonoBehaviour
                 : "손:";
         }
 
-        // 손이 비어 있으면 아이콘 제거
-        if (hand.IsEmpty)
-        {
-            ClearItemView();
-            return;
-        }
-
-        GameObject desiredPrefab =
-            GetItemPrefab(hand.Value);
-
-        if (desiredPrefab == null)
-        {
-            ClearItemView();
-
-            Debug.LogWarning(
-                "[HandUI] 표시할 아이템 프리팹이 없습니다.");
-
-            return;
-        }
-
-        // 같은 아이템과 같은 프리팹이면 재생성하지 않음
-        if (currentView != null &&
-            ReferenceEquals(currentView.Item, hand.Value) &&
-            currentPrefab == desiredPrefab)
+        if (ReferenceEquals(cachedItem, hand.Value) &&
+            (hand.IsEmpty || currentView != null))
         {
             return;
         }
 
         ClearItemView();
+        cachedItem = hand.Value;
+
+        if (hand.IsEmpty)
+            return;
 
         if (itemContainer == null)
         {
             Debug.LogWarning(
-                "[HandUI] Item Container가 설정되지 않았습니다.");
-
+                "[HandUI] Item Container가 없습니다.");
             return;
         }
 
-        GameObject iconObject = Instantiate(
-            desiredPrefab,
-            itemContainer);
+        GameObject root = new GameObject(
+            "HandItemVisual",
+            typeof(RectTransform));
 
-        ItemIconView newView =
-            iconObject.GetComponent<ItemIconView>();
+        root.transform.SetParent(
+            itemContainer, false);
 
-        if (newView == null)
-        {
-            Debug.LogWarning(
-                $"[HandUI] {desiredPrefab.name}에 " +
-                "ItemIconView가 없습니다.");
+        ItemAssemblyView view =
+            root.AddComponent<ItemAssemblyView>();
 
-            Destroy(iconObject);
-            return;
-        }
-
-        newView.Initialize(hand.Value);
+        // 손에서는 하단 고정 정렬 사용
+        view.Initialize(
+            hand.Value,
+            prefabRegistry,
+            ItemViewContext.Hand,
+            itemPrefab,
+            displayWidth,
+            displayHeight,
+            AssemblyAlignment.Bottom);
 
         RectTransform rect =
-            iconObject.GetComponent<RectTransform>();
+            root.GetComponent<RectTransform>();
 
         if (rect != null)
         {
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = Vector2.zero;
+            // ItemContainer의 아래쪽 중앙을 기준으로 고정
+            rect.anchorMin = new Vector2(0.5f, 0f);
+            rect.anchorMax = new Vector2(0.5f, 0f);
+            // Bottom alignment already places the visible bottom at the root origin.
+            // Preserve the center pivot used by ItemAssemblyView child anchors.
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = bottomOffset;
         }
 
-        currentView = newView;
-        currentPrefab = desiredPrefab;
+        currentView = view;
     }
 
     private void ClearItemView()
@@ -167,6 +132,5 @@ public class HandUI : MonoBehaviour
         }
 
         currentView = null;
-        currentPrefab = null;
     }
 }

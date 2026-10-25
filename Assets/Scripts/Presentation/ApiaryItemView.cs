@@ -89,8 +89,12 @@ public class ApiaryItemView : MonoBehaviour
             Refresh();
     }
 
+
     private bool HasChanged()
     {
+        if (grid == null)
+            return false;
+
         int count = 0;
 
         for (int x = 0; x < grid.Width; x++)
@@ -98,20 +102,31 @@ public class ApiaryItemView : MonoBehaviour
             for (int y = 0; y < grid.Height; y++)
             {
                 ItemSlot slot = grid.GetItemSlot(x, y);
+
+                // 잠긴 격자는 슬롯이 없으므로 건너뛴다.
+                if (slot == null)
+                    continue;
+
                 count++;
 
                 if (!cachedItems.TryGetValue(
-                    slot, out MovableItem previous))
+                        slot, out MovableItem previous))
+                {
                     return true;
+                }
 
                 if (!ReferenceEquals(previous, slot.Value))
+                {
                     return true;
+                }
             }
         }
 
         return count != cachedItems.Count;
     }
 
+
+    
     public void Refresh()
     {
         if (grid == null)
@@ -126,13 +141,21 @@ public class ApiaryItemView : MonoBehaviour
             for (int y = 0; y < grid.Height; y++)
             {
                 ItemSlot slot = grid.GetItemSlot(x, y);
+
+                // 잠긴 격자는 처리하지 않는다.
+                if (slot == null)
+                    continue;
+
                 cachedItems[slot] = slot.Value;
 
                 if (!slot.IsEmpty)
+                {
                     DrawItem(x, y, slot.Value);
+                }
             }
         }
 
+        // 양봉장에서 제거된 장비의 이미지 비활성화
         foreach (var pair in partViews)
         {
             if (!activeParts.Contains(pair.Key) &&
@@ -142,6 +165,7 @@ public class ApiaryItemView : MonoBehaviour
             }
         }
     }
+
 
     private void DrawItem(int x, int y, MovableItem item)
     {
@@ -259,6 +283,7 @@ public class ApiaryItemView : MonoBehaviour
             );
         }
 
+        // 클릭 판정은 SpriteRenderer 경계를 사용
         foreach (Collider collider in
             obj.GetComponentsInChildren<Collider>(true))
         {
@@ -335,7 +360,7 @@ public class ApiaryItemView : MonoBehaviour
         }
     }
 
-    // 조립체의 부품을 위아래로 정렬
+    // HiveView 회전 이후 조립체 정렬
     private void LateUpdate()
     {
         foreach (StackLink link in stackLinks)
@@ -365,7 +390,7 @@ public class ApiaryItemView : MonoBehaviour
         }
     }
 
-    // 선택한 격자의 모든 장비가 차지하는 화면 영역 계산
+    // 선택한 격자의 장비 전체 화면 경계 계산
     public bool TryGetEquipmentScreenBounds(
         int gridX,
         int gridY,
@@ -396,14 +421,16 @@ public class ApiaryItemView : MonoBehaviour
                 visual.GridY != gridY ||
                 visual.Renderer == null ||
                 !visual.Renderer.enabled ||
-                visual.Renderer.sprite == null)
+                visual.Renderer.forceRenderingOff ||
+                visual.Renderer.sprite == null ||
+                (camera.cullingMask &
+                 (1 << visual.Object.layer)) == 0)
                 continue;
 
             SpriteRenderer renderer = visual.Renderer;
             Bounds bounds = renderer.localBounds;
             Transform partTransform = renderer.transform;
 
-            // Sprite의 네 꼭짓점을 월드 좌표로 변환
             Vector3[] corners =
             {
                 new Vector3(bounds.min.x, bounds.min.y, bounds.center.z),
@@ -439,6 +466,117 @@ public class ApiaryItemView : MonoBehaviour
             minX, minY, maxX, maxY);
 
         return true;
+    }
+
+    // 화면 좌표로 장비를 찾아 해당 격자 좌표 반환
+    public bool TryGetEquipmentAtScreenPosition(
+        Vector2 screenPosition,
+        Camera camera,
+        out int gridX,
+        out int gridY)
+    {
+        gridX = -1;
+        gridY = -1;
+
+        if (camera == null || grid == null)
+            return false;
+
+        bool found = false;
+
+        int bestLayer = int.MinValue;
+        int bestOrder = int.MinValue;
+        float bestDistance = float.PositiveInfinity;
+
+        foreach (var pair in partViews)
+        {
+            PartVisual visual = pair.Value;
+
+            if (!activeParts.Contains(pair.Key) ||
+                visual.Object == null ||
+                !visual.Object.activeInHierarchy ||
+                visual.Renderer == null ||
+                !visual.Renderer.enabled ||
+                visual.Renderer.forceRenderingOff ||
+                visual.Renderer.sprite == null ||
+                !grid.IsInside(visual.GridX, visual.GridY) ||
+                (camera.cullingMask &
+                 (1 << visual.Object.layer)) == 0)
+                continue;
+
+            SpriteRenderer renderer = visual.Renderer;
+            Bounds bounds = renderer.localBounds;
+            Transform t = renderer.transform;
+
+            Vector3[] corners =
+            {
+                new Vector3(bounds.min.x, bounds.min.y, bounds.center.z),
+                new Vector3(bounds.min.x, bounds.max.y, bounds.center.z),
+                new Vector3(bounds.max.x, bounds.min.y, bounds.center.z),
+                new Vector3(bounds.max.x, bounds.max.y, bounds.center.z)
+            };
+
+            float minX = float.PositiveInfinity;
+            float minY = float.PositiveInfinity;
+            float maxX = float.NegativeInfinity;
+            float maxY = float.NegativeInfinity;
+            float nearestDepth = float.PositiveInfinity;
+
+            bool valid = true;
+
+            foreach (Vector3 corner in corners)
+            {
+                Vector3 point = camera.WorldToScreenPoint(
+                    t.TransformPoint(corner));
+
+                if (point.z < camera.nearClipPlane ||
+                    point.z > camera.farClipPlane)
+                {
+                    valid = false;
+                    break;
+                }
+
+                minX = Mathf.Min(minX, point.x);
+                minY = Mathf.Min(minY, point.y);
+                maxX = Mathf.Max(maxX, point.x);
+                maxY = Mathf.Max(maxY, point.y);
+
+                nearestDepth = Mathf.Min(
+                    nearestDepth, point.z);
+            }
+
+            if (!valid ||
+                screenPosition.x < minX ||
+                screenPosition.x > maxX ||
+                screenPosition.y < minY ||
+                screenPosition.y > maxY)
+                continue;
+
+            int layer = SortingLayer.GetLayerValueFromID(
+                renderer.sortingLayerID);
+
+            int order = renderer.sortingOrder;
+
+            bool better =
+                !found ||
+                layer > bestLayer ||
+                (layer == bestLayer && order > bestOrder) ||
+                (layer == bestLayer &&
+                 order == bestOrder &&
+                 nearestDepth < bestDistance);
+
+            if (!better)
+                continue;
+
+            found = true;
+            bestLayer = layer;
+            bestOrder = order;
+            bestDistance = nearestDepth;
+
+            gridX = visual.GridX;
+            gridY = visual.GridY;
+        }
+
+        return found;
     }
 
     private void OnDestroy()

@@ -23,25 +23,31 @@ public class InventoryUI : MonoBehaviour
     [SerializeField]
     private ApiarySelectionController selectionController;
 
+    [Header("조립체 표시 크기")]
+    [SerializeField, Range(0.1f, 1f)]
+    private float slotFillRatio = 0.9f;
+
     private InventoryData inventory;
     private HandData hand;
 
     private readonly List<GameObject> slotObjects =
         new List<GameObject>();
 
-    private readonly List<ItemIconView> itemViews =
-        new List<ItemIconView>();
+    private readonly List<ItemAssemblyView> itemViews =
+        new List<ItemAssemblyView>();
 
-    private readonly List<GameObject> itemPrefabs =
-        new List<GameObject>();
+    private readonly List<MovableItem> cachedItems =
+        new List<MovableItem>();
 
     private void Start()
     {
         GameBootstrap bootstrap = GameBootstrap.Instance;
 
-        if (bootstrap == null || bootstrap.GameWorld == null)
+        if (bootstrap == null ||
+            bootstrap.GameWorld == null)
         {
-            Debug.LogError("[InventoryUI] GameWorld가 없습니다.");
+            Debug.LogError(
+                "[InventoryUI] GameWorld가 없습니다.");
             enabled = false;
             return;
         }
@@ -55,23 +61,30 @@ public class InventoryUI : MonoBehaviour
                 FindAnyObjectByType<ApiarySelectionController>();
         }
 
+        if (prefabRegistry == null)
+        {
+            prefabRegistry =
+                FindAnyObjectByType<ItemPrefabRegistry>();
+        }
+
         for (int i = 0; i < inventory.Capacity; i++)
         {
-            int slotIndex = i;
+            int index = i;
 
             GameObject slotObject =
                 Instantiate(slotPrefab, slotContainer);
 
             slotObjects.Add(slotObject);
             itemViews.Add(null);
-            itemPrefabs.Add(null);
+            cachedItems.Add(null);
 
-            Button button = slotObject.GetComponent<Button>();
+            Button button =
+                slotObject.GetComponent<Button>();
 
             if (button != null)
             {
                 button.onClick.AddListener(
-                    () => OnSlotClicked(slotIndex));
+                    () => OnSlotClicked(index));
             }
         }
 
@@ -85,48 +98,24 @@ public class InventoryUI : MonoBehaviour
         if (selectedSlot == null)
             return;
 
-        // 인벤토리 조작 시 양봉장 선택 해제
-        // OnSelectionCleared 이벤트로 행동 메뉴도 닫힌다.
         if (selectionController != null)
             selectionController.ClearSelection();
 
-        // 기존 손-인벤토리 교환 기능 유지
-        hand.Swap(selectedSlot);
+        // 성공 여부를 직접 확인
+        bool success =
+            hand.Slot.TrySwap(selectedSlot);
+
+        if (!success)
+        {
+            Debug.LogWarning(
+                $"[InventoryUI] 슬롯 {index} 교환 실패");
+            return;
+        }
 
         Refresh();
 
         if (handUI != null)
             handUI.Refresh();
-    }
-
-    private GameObject GetItemPrefab(MovableItem item)
-    {
-        ItemKind kind = ItemKind.Generic;
-
-        if (item is ItemData data)
-        {
-            kind = data.Kind;
-        }
-        else if (item is ItemAssembly assembly &&
-                 assembly.Parts.Count > 0)
-        {
-            // 조립체는 최하단 장비 종류 사용
-            kind = assembly.Parts[0].Kind;
-        }
-
-        if (prefabRegistry != null)
-        {
-            GameObject prefab = prefabRegistry.GetPrefab(
-                kind,
-                ItemViewContext.Inventory);
-
-            if (prefab != null)
-                return prefab;
-        }
-
-        return itemPrefab != null
-            ? itemPrefab.gameObject
-            : null;
     }
 
     public void Refresh()
@@ -139,75 +128,78 @@ public class InventoryUI : MonoBehaviour
             ItemSlot slot = inventory.GetSlot(i);
             GameObject slotObject = slotObjects[i];
 
-            TMP_Text slotText =
-                slotObject.GetComponentInChildren<TMP_Text>();
+            // 아이콘 내부 텍스트를 잘못 수정하지 않도록
+            // 슬롯의 직접 자식에서만 텍스트 조회
+            TMP_Text slotText = null;
+
+            foreach (Transform child in slotObject.transform)
+            {
+                if (child.GetComponent<ItemAssemblyView>() != null)
+                    continue;
+
+                slotText = child.GetComponent<TMP_Text>();
+
+                if (slotText != null)
+                    break;
+            }
 
             if (slotText != null)
-                slotText.text = slot.IsEmpty ? "빈 칸" : "";
-
-            ItemIconView currentView = itemViews[i];
-
-            if (slot.IsEmpty)
             {
-                ClearItemView(i);
-                continue;
+                slotText.text =
+                    slot.IsEmpty ? "빈 칸" : "";
             }
 
-            GameObject desiredPrefab = GetItemPrefab(slot.Value);
-
-            if (desiredPrefab == null)
-            {
-                ClearItemView(i);
-                continue;
-            }
-
-            if (currentView != null &&
-                ReferenceEquals(currentView.Item, slot.Value) &&
-                itemPrefabs[i] == desiredPrefab)
+            if (ReferenceEquals(
+                    cachedItems[i], slot.Value) &&
+                (slot.IsEmpty || itemViews[i] != null))
             {
                 continue;
             }
 
             ClearItemView(i);
 
-            GameObject iconObject = Instantiate(
-                desiredPrefab,
-                slotObject.transform);
+            cachedItems[i] = slot.Value;
 
-            ItemIconView newView =
-                iconObject.GetComponent<ItemIconView>();
-
-            if (newView == null)
-            {
-                Debug.LogWarning(
-                    $"[InventoryUI] {desiredPrefab.name}에 " +
-                    "ItemIconView가 없습니다.");
-
-                iconObject.SetActive(false);
-                Destroy(iconObject);
+            if (slot.IsEmpty)
                 continue;
-            }
 
-            newView.Initialize(slot.Value);
+            GameObject root =
+                new GameObject(
+                    "ItemVisual",
+                    typeof(RectTransform));
 
-            RectTransform rect =
-                iconObject.GetComponent<RectTransform>();
+            root.transform.SetParent(
+                slotObject.transform, false);
 
-            if (rect != null)
-            {
-                rect.anchorMin = new Vector2(0.5f, 0.5f);
-                rect.anchorMax = new Vector2(0.5f, 0.5f);
-                rect.anchoredPosition = Vector2.zero;
-            }
+            ItemAssemblyView view =
+                root.AddComponent<ItemAssemblyView>();
 
-            itemViews[i] = newView;
-            itemPrefabs[i] = desiredPrefab;
+            RectTransform slotRect =
+                slotObject.GetComponent<RectTransform>();
+
+            float width = slotRect != null
+                ? slotRect.rect.width * slotFillRatio
+                : 100f;
+
+            float height = slotRect != null
+                ? slotRect.rect.height * slotFillRatio
+                : 100f;
+
+            view.Initialize(
+                slot.Value,
+                prefabRegistry,
+                ItemViewContext.Inventory,
+                itemPrefab,
+                width,
+                height);
+
+            itemViews[i] = view;
         }
     }
 
     private void ClearItemView(int index)
     {
-        ItemIconView view = itemViews[index];
+        ItemAssemblyView view = itemViews[index];
 
         if (view != null)
         {
@@ -216,6 +208,5 @@ public class InventoryUI : MonoBehaviour
         }
 
         itemViews[index] = null;
-        itemPrefabs[index] = null;
     }
 }

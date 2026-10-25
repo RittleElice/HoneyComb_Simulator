@@ -1,5 +1,6 @@
 
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
@@ -8,6 +9,21 @@ public class ApiarySelectionController : MonoBehaviour
 {
     [SerializeField] private Camera targetCamera;
     [SerializeField] private ApiaryGridView gridView;
+    [SerializeField] private ApiaryItemView itemView;
+    private readonly List<RaycastResult> uiHits = new List<RaycastResult>();
+
+    private void Awake()
+    {
+        if (targetCamera == null) targetCamera = Camera.main;
+        if (gridView == null) gridView = FindAnyObjectByType<ApiaryGridView>();
+        if (itemView == null) itemView = FindAnyObjectByType<ApiaryItemView>();
+    }
+
+    private void OnDisable()
+    {
+        isPressed = false;
+        pressStartedOverUI = false;
+    }
 
     private Vector2 pointerStart;
     private bool isPressed;
@@ -87,7 +103,7 @@ public class ApiarySelectionController : MonoBehaviour
             pointerStart = pointerPosition;
             isPressed = true;
 
-            pressStartedOverUI = IsPointerOverUI();
+            pressStartedOverUI = IsPointerOverUI(pointerPosition);
         }
 
         if (released && isPressed)
@@ -101,29 +117,22 @@ public class ApiarySelectionController : MonoBehaviour
                 return;
 
             // UI 버튼을 누른 경우 선택을 유지
-            if (pressStartedOverUI || IsPointerOverUI())
+            if (pressStartedOverUI || IsPointerOverUI(pointerPosition))
                 return;
 
             SelectAt(pointerPosition);
         }
     }
 
-    private bool IsPointerOverUI()
+    private bool IsPointerOverUI(Vector2 screenPosition)
     {
-        if (EventSystem.current == null)
-            return false;
-
-        if (Touchscreen.current != null &&
-            Touchscreen.current.primaryTouch.press.isPressed)
-        {
-            int touchId =
-                Touchscreen.current.primaryTouch.touchId.ReadValue();
-
-            return EventSystem.current
-                .IsPointerOverGameObject(touchId);
-        }
-
-        return EventSystem.current.IsPointerOverGameObject();
+        if (EventSystem.current == null) return false;
+        var pointer = new PointerEventData(EventSystem.current) { position = screenPosition };
+        uiHits.Clear();
+        EventSystem.current.RaycastAll(pointer, uiHits);
+        foreach (RaycastResult hit in uiHits)
+            if (hit.module is UnityEngine.UI.GraphicRaycaster) return true;
+        return false;
     }
 
     private void SelectAt(Vector2 screenPosition)
@@ -135,7 +144,7 @@ public class ApiarySelectionController : MonoBehaviour
             targetCamera.ScreenPointToRay(screenPosition);
 
         // 장비 이미지를 먼저 선택하고, 맞은 장비가 없을 때 바닥을 선택한다.
-        if (TrySelectEquipment(ray))
+        if (TrySelectEquipment(screenPosition))
             return;
         // 격자 선택 시도
         if (TrySelectGridAt(ray))
@@ -145,46 +154,12 @@ public class ApiarySelectionController : MonoBehaviour
         ClearSelection();
     }
 
-    private bool TrySelectEquipment(Ray ray)
+    private bool TrySelectEquipment(Vector2 screenPosition)
     {
-        if (GameBootstrap.Instance == null ||
-            GameBootstrap.Instance.GameWorld == null)
+        if (itemView == null || !itemView.TryGetEquipmentAtScreenPosition(
+                screenPosition, targetCamera, out int x, out int y))
             return false;
-
-        ApiaryGrid grid = GameBootstrap.Instance.GameWorld.Apiary.Grid;
-        HiveView selected = null;
-        int bestLayer = int.MinValue;
-        int bestOrder = int.MinValue;
-        float bestDistance = float.PositiveInfinity;
-
-        // 클릭 시에만 조회한다. 비활성화된 벌통과 파괴 대기 객체는 제외된다.
-        foreach (HiveView view in FindObjectsByType<HiveView>(
-            FindObjectsInactive.Exclude, FindObjectsSortMode.None))
-        {
-            if (!grid.IsInside(view.GridX, view.GridY) ||
-                !view.TryGetGridHit(ray, targetCamera,
-                    out float distance, out int layer, out int order))
-                continue;
-
-            // 겹친 이미지에서는 Sorting Layer, Order, 거리 순서로 선택한다.
-            bool better = selected == null ||
-                layer > bestLayer ||
-                (layer == bestLayer && order > bestOrder) ||
-                (layer == bestLayer && order == bestOrder &&
-                    distance < bestDistance);
-            if (!better)
-                continue;
-
-            selected = view;
-            bestLayer = layer;
-            bestOrder = order;
-            bestDistance = distance;
-        }
-
-        if (selected == null)
-            return false;
-
-        SetSelection(selected.GridX, selected.GridY);
+        SetSelection(x, y);
         return true;
     }
 
@@ -203,13 +178,13 @@ public class ApiarySelectionController : MonoBehaviour
             return false;
 
         Plane ground =
-            new Plane(Vector3.up, Vector3.zero);
+            new Plane(gridView.transform.up, gridView.transform.position);
 
         if (!ground.Raycast(ray, out float distance))
             return false;
 
         Vector3 worldPosition =
-            ray.GetPoint(distance);
+            gridView.transform.InverseTransformPoint(ray.GetPoint(distance));
 
         float totalWidth =
             grid.Width * cellSize;
@@ -229,15 +204,14 @@ public class ApiarySelectionController : MonoBehaviour
         return true;
     }
 
-   
     private void SetSelection(int x, int y)
     {
-        GameBootstrap bootstrap = GameBootstrap.Instance;
-
-        if (bootstrap == null || bootstrap.GameWorld == null)
+        if (GameBootstrap.Instance == null ||
+            GameBootstrap.Instance.GameWorld == null)
             return;
 
-        ApiaryData apiary = bootstrap.GameWorld.Apiary;
+        ApiaryData apiary =
+            GameBootstrap.Instance.GameWorld.Apiary;
 
         if (!apiary.Grid.IsInside(x, y))
             return;
@@ -245,9 +219,19 @@ public class ApiarySelectionController : MonoBehaviour
         SelectedX = x;
         SelectedY = y;
 
-        ItemSlot slot = apiary.GetItemSlot(x, y);
+        ItemSlot slot =
+            apiary.GetItemSlot(x, y);
 
-        if (slot != null && !slot.IsEmpty)
+        int hiveId =
+            apiary.Grid.GetHiveId(x, y);
+
+        if (hiveId > 0)
+        {
+            Debug.Log(
+                $"기존 벌통 선택: ID={hiveId}, 좌표=({x}, {y})"
+            );
+        }
+        else if (slot != null && !slot.IsEmpty)
         {
             Debug.Log(
                 $"아이템 선택: {slot.Value.Name}, 좌표=({x}, {y})"
@@ -262,7 +246,6 @@ public class ApiarySelectionController : MonoBehaviour
 
         OnSelectionChanged?.Invoke(x, y);
     }
-
 
     public void ClearSelection()
     {
