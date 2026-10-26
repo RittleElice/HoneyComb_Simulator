@@ -4,14 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/ApiaryGridView.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/ApiaryGridView.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/ApiarySelectionController.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/ApiarySelectionController.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/ApiarySelectionHighlight.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/ApiarySelectionHighlight.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/HiveView.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/HiveView.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ApiaryActionUI.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ApiaryActionUI.cs" afterDir="false" />
-    </list>
+    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -128,7 +121,7 @@
       <workItem from="1792762363441" duration="44000" />
       <workItem from="1792762486447" duration="11204000" />
       <workItem from="1792863919155" duration="35000" />
-      <workItem from="1792864314644" duration="24943000" />
+      <workItem from="1792864314644" duration="25450000" />
     </task>
     <servers />
   </component>
