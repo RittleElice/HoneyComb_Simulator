@@ -25,7 +25,7 @@ public class GameBootstrap : MonoBehaviour
     {
         Debug.Log("[GameBootstrap] 시스템 초기화 시작");
 
-        GameFlow = new GameFlowManager();
+        GameFlow = new GameFlowManager(this);
 
         Debug.Log("[GameBootstrap] 시스템 초기화 완료");
 
@@ -34,31 +34,23 @@ public class GameBootstrap : MonoBehaviour
 
     public void StartNewGame()
     {
+        if (GameFlow.IsTransitioning)
+            return;
+
         GameWorld = new GameWorld();
-        
+        GameFlow.ResetApiaryCamera();
+
         ApiaryData apiary = GameWorld.Apiary;
 
         Debug.Log(
-            $"[ApiaryGrid] 크기: {apiary.Grid.Width} x {apiary.Grid.Height}"
-        );
-
-        Debug.Log(
-            $"[ApiaryGrid] (0,0) 벌통 ID: {apiary.Grid.GetHiveId(0, 0)}"
-        );
-
-        Debug.Log(
-            $"[ApiaryGrid] (1,0) 빈 칸: {apiary.Grid.IsEmpty(1, 0)}"
-        );
-
-        Debug.Log(
-            $"[ApiaryGrid] (0,0) 빈 칸: {apiary.Grid.IsEmpty(0, 0)}"
-        );
-
+            $"[ApiaryGrid] 크기: " +
+            $"{apiary.Grid.Width} x {apiary.Grid.Height}");
 
         Debug.Log(
             $"[GameBootstrap] 새 게임 시작: " +
-            $"{GameWorld.Year}년 {GameWorld.Month}월 {GameWorld.Day}일"
-        );
+            $"{GameWorld.Year}년 " +
+            $"{GameWorld.Month}월 " +
+            $"{GameWorld.Day}일");
 
         GameFlow.OpenApiary();
     }

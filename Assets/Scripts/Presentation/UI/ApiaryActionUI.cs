@@ -59,6 +59,18 @@ public class ApiaryActionUI : MonoBehaviour
 
     private void Start()
     {
+        if (handUI == null)
+            handUI = FindAnyObjectByType<HandUI>();
+
+        if (inventoryUI == null)
+            inventoryUI = FindAnyObjectByType<InventoryUI>();
+        
+        if (handUI == null)
+            handUI = FindAnyObjectByType<HandUI>();
+
+        if (inventoryUI == null)
+            inventoryUI = FindAnyObjectByType<InventoryUI>();
+        
         if (itemView == null)
             itemView = FindAnyObjectByType<ApiaryItemView>();
 
@@ -136,6 +148,16 @@ public class ApiaryActionUI : MonoBehaviour
 
         if (!grid.IsInside(x, y))
             return;
+        
+        // 해금된 모든 격자에서 관찰 가능
+        if (grid.IsUnlocked(x, y))
+        {
+            CreateButton("관찰", () =>
+            {
+                GameBootstrap.Instance.GameFlow
+                    .OpenObservation(x, y);
+            });
+        }
 
         // 잠긴 영역: 부지 해금 메뉴
         if (grid.IsLocked(x, y))
@@ -180,7 +202,10 @@ public class ApiaryActionUI : MonoBehaviour
         if (handSlot.IsEmpty)
         {
             if (gridSlot.IsEmpty)
+            {
+                ShowPanel(x, y);
                 return;
+            }
 
             MovableItem item = gridSlot.Value;
 

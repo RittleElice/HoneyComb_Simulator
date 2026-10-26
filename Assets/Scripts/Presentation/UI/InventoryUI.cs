@@ -98,19 +98,13 @@ public class InventoryUI : MonoBehaviour
         if (selectedSlot == null)
             return;
 
-        if (selectionController != null)
-            selectionController.ClearSelection();
+        ApiarySelectionController controller =
+            FindAnyObjectByType<ApiarySelectionController>();
 
-        // 성공 여부를 직접 확인
-        bool success =
-            hand.Slot.TrySwap(selectedSlot);
+        if (controller != null)
+            controller.ClearSelection();
 
-        if (!success)
-        {
-            Debug.LogWarning(
-                $"[InventoryUI] 슬롯 {index} 교환 실패");
-            return;
-        }
+        hand.Swap(selectedSlot);
 
         Refresh();
 
