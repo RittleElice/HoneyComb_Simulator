@@ -11,11 +11,10 @@ public class GameFlowManager
     private const string ObservationScene = "Observation";
 
     private readonly MonoBehaviour runner;
-
-    private bool isTransitioning;
-
     private readonly ApiaryCameraState apiaryCameraState =
         new ApiaryCameraState();
+
+    private bool isTransitioning;
 
     public bool IsTransitioning => isTransitioning;
 
@@ -49,24 +48,17 @@ public class GameFlowManager
             OpenObservationRoutine(gridX, gridY));
     }
 
-    // 메인 메뉴
     private IEnumerator OpenMainMenuRoutine()
     {
         isTransitioning = true;
 
-        Debug.Log("[GameFlow] MainMenu 로드 시작");
-
-        // Single 로드로 기존 일반 씬 교체
         yield return SceneManager.LoadSceneAsync(
             MainMenuScene,
             LoadSceneMode.Single);
 
-        Debug.Log("[GameFlow] MainMenu 로드 완료");
-
         isTransitioning = false;
     }
 
-    // 양봉장
     private IEnumerator OpenApiaryRoutine()
     {
         isTransitioning = true;
@@ -74,14 +66,12 @@ public class GameFlowManager
         if (GameBootstrap.Instance == null ||
             GameBootstrap.Instance.GameWorld == null)
         {
-            Debug.LogError(
-                "[GameFlow] GameWorld가 없습니다.");
-
+            Debug.LogError("[GameFlow] GameWorld가 없습니다.");
             isTransitioning = false;
             yield break;
         }
 
-        // 공통 UI 로드
+        // 공통 UI 유지
         if (!IsSceneLoaded(SharedUIScene))
         {
             yield return SceneManager.LoadSceneAsync(
@@ -89,14 +79,12 @@ public class GameFlowManager
                 LoadSceneMode.Additive);
         }
 
-        // 기존 메인 메뉴 제거
-        Debug.Log("[GameFlow] MainMenu 언로드 시작");
-
         yield return UnloadIfLoaded(MainMenuScene);
 
-        Debug.Log("[GameFlow] MainMenu 언로드 완료");
+        // 관찰 카메라 참조
+        Camera oldCamera = FindSceneCamera(ObservationScene);
 
-        // 양봉장 로드
+        // 양봉장 씬을 먼저 로드
         if (!IsSceneLoaded(ApiaryScene))
         {
             yield return SceneManager.LoadSceneAsync(
@@ -108,28 +96,24 @@ public class GameFlowManager
             SceneManager.GetSceneByName(ApiaryScene);
 
         if (apiaryScene.IsValid() && apiaryScene.isLoaded)
-        {
             SceneManager.SetActiveScene(apiaryScene);
 
-            // 이전 양봉장 카메라 상태 복원
-            if (apiaryCameraState.HasSavedState)
-            {
-                Camera camera = FindApiaryCamera();
+        Camera newCamera = FindSceneCamera(ApiaryScene);
 
-                if (camera != null)
-                {
-                    apiaryCameraState.Restore(camera);
-
-                    Debug.Log(
-                        "[GameFlow] 양봉장 카메라 상태 복원 완료");
-                }
-                else
-                {
-                    Debug.LogWarning(
-                        "[GameFlow] 복원할 양봉장 카메라를 찾지 못했습니다.");
-                }
-            }
+        // 저장된 카메라 상태 복원
+        if (newCamera != null &&
+            apiaryCameraState.HasSavedState)
+        {
+            apiaryCameraState.Restore(newCamera);
         }
+
+        // 이전 카메라 비활성화
+        if (oldCamera != null)
+            SetCameraActive(oldCamera, false);
+
+        // 새 카메라 활성화
+        if (newCamera != null)
+            SetCameraActive(newCamera, true);
 
         // 관찰 씬 제거
         yield return UnloadIfLoaded(ObservationScene);
@@ -137,37 +121,24 @@ public class GameFlowManager
         isTransitioning = false;
     }
 
-    // 관찰 씬
     private IEnumerator OpenObservationRoutine(
         int gridX,
         int gridY)
     {
         isTransitioning = true;
 
-        // 관찰 대상 저장
         ObservationContext.GridX = gridX;
         ObservationContext.GridY = gridY;
 
         // 양봉장 카메라 상태 저장
-        Camera camera = FindApiaryCamera();
+        Camera oldCamera = FindSceneCamera(ApiaryScene);
 
-        if (camera != null)
+        if (oldCamera != null)
         {
-            apiaryCameraState.Save(camera);
-
-            Debug.Log(
-                "[GameFlow] 양봉장 카메라 상태 저장 완료");
-        }
-        else
-        {
-            Debug.LogWarning(
-                "[GameFlow] 양봉장 카메라를 찾지 못했습니다.");
+            apiaryCameraState.Save(oldCamera);
         }
 
-        // 양봉장 씬 언로드
-        yield return UnloadIfLoaded(ApiaryScene);
-
-        // 관찰 씬 로드
+        // 관찰 씬을 먼저 로드
         if (!IsSceneLoaded(ObservationScene))
         {
             yield return SceneManager.LoadSceneAsync(
@@ -184,14 +155,27 @@ public class GameFlowManager
             SceneManager.SetActiveScene(observationScene);
         }
 
+        Camera newCamera =
+            FindSceneCamera(ObservationScene);
+
+        // 이전 카메라 비활성화
+        if (oldCamera != null)
+            SetCameraActive(oldCamera, false);
+
+        // 새 카메라 활성화
+        if (newCamera != null)
+            SetCameraActive(newCamera, true);
+
+        // 양봉장 씬 제거
+        yield return UnloadIfLoaded(ApiaryScene);
+
         isTransitioning = false;
     }
 
-    // Apiary 씬의 카메라 검색
-    private static Camera FindApiaryCamera()
+    private static Camera FindSceneCamera(string sceneName)
     {
         Scene scene =
-            SceneManager.GetSceneByName(ApiaryScene);
+            SceneManager.GetSceneByName(sceneName);
 
         if (!scene.IsValid() || !scene.isLoaded)
             return null;
@@ -208,7 +192,22 @@ public class GameFlowManager
         return null;
     }
 
-    // 씬 로드 상태 확인
+    private static void SetCameraActive(
+        Camera camera,
+        bool active)
+    {
+        if (camera == null)
+            return;
+
+        camera.enabled = active;
+
+        AudioListener listener =
+            camera.GetComponent<AudioListener>();
+
+        if (listener != null)
+            listener.enabled = active;
+    }
+
     private static bool IsSceneLoaded(string sceneName)
     {
         Scene scene =
@@ -217,9 +216,7 @@ public class GameFlowManager
         return scene.IsValid() && scene.isLoaded;
     }
 
-    // 로드된 씬만 언로드
-    private static IEnumerator UnloadIfLoaded(
-        string sceneName)
+    private static IEnumerator UnloadIfLoaded(string sceneName)
     {
         Scene scene =
             SceneManager.GetSceneByName(sceneName);
@@ -230,7 +227,6 @@ public class GameFlowManager
         }
     }
 
-    // 새 게임 시작 시 카메라 상태 초기화
     public void ResetApiaryCamera()
     {
         apiaryCameraState.Clear();
