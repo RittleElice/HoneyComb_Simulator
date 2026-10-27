@@ -177,7 +177,12 @@ public static class ItemVisualTests
             AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(source.GetPrefab(ItemKind.BroodBox,ItemViewContext.Inventory)),file);
             var prefab=AssetDatabase.LoadAssetAtPath<GameObject>(file);
             var registry=go.AddComponent<ItemPrefabRegistry>();
-            var serialized=new SerializedObject(registry);
+            var catalog=ScriptableObject.CreateInstance<ItemPrefabCatalog>();
+            AssetDatabase.CreateAsset(catalog,folder+"/Catalog.asset");
+            var binding=new SerializedObject(registry);
+            binding.FindProperty("catalog").objectReferenceValue=catalog;
+            binding.ApplyModifiedPropertiesWithoutUndo();
+            var serialized=new SerializedObject(catalog);
             var entries=serialized.FindProperty("entries"); entries.arraySize=1;
             var entry=entries.GetArrayElementAtIndex(0);
             entry.FindPropertyRelative("kind").enumValueIndex=(int)ItemKind.BroodBox;
@@ -187,12 +192,15 @@ public static class ItemVisualTests
             Sprite b=source.GetSprite(ItemKind.Lid,ItemViewContext.Observation);
             entry.FindPropertyRelative("sprite").objectReferenceValue=a;
             serialized.ApplyModifiedPropertiesWithoutUndo();
-            Check(ItemPrefabRegistryEditor.SyncPrefabs(registry)==1 && prefab.GetComponent<UIItemPartView>().Image.sprite==a,"registry sync changes prefab asset");
-            Check(ItemPrefabRegistryEditor.SyncPrefabs(registry)==0,"sync is idempotent");
+            Check(ItemPrefabCatalogEditor.SyncPrefabs(catalog)==1 && prefab.GetComponent<UIItemPartView>().Image.sprite==a,"registry sync changes prefab asset");
+            Check(registry.GetSprite(ItemKind.BroodBox,ItemViewContext.Inventory)==a,"catalog lookup initial image");
+            Check(ItemPrefabCatalogEditor.SyncPrefabs(catalog)==0,"sync is idempotent");
             serialized.Update(); entries=serialized.FindProperty("entries");
             entries.GetArrayElementAtIndex(0).FindPropertyRelative("sprite").objectReferenceValue=b;
             serialized.ApplyModifiedPropertiesWithoutUndo();
-            Check(ItemPrefabRegistryEditor.SyncPrefabs(registry)==1 && prefab.GetComponent<UIItemPartView>().Image.sprite==b,"replacing registry image updates prefab again");
+            Check(ItemPrefabCatalogEditor.SyncPrefabs(catalog)==1 && prefab.GetComponent<UIItemPartView>().Image.sprite==b,"replacing registry image updates prefab again");
+            Check(registry.GetSprite(ItemKind.BroodBox,ItemViewContext.Inventory)==b,"catalog edits invalidate prior lookup");
+            Check(registry.GetPrefab(ItemKind.Generic,ItemViewContext.Apiary)==null,"missing entry safely returns empty default");
         }
         finally
         {
