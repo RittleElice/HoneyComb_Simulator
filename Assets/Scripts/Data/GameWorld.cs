@@ -44,7 +44,7 @@ public class GameWorld
         }
 
         // 가방과 손 초기화
-        Inventory = new InventoryData(8);
+        Inventory = new InventoryData(12);
         Hand = new HandData();
 
         // 테스트용 단상
@@ -74,5 +74,19 @@ public class GameWorld
         Inventory.TryAdd(
             new ItemData(105, "소비장 2", ItemKind.Frame)
         );
+        
+        // 추가 테스트용 계상 3개
+        Inventory.TryAdd(
+            new ItemData(106, "계상 3", ItemKind.Super)
+        );
+
+        Inventory.TryAdd(
+            new ItemData(107, "계상 4", ItemKind.Super)
+        );
+
+        Inventory.TryAdd(
+            new ItemData(108, "계상 5", ItemKind.Super)
+        );
+
     }
 }

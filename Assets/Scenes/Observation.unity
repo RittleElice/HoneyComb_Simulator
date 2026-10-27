@@ -285,6 +285,7 @@ GameObject:
   - component: {fileID: 446444865}
   - component: {fileID: 446444864}
   - component: {fileID: 446444863}
+  - component: {fileID: 446444866}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -366,6 +367,50 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &446444866
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 446444862}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
+  m_RenderShadows: 1
+  m_RequiresDepthTextureOption: 2
+  m_RequiresOpaqueTextureOption: 2
+  m_CameraType: 0
+  m_Cameras: []
+  m_RendererIndex: -1
+  m_VolumeLayerMask:
+    serializedVersion: 2
+    m_Bits: 1
+  m_VolumeTrigger: {fileID: 0}
+  m_VolumeFrameworkUpdateModeOption: 2
+  m_RenderPostProcessing: 0
+  m_Antialiasing: 0
+  m_AntialiasingQuality: 2
+  m_StopNaN: 0
+  m_Dithering: 0
+  m_ClearDepth: 1
+  m_AllowXRRendering: 1
+  m_AllowHDROutput: 1
+  m_UseScreenCoordOverride: 0
+  m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
+  m_RequiresDepthTexture: 0
+  m_RequiresColorTexture: 0
+  m_TaaSettings:
+    m_Quality: 3
+    m_FrameInfluence: 0.1
+    m_JitterScale: 1
+    m_MipBias: 0
+    m_VarianceClampScale: 0.9
+    m_ContrastAdaptiveSharpening: 0
+  m_Version: 2
 --- !u!1 &468667751
 GameObject:
   m_ObjectHideFlags: 0
@@ -428,6 +473,82 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &910000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 182998584}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7aea48bbb7ad4c77a82b98c36701fd91, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationSelectionController
+  observation: {fileID: 182998586}
+  presenter: {fileID: 1767056663}
+  ground: {fileID: 910000003}
+  inputArea: {fileID: 164535431}
+--- !u!114 &910000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 182998584}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cbccc556d144cee803b662a98862bdc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationSelectionHighlight
+  selection: {fileID: 910000001}
+  color: {r: 1, g: 0.8, b: 0.1, a: 1}
+  width: {x: 4, y: 4}
+--- !u!114 &910000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1702219563}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3b7ab86333245339419a5a4ffe3eddf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationHitArea
+  polygon:
+  - {x: 0, y: 0}
+  - {x: 0.6666667, y: 0}
+  - {x: 1, y: 1}
+  - {x: 0.33333334, y: 1}
+--- !u!114 &910000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1483272630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1b5c4c6e5bd4bfe89599a30d86f07c1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationActionUI
+  selection: {fileID: 910000001}
+  buttonContainer: {fileID: 468667752}
+  buttonPrefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+  panelCanvasGroup: {fileID: 910000005}
+--- !u!225 &910000005
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1483272630}
+  m_Enabled: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &1097976273
 GameObject:
   m_ObjectHideFlags: 0
@@ -558,6 +679,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1141028981}
+  - component: {fileID: 1141028983}
+  - component: {fileID: 1141028982}
   m_Layer: 5
   m_Name: ObservationViewport
   m_TagString: Untagged
@@ -580,11 +703,51 @@ RectTransform:
   - {fileID: 1767056662}
   m_Father: {fileID: 164535431}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1141028982
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1141028980}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95b39f954f93d1b4ca2501ecee985a03, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationCameraController
+  viewport: {fileID: 1141028981}
+  world: {fileID: 1767056662}
+  groundImage: {fileID: 1702219564}
+  presenter: {fileID: 1767056663}
+  selection: {fileID: 910000001}
+  minZoom: 0.5
+  maxZoom: 1.5
+  zoomSpeed: 0.15
+  fitPadding: 40
+  initialZoom: 0.75
+  initialVerticalOffset: -600
+  panSensitivity: 1
+  dragThreshold: 15
+  verticalPanMargin: 1000
+--- !u!114 &1141028983
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1141028980}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3312d7739989d2b4e91e6319e9a96d76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.RectMask2D
+  m_Padding: {x: 0, y: 0, z: 0, w: 0}
+  m_Softness: {x: 0, y: 0}
 --- !u!1 &1483272630
 GameObject:
   m_ObjectHideFlags: 0
@@ -774,7 +937,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: -454}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1767056663
@@ -974,79 +1137,3 @@ SceneRoots:
   - {fileID: 446444865}
   - {fileID: 164535431}
   - {fileID: 182998585}
---- !u!114 &910000001
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 182998584}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7aea48bbb7ad4c77a82b98c36701fd91, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::ObservationSelectionController
-  observation: {fileID: 182998586}
-  presenter: {fileID: 1767056663}
-  ground: {fileID: 910000003}
-  inputArea: {fileID: 164535431}
---- !u!114 &910000002
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 182998584}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3cbccc556d144cee803b662a98862bdc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::ObservationSelectionHighlight
-  selection: {fileID: 910000001}
-  color: {r: 1, g: 0.8, b: 0.1, a: 1}
-  width: {x: 4, y: 4}
---- !u!114 &910000003
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1702219563}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e3b7ab86333245339419a5a4ffe3eddf, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::ObservationHitArea
-  polygon:
-  - {x: 0, y: 0}
-  - {x: 0.6666666666666666, y: 0}
-  - {x: 1, y: 1}
-  - {x: 0.3333333333333333, y: 1}
---- !u!114 &910000004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1483272630}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b1b5c4c6e5bd4bfe89599a30d86f07c1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::ObservationActionUI
-  selection: {fileID: 910000001}
-  buttonContainer: {fileID: 468667752}
-  buttonPrefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
-  panelCanvasGroup: {fileID: 910000005}
---- !u!225 &910000005
-CanvasGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1483272630}
-  m_Enabled: 1
-  m_Alpha: 0
-  m_Interactable: 0
-  m_BlocksRaycasts: 0
-  m_IgnoreParentGroups: 0

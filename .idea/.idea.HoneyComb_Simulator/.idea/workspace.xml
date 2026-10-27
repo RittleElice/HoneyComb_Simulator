@@ -6,8 +6,22 @@
   <component name="ChangeListManager">
     <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/BroodBox/PF_BroodBox_Hand.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/BroodBox/PF_BroodBox_Hand.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/BroodBox/PF_BroodBox_Inventory.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/BroodBox/PF_BroodBox_Inventory.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/BroodBox/PF_BroodBox_Observation.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/BroodBox/PF_BroodBox_Observation.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Frame/PF_Frame_Hand.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Frame/PF_Frame_Hand.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Frame/PF_Frame_Inventory.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Frame/PF_Frame_Inventory.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Frame/PF_Frame_Observation.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Frame/PF_Frame_Observation.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Lid/PF_Lid_Hand.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Lid/PF_Lid_Hand.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Lid/PF_Lid_Inventory.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Lid/PF_Lid_Inventory.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Lid/PF_Lid_Observation.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Lid/PF_Lid_Observation.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Super/PF_Super_Hand.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Super/PF_Super_Hand.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Super/PF_Super_Inventory.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Super/PF_Super_Inventory.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Super/PF_Super_Observation.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Super/PF_Super_Observation.prefab" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Assets/Scenes/Observation.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scenes/Observation.unity" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationItemView.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationItemView.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scenes/SharedUI.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scenes/SharedUI.unity" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/GameWorld.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/GameWorld.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationItemPresenter.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationItemPresenter.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -133,7 +147,7 @@
       <workItem from="1792993372909" duration="4463000" />
       <workItem from="1793019402024" duration="2385000" />
       <workItem from="1793077776290" duration="1708000" />
-      <workItem from="1793086316788" duration="4692000" />
+      <workItem from="1793086316788" duration="8110000" />
     </task>
     <servers />
   </component>

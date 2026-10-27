@@ -35,7 +35,7 @@ public class ObservationItemPresenter : MonoBehaviour
         currentView = root.AddComponent<ItemAssemblyView>();
         currentView.Initialize(item, prefabRegistry, ItemViewContext.Observation,
             fallbackPrefab, maxWidth, maxHeight,
-            AssemblyAlignment.BaseAnchor, AssemblyScaleMode.FitWithinBounds);
+            AssemblyAlignment.BaseAnchor, AssemblyScaleMode.Fixed);
 
         if (groundImage == null)
             Debug.LogWarning("[ObservationItemPresenter] Ground Image를 연결하세요.", this);

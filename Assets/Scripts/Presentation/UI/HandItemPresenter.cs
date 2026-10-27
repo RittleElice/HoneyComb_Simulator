@@ -546,7 +546,7 @@ public class HandItemPresenter : MonoBehaviour
     public bool BlocksObservationInput(Vector2 position) =>
         isActiveAndEnabled && (isDragging || IsPointerOnHand(position));
 
-    // 실제 Image 컴포넌트의 사각형으로 판정
+    // Use the same visible-pixel test as equipment selection and camera input shielding.
     private bool IsPointerOnHand(Vector2 screenPosition)
     {
         if (currentView == null)
@@ -564,11 +564,7 @@ public class HandItemPresenter : MonoBehaviour
                 image.sprite == null)
                 continue;
 
-            if (RectTransformUtility
-                .RectangleContainsScreenPoint(
-                    image.rectTransform,
-                    screenPosition,
-                    uiCamera))
+            if (SpriteImageHitTest.Contains(image, screenPosition, uiCamera))
             {
                 return true;
             }
