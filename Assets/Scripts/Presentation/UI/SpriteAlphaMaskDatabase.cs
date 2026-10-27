@@ -11,6 +11,19 @@ public sealed class SpriteAlphaMaskDatabase : ScriptableObject
         public Sprite sprite;
         public int width, height;
         public byte[] alpha;
+        [NonSerialized] private bool bottomComputed;
+        [NonSerialized] private float bottom;
+
+        public float OpaqueBottom()
+        {
+            if (bottomComputed) return bottom;
+            bottomComputed = true;
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                    if (alpha[y * width + x] >= 26)
+                        return bottom = (float)y / height;
+            return bottom = 0f;
+        }
 
         public float Sample(Vector2 uv, bool point)
         {
@@ -33,6 +46,14 @@ public sealed class SpriteAlphaMaskDatabase : ScriptableObject
     private static SpriteAlphaMaskDatabase loaded;
     public string SourceFingerprint => sourceFingerprint;
     public int Count => entries.Count;
+
+    public static bool TryGetOpaqueBottom(Sprite sprite, out float bottom)
+    {
+        bottom = 0f;
+        if (!TrySample(sprite, Vector2.zero, out _)) return false;
+        bottom = loaded.index[sprite].OpaqueBottom();
+        return true;
+    }
 
     public static bool TrySample(Sprite sprite, Vector2 uv, out float alpha)
     {

@@ -741,11 +741,11 @@ MonoBehaviour:
   itemPrefab: {fileID: 5879928347907685988, guid: 6ec61c54f22a7144bab31703aca01d42, type: 3}
   displayScale: 0.8
   raisedHeight: 300
-  loweredHeight: -350
+  loweredHeight: -600
   inspectionHeight: 500
   raisedHoldDuration: 0.2
   animationDuration: 0.3
-  inspectionScale: 1.5
+  inspectionScale: 1
   displayWidth: 800
   displayHeight: 1200
 --- !u!114 &1261923421

@@ -28,8 +28,13 @@ public class ObservationCameraController : MonoBehaviour
     [SerializeField, Min(0.01f)]
     private float initialZoom = 1f;
 
-    [SerializeField]
+#pragma warning disable CS0414 // Retain old serialized data without applying the obsolete center offset.
+    [SerializeField, HideInInspector]
     private float initialVerticalOffset = 0f;
+#pragma warning restore CS0414
+
+    [SerializeField, Min(0f)]
+    private float initialBottomPadding = 160f;
 
     [Header("Vertical Pan")]
     [SerializeField, Min(0.01f)]
@@ -71,9 +76,7 @@ public class ObservationCameraController : MonoBehaviour
             minZoom,
             maxZoom);
 
-        RecalculateBounds();
-
-        ApplyInitialCamera();
+        // The first LateUpdate runs after every presenter's Start has created its equipment.
     }
 
     private void LateUpdate()
@@ -209,16 +212,29 @@ public class ObservationCameraController : MonoBehaviour
 
         Vector2 position = world.anchoredPosition;
 
-        position.y =
-            viewport.rect.center.y -
-            contentBounds.center.y * world.localScale.y +
-            initialVerticalOffset;
+        position.y = GetBottomAlignedPosition();
 
         world.anchoredPosition = position;
 
         ClampPosition();
 
         initialCameraApplied = true;
+    }
+
+    private float GetBottomAlignedPosition()
+    {
+        var image = groundImage.GetComponent<UnityEngine.UI.Image>();
+        Rect rect = image != null ? SpriteImageHitTest.VisibleRect(image) : groundImage.rect;
+        float bottom = 0f;
+        if (image != null && image.overrideSprite != null)
+            SpriteAlphaMaskDatabase.TryGetOpaqueBottom(image.overrideSprite, out bottom);
+        Vector3 groundPoint = groundImage.TransformPoint(new Vector3(rect.center.x,
+            rect.yMin + rect.height * bottom));
+        Vector3 target = viewport.TransformPoint(new Vector3(viewport.rect.center.x,
+            viewport.rect.yMin + initialBottomPadding));
+        // Compare in the anchored transform's parent space, including arbitrary anchors/pivots.
+        return world.anchoredPosition.y + world.parent.InverseTransformPoint(target).y
+            - world.parent.InverseTransformPoint(groundPoint).y;
     }
 
     private void HandleZoom()
@@ -550,12 +566,14 @@ public class ObservationCameraController : MonoBehaviour
             viewport.rect.center.y -
             contentBounds.center.y * scale;
 
+        float bottomAligned = GetBottomAlignedPosition();
+
         if (contentHeight <= viewportHeight)
         {
             position.y = Mathf.Clamp(
                 position.y,
-                centerY - verticalPanMargin,
-                centerY + verticalPanMargin);
+                Mathf.Min(centerY, bottomAligned) - verticalPanMargin,
+                Mathf.Max(centerY, bottomAligned) + verticalPanMargin);
         }
         else
         {
@@ -567,8 +585,8 @@ public class ObservationCameraController : MonoBehaviour
 
             position.y = Mathf.Clamp(
                 position.y,
-                minimum,
-                maximum);
+                Mathf.Min(minimum, bottomAligned - verticalPanMargin),
+                Mathf.Max(maximum, bottomAligned + verticalPanMargin));
         }
 
         position.x =
@@ -608,5 +626,6 @@ public class ObservationCameraController : MonoBehaviour
         dragThreshold = Mathf.Max(0f, dragThreshold);
         verticalPanMargin = Mathf.Max(0f, verticalPanMargin);
         fitPadding = Mathf.Max(0f, fitPadding);
+        initialBottomPadding = Mathf.Max(0f, initialBottomPadding);
     }
 }
