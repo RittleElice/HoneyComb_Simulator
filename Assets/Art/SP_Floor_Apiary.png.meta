@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: "\uC591\uBD09\uC7A5_\uBC14\uB2E5_0"
+      name: SP_Floor_Apiary
       rect:
         serializedVersion: 2
         x: 0
@@ -121,7 +121,7 @@ TextureImporter:
         width: 762
         height: 763
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 57cec7a51a7daf64b95883580a14343f
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      "\uC591\uBD09\uC7A5_\uBC14\uB2E5_0": 2685013507427224560
+      SP_Floor_Apiary: 2685013507427224560
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -239,6 +239,7 @@ public class ApiaryItemView : MonoBehaviour
         return visual.Renderer;
     }
 
+    
     private PartVisual CreatePartVisual(ItemData item)
     {
         GameObject prefab = GetPrefab(item.Kind);
@@ -252,8 +253,19 @@ public class ApiaryItemView : MonoBehaviour
 
         GameObject obj = Instantiate(prefab, visualRoot);
 
+        // Registry의 Apiary 스프라이트 적용
+        // HiveView 초기화보다 먼저 실행해야 한다.
+        if (prefabRegistry != null)
+        {
+            prefabRegistry.ApplySprite(
+                obj,
+                item.Kind,
+                ItemViewContext.Apiary);
+        }
+
         HiveView view = obj.GetComponent<HiveView>();
-        SpriteRenderer renderer = obj.GetComponent<SpriteRenderer>();
+        SpriteRenderer renderer =
+            obj.GetComponent<SpriteRenderer>();
 
         if (view == null ||
             renderer == null ||
@@ -279,19 +291,18 @@ public class ApiaryItemView : MonoBehaviour
             view.Initialize(
                 hive,
                 grid.Width,
-                gridView.CellSize
-            );
+                gridView.CellSize);
         }
 
-        // 클릭 판정은 SpriteRenderer 경계를 사용
+        // 기존 Collider 비활성화 유지
         foreach (Collider collider in
-            obj.GetComponentsInChildren<Collider>(true))
+                 obj.GetComponentsInChildren<Collider>(true))
         {
             collider.enabled = false;
         }
 
         foreach (Collider2D collider in
-            obj.GetComponentsInChildren<Collider2D>(true))
+                 obj.GetComponentsInChildren<Collider2D>(true))
         {
             collider.enabled = false;
         }
@@ -303,6 +314,7 @@ public class ApiaryItemView : MonoBehaviour
             Renderer = renderer
         };
     }
+
 
     public void ApplyGridSorting(
         SpriteRenderer renderer,

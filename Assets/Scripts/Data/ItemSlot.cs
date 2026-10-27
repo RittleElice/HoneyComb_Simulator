@@ -9,23 +9,21 @@ public class ItemSlot
 
     public MovableItem Value { get; private set; }
 
-    // 조립체를 단일 부품으로 취급하지 않는다.
     public ItemData Item => Value as ItemData;
-
     public bool IsEmpty => Value == null;
 
-    // 일반 슬롯: 조립 허용
+    // 슬롯의 내용물이 변경되었을 때 발생
+    public event Action<ItemSlot> OnChanged;
+
     public ItemSlot() : this(null, true)
     {
     }
 
-    // 제한 슬롯: 기본적으로 조립 불허
     internal ItemSlot(Predicate<MovableItem> accepts)
         : this(accepts, false)
     {
     }
 
-    // 슬롯별 배치 제한과 조립 허용 여부를 별도로 지정
     internal ItemSlot(
         Predicate<MovableItem> accepts,
         bool allowAssembly)
@@ -45,6 +43,32 @@ public class ItemSlot
         return accepts == null || accepts(value);
     }
 
+    private void NotifyChanged()
+    {
+        OnChanged?.Invoke(this);
+    }
+
+    // 내부 전용: 이벤트를 발생시키지 않는다.
+    private void SetWithoutNotify(MovableItem value)
+    {
+        Value = value;
+
+        if (value != null)
+            value.Owner = this;
+    }
+
+    // 내부 전용: 이벤트를 발생시키지 않는다.
+    private MovableItem TakeWithoutNotify()
+    {
+        MovableItem value = Value;
+
+        if (value != null)
+            value.Owner = null;
+
+        Value = null;
+        return value;
+    }
+
     public bool TryInsert(ItemData item)
     {
         return TryInsertValue(item);
@@ -62,26 +86,20 @@ public class ItemSlot
             assembly.Parts.Count == 0)
             return false;
 
-        Set(value);
+        SetWithoutNotify(value);
+
+        NotifyChanged();
         return true;
-    }
-
-    private void Set(MovableItem value)
-    {
-        Value = value;
-
-        if (value != null)
-            value.Owner = this;
     }
 
     public MovableItem TakeValue()
     {
-        MovableItem value = Value;
+        if (IsEmpty)
+            return null;
 
-        if (value != null)
-            value.Owner = null;
+        MovableItem value = TakeWithoutNotify();
 
-        Value = null;
+        NotifyChanged();
         return value;
     }
 
@@ -109,11 +127,14 @@ public class ItemSlot
             !other.Accepts(Value))
             return false;
 
-        MovableItem value = TakeValue();
-        MovableItem otherValue = other.TakeValue();
+        MovableItem value = TakeWithoutNotify();
+        MovableItem otherValue = other.TakeWithoutNotify();
 
-        Set(otherValue);
-        other.Set(value);
+        SetWithoutNotify(otherValue);
+        other.SetWithoutNotify(value);
+
+        NotifyChanged();
+        other.NotifyChanged();
 
         return true;
     }
@@ -127,7 +148,13 @@ public class ItemSlot
             !target.Accepts(Value))
             return false;
 
-        target.Set(TakeValue());
+        MovableItem value = TakeWithoutNotify();
+
+        target.SetWithoutNotify(value);
+
+        NotifyChanged();
+        target.NotifyChanged();
+
         return true;
     }
 
@@ -143,7 +170,6 @@ public class ItemSlot
         if (!AssemblyRules.CanCombine(Value, upper.Value))
             return false;
 
-        // 결합 결과의 부품이 목적지 배치 규칙을 만족하는지 검사
         if (accepts != null)
         {
             if (!AllPartsAccepted(Value) ||
@@ -178,14 +204,23 @@ public class ItemSlot
         if (!CanCombineFrom(upper))
             return false;
 
-        List<ItemData> parts = Release(TakeValue());
-        parts.AddRange(Release(upper.TakeValue()));
+        List<ItemData> parts =
+            Release(TakeWithoutNotify());
 
-        Set(ItemAssembly.Pack(parts));
+        parts.AddRange(
+            Release(upper.TakeWithoutNotify()));
+
+        SetWithoutNotify(ItemAssembly.Pack(parts));
+
+        NotifyChanged();
+        upper.NotifyChanged();
+
         return true;
     }
 
-    public bool TrySplitTo(int firstUpperIndex, ItemSlot target)
+    public bool TrySplitTo(
+        int firstUpperIndex,
+        ItemSlot target)
     {
         if (!(Value is ItemAssembly assembly) ||
             target == null ||
@@ -200,11 +235,9 @@ public class ItemSlot
         if (firstUpperIndex == 0)
             return TryMoveTo(target);
 
-        // 조립체를 받을 수 없는 슬롯에는 분리 불가
         if (!target.allowAssembly)
             return false;
 
-        // 분리된 상단 부품의 배치 가능 여부 검사
         for (int i = firstUpperIndex;
              i < assembly.Parts.Count;
              i++)
@@ -213,7 +246,8 @@ public class ItemSlot
                 return false;
         }
 
-        List<ItemData> parts = Release(TakeValue());
+        List<ItemData> parts =
+            Release(TakeWithoutNotify());
 
         List<ItemData> upper = parts.GetRange(
             firstUpperIndex,
@@ -223,8 +257,11 @@ public class ItemSlot
             firstUpperIndex,
             parts.Count - firstUpperIndex);
 
-        Set(ItemAssembly.Pack(parts));
-        target.Set(ItemAssembly.Pack(upper));
+        SetWithoutNotify(ItemAssembly.Pack(parts));
+        target.SetWithoutNotify(ItemAssembly.Pack(upper));
+
+        NotifyChanged();
+        target.NotifyChanged();
 
         return true;
     }

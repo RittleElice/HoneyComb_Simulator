@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: "\uC591\uBD09\uC7A5_\uB2E8\uC0C1_0"
+      name: SP_BroodBox_Apiary
       rect:
         serializedVersion: 2
         x: 0
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      "\uC591\uBD09\uC7A5_\uB2E8\uC0C1_0": 112980336061508253
+      SP_BroodBox_Apiary: 112980336061508253
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

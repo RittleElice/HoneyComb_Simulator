@@ -28,37 +28,85 @@ public class HandUI : MonoBehaviour
     private Vector2 bottomOffset = Vector2.zero;
 
     private HandData hand;
+    private ItemSlot observedSlot;
+
     private ItemAssemblyView currentView;
     private MovableItem cachedItem;
 
     private void Start()
     {
+        BindHand();
+        Refresh();
+    }
+
+    private void BindHand()
+    {
         GameBootstrap bootstrap = GameBootstrap.Instance;
 
-        if (bootstrap == null || bootstrap.GameWorld == null)
+        if (bootstrap == null ||
+            bootstrap.GameWorld == null)
         {
             Debug.LogError(
                 "[HandUI] GameWorld가 없습니다.");
-
-            enabled = false;
             return;
         }
 
-        hand = bootstrap.GameWorld.Hand;
+        HandData currentHand = bootstrap.GameWorld.Hand;
+
+        if (currentHand == null)
+            return;
+
+        ItemSlot currentSlot = currentHand.Slot;
+
+        if (currentSlot == null)
+            return;
+
+        // 이미 같은 슬롯을 구독 중이면 중복 연결 방지
+        if (ReferenceEquals(observedSlot, currentSlot))
+        {
+            hand = currentHand;
+            return;
+        }
+
+        UnbindHand();
+
+        hand = currentHand;
+        observedSlot = currentSlot;
+
+        observedSlot.OnChanged += OnHandSlotChanged;
 
         if (prefabRegistry == null)
         {
             prefabRegistry =
                 FindAnyObjectByType<ItemPrefabRegistry>();
         }
+    }
 
+    private void UnbindHand()
+    {
+        if (observedSlot != null)
+            observedSlot.OnChanged -= OnHandSlotChanged;
+
+        observedSlot = null;
+        hand = null;
+    }
+
+    private void OnHandSlotChanged(ItemSlot slot)
+    {
         Refresh();
     }
 
     public void Refresh()
     {
+        // 새 게임 시작 등으로 HandData가 변경된 경우 재연결
+        BindHand();
+
         if (hand == null)
+        {
+            ClearItemView();
+            cachedItem = null;
             return;
+        }
 
         if (handText != null)
         {
@@ -67,23 +115,37 @@ public class HandUI : MonoBehaviour
                 : "손:";
         }
 
+        // 손이 비었으면 이미지 반드시 제거
+        if (hand.IsEmpty)
+        {
+            ClearItemView();
+            cachedItem = null;
+            return;
+        }
+
+        // 같은 아이템의 이미지가 정상적으로 존재하면 재사용
         if (ReferenceEquals(cachedItem, hand.Value) &&
-            (hand.IsEmpty || currentView != null))
+            currentView != null &&
+            currentView.gameObject.activeInHierarchy)
         {
             return;
         }
 
         ClearItemView();
-        cachedItem = hand.Value;
 
-        if (hand.IsEmpty)
-            return;
+        cachedItem = hand.Value;
 
         if (itemContainer == null)
         {
             Debug.LogWarning(
                 "[HandUI] Item Container가 없습니다.");
             return;
+        }
+
+        if (prefabRegistry == null)
+        {
+            prefabRegistry =
+                FindAnyObjectByType<ItemPrefabRegistry>();
         }
 
         GameObject root = new GameObject(
@@ -96,7 +158,6 @@ public class HandUI : MonoBehaviour
         ItemAssemblyView view =
             root.AddComponent<ItemAssemblyView>();
 
-        // 손에서는 하단 고정 정렬 사용
         view.Initialize(
             hand.Value,
             prefabRegistry,
@@ -111,11 +172,8 @@ public class HandUI : MonoBehaviour
 
         if (rect != null)
         {
-            // ItemContainer의 아래쪽 중앙을 기준으로 고정
             rect.anchorMin = new Vector2(0.5f, 0f);
             rect.anchorMax = new Vector2(0.5f, 0f);
-            // Bottom alignment already places the visible bottom at the root origin.
-            // Preserve the center pivot used by ItemAssemblyView child anchors.
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = bottomOffset;
         }
@@ -132,5 +190,11 @@ public class HandUI : MonoBehaviour
         }
 
         currentView = null;
+    }
+
+    private void OnDestroy()
+    {
+        UnbindHand();
+        ClearItemView();
     }
 }

@@ -79,8 +79,6 @@ public class GameFlowManager
                 LoadSceneMode.Additive);
         }
 
-        yield return UnloadIfLoaded(MainMenuScene);
-
         // 관찰 카메라 참조
         Camera oldCamera = FindSceneCamera(ObservationScene);
 
@@ -114,6 +112,9 @@ public class GameFlowManager
         // 새 카메라 활성화
         if (newCamera != null)
             SetCameraActive(newCamera, true);
+        
+        // 양봉장 카메라가 준비된 후 메인 메뉴 제거
+        yield return UnloadIfLoaded(MainMenuScene);
 
         // 관찰 씬 제거
         yield return UnloadIfLoaded(ObservationScene);

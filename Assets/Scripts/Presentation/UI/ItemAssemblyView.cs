@@ -103,6 +103,15 @@ public class ItemAssemblyView : MonoBehaviour
             }
 
             icon.Initialize(part);
+            
+            // Registry에 등록된 Sprite를 적용
+            if (registry != null)
+            {
+                registry.ApplySprite(
+                    obj,
+                    part.Kind,
+                    context);
+            }
 
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -196,18 +205,27 @@ public class ItemAssemblyView : MonoBehaviour
             totalWidth, totalHeight);
 
         // 조립체 전체 비율 유지 축소
-        float scale = 1f;
+        // 손에 든 장비는 층수와 관계없이 고정 크기로 표시
+        if (context == ItemViewContext.Hand)
+        {
+            root.localScale = Vector3.one;
+        }
+        else
+        {
+            // 소지품 등에서는 기존 자동 축소 유지
+            float scale = 1f;
 
-        if (totalWidth > 0f && maxWidth > 0f)
-            scale = Mathf.Min(
-                scale, maxWidth / totalWidth);
+            if (totalWidth > 0f && maxWidth > 0f)
+                scale = Mathf.Min(
+                    scale, maxWidth / totalWidth);
 
-        if (totalHeight > 0f && maxHeight > 0f)
-            scale = Mathf.Min(
-                scale, maxHeight / totalHeight);
+            if (totalHeight > 0f && maxHeight > 0f)
+                scale = Mathf.Min(
+                    scale, maxHeight / totalHeight);
 
-        root.localScale =
-            Vector3.one * Mathf.Clamp01(scale);
+            root.localScale =
+                Vector3.one * Mathf.Clamp01(scale);
+        }
     }
 
     private static Rect GetImageBounds(

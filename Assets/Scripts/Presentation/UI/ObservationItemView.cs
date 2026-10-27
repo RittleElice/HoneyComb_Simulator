@@ -55,7 +55,7 @@ public class ObservationItemView : MonoBehaviour
         currentView.Initialize(
             item,
             prefabRegistry,
-            ItemViewContext.Inventory,
+            ItemViewContext.Observation,
             fallbackPrefab,
             maxWidth,
             maxHeight,

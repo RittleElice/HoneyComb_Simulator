@@ -4,4 +4,4 @@ public abstract class MovableItem
     internal object Owner { get; set; }
     public abstract string Name { get; }
 }
-public enum ItemKind { Generic, BroodBox, Super, Lid, Frame }
+public enum ItemKind { Generic, BroodBox, Frame, Lid , Super}
