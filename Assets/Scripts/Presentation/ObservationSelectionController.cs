@@ -33,6 +33,8 @@ public class ObservationSelectionController : MonoBehaviour
         }
     }
 
+    public Image GroundImage => ground != null ? ground.Image : null;
+
     public Image SelectedImage
     {
         get
