@@ -463,7 +463,7 @@ public class HandItemPresenter : MonoBehaviour
         // 실제 이미지 영역에서 드래그 시작
         if (down && !isDragging)
         {
-            if (!IsPointerOnHand(screenPosition))
+            if (ObservationInputGuard.IsOverUI(screenPosition) || !IsPointerOnHand(screenPosition))
                 return;
 
             StopAnimation();
@@ -541,6 +541,10 @@ public class HandItemPresenter : MonoBehaviour
         return Mathf.Clamp01(
             (currentTopY - loweredHeight) / range);
     }
+
+    // Hand visuals use manual input, so they must also shield observation selection.
+    public bool BlocksObservationInput(Vector2 position) =>
+        isActiveAndEnabled && (isDragging || IsPointerOnHand(position));
 
     // 실제 Image 컴포넌트의 사각형으로 판정
     private bool IsPointerOnHand(Vector2 screenPosition)

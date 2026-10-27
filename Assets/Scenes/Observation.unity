@@ -234,6 +234,8 @@ GameObject:
   m_Component:
   - component: {fileID: 182998585}
   - component: {fileID: 182998586}
+  - component: {fileID: 910000001}
+  - component: {fileID: 910000002}
   m_Layer: 0
   m_Name: ObservationController
   m_TagString: Untagged
@@ -395,10 +397,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1483272631}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: -24, y: -24}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &468667753
 MonoBehaviour:
@@ -418,11 +420,11 @@ MonoBehaviour:
     m_Top: 0
     m_Bottom: 0
   m_ChildAlignment: 0
-  m_Spacing: 0
+  m_Spacing: 12
   m_ChildForceExpandWidth: 1
-  m_ChildForceExpandHeight: 1
-  m_ChildControlWidth: 0
-  m_ChildControlHeight: 0
+  m_ChildForceExpandHeight: 0
+  m_ChildControlWidth: 1
+  m_ChildControlHeight: 1
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
@@ -594,6 +596,8 @@ GameObject:
   - component: {fileID: 1483272631}
   - component: {fileID: 1483272633}
   - component: {fileID: 1483272632}
+  - component: {fileID: 910000004}
+  - component: {fileID: 910000005}
   m_Layer: 5
   m_Name: ObservationActionPanel
   m_TagString: Untagged
@@ -616,11 +620,11 @@ RectTransform:
   - {fileID: 468667752}
   m_Father: {fileID: 164535431}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -0.000061035156}
-  m_SizeDelta: {x: 0, y: -0.00012207}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 1, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
+  m_AnchoredPosition: {x: -24, y: 32}
+  m_SizeDelta: {x: 340, y: 210}
+  m_Pivot: {x: 1, y: 0}
 --- !u!114 &1483272632
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -634,7 +638,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0}
+  m_Color: {r: 0.08, g: 0.12, b: 0.18, a: 0.92}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -670,6 +674,7 @@ GameObject:
   - component: {fileID: 1702219564}
   - component: {fileID: 1702219566}
   - component: {fileID: 1702219565}
+  - component: {fileID: 910000003}
   m_Layer: 5
   m_Name: GroundImage
   m_TagString: Untagged
@@ -969,3 +974,79 @@ SceneRoots:
   - {fileID: 446444865}
   - {fileID: 164535431}
   - {fileID: 182998585}
+--- !u!114 &910000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 182998584}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7aea48bbb7ad4c77a82b98c36701fd91, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationSelectionController
+  observation: {fileID: 182998586}
+  presenter: {fileID: 1767056663}
+  ground: {fileID: 910000003}
+  inputArea: {fileID: 164535431}
+--- !u!114 &910000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 182998584}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cbccc556d144cee803b662a98862bdc, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationSelectionHighlight
+  selection: {fileID: 910000001}
+  color: {r: 1, g: 0.8, b: 0.1, a: 1}
+  width: {x: 4, y: 4}
+--- !u!114 &910000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1702219563}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3b7ab86333245339419a5a4ffe3eddf, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationHitArea
+  polygon:
+  - {x: 0, y: 0}
+  - {x: 0.6666666666666666, y: 0}
+  - {x: 1, y: 1}
+  - {x: 0.3333333333333333, y: 1}
+--- !u!114 &910000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1483272630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1b5c4c6e5bd4bfe89599a30d86f07c1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationActionUI
+  selection: {fileID: 910000001}
+  buttonContainer: {fileID: 468667752}
+  buttonPrefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+  panelCanvasGroup: {fileID: 910000005}
+--- !u!225 &910000005
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1483272630}
+  m_Enabled: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
