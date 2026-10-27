@@ -1,4 +1,3 @@
-
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -38,8 +37,11 @@ public class ApiaryItemView : MonoBehaviour
     private readonly Dictionary<ItemData, PartVisual> partViews =
         new Dictionary<ItemData, PartVisual>();
 
-    private readonly Dictionary<ItemSlot, MovableItem> cachedItems =
-        new Dictionary<ItemSlot, MovableItem>();
+    private ItemSlotObserver slotObserver;
+    private int observedWidth = -1;
+    private int observedHeight = -1;
+    private int observedUnlockedWidth = -1;
+    private bool refreshPending;
 
     private readonly HashSet<ItemData> activeParts =
         new HashSet<ItemData>();
@@ -52,89 +54,125 @@ public class ApiaryItemView : MonoBehaviour
 
     private void Start()
     {
-        if (gridView == null)
-            gridView = GetComponent<ApiaryGridView>();
-
-        if (prefabRegistry == null)
-            prefabRegistry =
-                FindAnyObjectByType<ItemPrefabRegistry>();
-
-        GameBootstrap bootstrap = GameBootstrap.Instance;
-
-        if (gridView == null ||
-            bootstrap == null ||
-            bootstrap.GameWorld == null)
-        {
-            Debug.LogError(
-                "[ApiaryItemView] GridView 또는 GameWorld가 없습니다.");
-
-            enabled = false;
-            return;
-        }
-
-        grid = bootstrap.GameWorld.Apiary.Grid;
-
-        GameObject root = new GameObject("EquipmentVisuals");
-        visualRoot = root.transform;
-
         Refresh();
+    }
+
+    private void OnEnable()
+    {
+        refreshPending = true;
+    }
+
+    private void OnDisable()
+    {
+        slotObserver?.Clear();
+        observedWidth = -1;
+        refreshPending = true;
+
+        if (visualRoot != null)
+            visualRoot.gameObject.SetActive(false);
     }
 
     private void Update()
     {
-        if (grid == null)
-            return;
+        GameBootstrap bootstrap = GameBootstrap.Instance;
+        ApiaryGrid source = bootstrap != null && bootstrap.GameWorld != null
+            ? bootstrap.GameWorld.Apiary.Grid
+            : null;
 
-        if (HasChanged())
+        bool topologyChanged = source != null &&
+            (source.Width != observedWidth ||
+             source.Height != observedHeight ||
+             source.UnlockedWidth != observedUnlockedWidth);
+
+        if (refreshPending || !ReferenceEquals(grid, source) || topologyChanged)
             Refresh();
     }
 
 
-    private bool HasChanged()
+    private void OnSlotChanged(ItemSlot slot)
     {
+        refreshPending = true;
+    }
+
+    private bool BindGrid()
+    {
+        if (gridView == null)
+            gridView = GetComponent<ApiaryGridView>();
+
+        if (gridView == null)
+        {
+            Debug.LogError("[ApiaryItemView] Grid View를 연결하세요.", this);
+            enabled = false;
+            return false;
+        }
+
+        if (prefabRegistry == null)
+            prefabRegistry = FindAnyObjectByType<ItemPrefabRegistry>();
+
+        if (slotObserver == null)
+            slotObserver = new ItemSlotObserver(OnSlotChanged);
+
+        GameBootstrap bootstrap = GameBootstrap.Instance;
+        ApiaryGrid source = bootstrap != null && bootstrap.GameWorld != null
+            ? bootstrap.GameWorld.Apiary.Grid
+            : null;
+
+        if (!ReferenceEquals(grid, source))
+        {
+            slotObserver.Clear();
+            // Cached visuals belong to the previous world's data.
+            foreach (PartVisual visual in partViews.Values)
+            {
+                if (visual.Object == null)
+                    continue;
+                visual.Object.SetActive(false);
+                Destroy(visual.Object);
+            }
+            partViews.Clear();
+            activeParts.Clear();
+            stackLinks.Clear();
+            grid = source;
+            observedWidth = -1;
+        }
+
         if (grid == null)
             return false;
 
-        int count = 0;
+        if (visualRoot == null)
+            visualRoot = new GameObject("EquipmentVisuals").transform;
 
-        for (int x = 0; x < grid.Width; x++)
+        visualRoot.gameObject.SetActive(true);
+
+        if (grid.Width != observedWidth ||
+            grid.Height != observedHeight ||
+            grid.UnlockedWidth != observedUnlockedWidth)
         {
-            for (int y = 0; y < grid.Height; y++)
-            {
-                ItemSlot slot = grid.GetItemSlot(x, y);
+            slotObserver.Clear();
+            for (int x = 0; x < grid.Width; x++)
+                for (int y = 0; y < grid.Height; y++)
+                    slotObserver.Observe(grid.GetItemSlot(x, y));
 
-                // 잠긴 격자는 슬롯이 없으므로 건너뛴다.
-                if (slot == null)
-                    continue;
-
-                count++;
-
-                if (!cachedItems.TryGetValue(
-                        slot, out MovableItem previous))
-                {
-                    return true;
-                }
-
-                if (!ReferenceEquals(previous, slot.Value))
-                {
-                    return true;
-                }
-            }
+            observedWidth = grid.Width;
+            observedHeight = grid.Height;
+            observedUnlockedWidth = grid.UnlockedWidth;
         }
 
-        return count != cachedItems.Count;
+        return true;
     }
 
 
     
     public void Refresh()
     {
-        if (grid == null)
+        if (!isActiveAndEnabled)
+            return;
+
+        refreshPending = false;
+        if (!BindGrid())
             return;
 
         activeParts.Clear();
         stackLinks.Clear();
-        cachedItems.Clear();
 
         for (int x = 0; x < grid.Width; x++)
         {
@@ -146,7 +184,6 @@ public class ApiaryItemView : MonoBehaviour
                 if (slot == null)
                     continue;
 
-                cachedItems[slot] = slot.Value;
 
                 if (!slot.IsEmpty)
                 {
@@ -593,6 +630,7 @@ public class ApiaryItemView : MonoBehaviour
 
     private void OnDestroy()
     {
+        slotObserver?.Dispose();
         partViews.Clear();
         stackLinks.Clear();
 

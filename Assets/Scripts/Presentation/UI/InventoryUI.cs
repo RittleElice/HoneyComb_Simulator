@@ -1,4 +1,3 @@
-
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -16,13 +15,6 @@ public class InventoryUI : MonoBehaviour
     [Header("기본 아이템 프리팹")]
     [SerializeField] private ItemIconView itemPrefab;
 
-    [Header("손 UI")]
-    [SerializeField] private HandUI handUI;
-
-    [Header("양봉장 선택")]
-    [SerializeField]
-    private ApiarySelectionController selectionController;
-
     [Header("조립체 표시 크기")]
     [SerializeField, Range(0.1f, 1f)]
     private float slotFillRatio = 0.9f;
@@ -39,82 +31,134 @@ public class InventoryUI : MonoBehaviour
     private readonly List<MovableItem> cachedItems =
         new List<MovableItem>();
 
+    private ItemSlotObserver slotObserver;
+    private bool started;
+    private bool refreshPending;
+
     private void Start()
     {
-        GameBootstrap bootstrap = GameBootstrap.Instance;
+        started = true;
+        Refresh();
+    }
 
-        if (bootstrap == null ||
-            bootstrap.GameWorld == null)
+    private void OnEnable()
+    {
+        if (started)
+            Refresh();
+    }
+
+    private void OnDisable()
+    {
+        slotObserver?.Clear();
+        refreshPending = true;
+    }
+
+    private void Update()
+    {
+        GameBootstrap bootstrap = GameBootstrap.Instance;
+        InventoryData source = bootstrap != null && bootstrap.GameWorld != null
+            ? bootstrap.GameWorld.Inventory
+            : null;
+
+        if (refreshPending || !ReferenceEquals(inventory, source))
+            Refresh();
+    }
+
+    private void OnSlotChanged(ItemSlot slot)
+    {
+        // Coalesce several slot notifications into one display refresh.
+        refreshPending = true;
+    }
+
+    private bool BindInventory()
+    {
+        GameBootstrap bootstrap = GameBootstrap.Instance;
+        InventoryData source = bootstrap != null && bootstrap.GameWorld != null
+            ? bootstrap.GameWorld.Inventory
+            : null;
+
+        if (source == null)
         {
-            Debug.LogError(
-                "[InventoryUI] GameWorld가 없습니다.");
-            enabled = false;
-            return;
+            slotObserver?.Clear();
+            if (inventory != null || slotObjects.Count > 0)
+                ClearSlots();
+            inventory = null;
+            hand = null;
+            return false;
         }
 
-        inventory = bootstrap.GameWorld.Inventory;
+        if (slotContainer == null || slotPrefab == null)
+        {
+            Debug.LogError("[InventoryUI] Slot Container / Slot Prefab을 연결하세요.", this);
+            enabled = false;
+            return false;
+        }
+
+        if (slotObserver == null)
+            slotObserver = new ItemSlotObserver(OnSlotChanged);
+
+        if (!ReferenceEquals(inventory, source))
+        {
+            slotObserver.Clear();
+            ClearSlots();
+            inventory = source;
+        }
+
         hand = bootstrap.GameWorld.Hand;
 
-        if (selectionController == null)
-        {
-            selectionController =
-                FindAnyObjectByType<ApiarySelectionController>();
-        }
-
         if (prefabRegistry == null)
+            prefabRegistry = FindAnyObjectByType<ItemPrefabRegistry>();
+
+        if (slotObjects.Count != inventory.Capacity)
         {
-            prefabRegistry =
-                FindAnyObjectByType<ItemPrefabRegistry>();
-        }
-
-        for (int i = 0; i < inventory.Capacity; i++)
-        {
-            int index = i;
-
-            GameObject slotObject =
-                Instantiate(slotPrefab, slotContainer);
-
-            slotObjects.Add(slotObject);
-            itemViews.Add(null);
-            cachedItems.Add(null);
-
-            Button button =
-                slotObject.GetComponent<Button>();
-
-            if (button != null)
+            ClearSlots();
+            for (int i = 0; i < inventory.Capacity; i++)
             {
-                button.onClick.AddListener(
-                    () => OnSlotClicked(index));
+                int index = i;
+                GameObject slotObject = Instantiate(slotPrefab, slotContainer);
+                slotObjects.Add(slotObject);
+                itemViews.Add(null);
+                cachedItems.Add(null);
+
+                Button button = slotObject.GetComponent<Button>();
+                if (button != null)
+                    button.onClick.AddListener(() => OnSlotClicked(index));
             }
         }
 
-        Refresh();
+        // Observe ignores duplicates, including repeated explicit Refresh calls.
+        for (int i = 0; i < inventory.Capacity; i++)
+            slotObserver.Observe(inventory.GetSlot(i));
+
+        return true;
     }
 
     private void OnSlotClicked(int index)
     {
-        ItemSlot selectedSlot = inventory.GetSlot(index);
+        if (!isActiveAndEnabled || !BindInventory() || hand == null)
+            return;
 
+        ItemSlot selectedSlot = inventory.GetSlot(index);
         if (selectedSlot == null)
             return;
 
         ApiarySelectionController controller =
             FindAnyObjectByType<ApiarySelectionController>();
-
         if (controller != null)
             controller.ClearSelection();
 
         hand.Swap(selectedSlot);
-
         Refresh();
 
-        if (handUI != null)
-            handUI.Refresh();
     }
 
     public void Refresh()
     {
-        if (inventory == null)
+        if (!isActiveAndEnabled)
+            return;
+
+        refreshPending = false;
+        if (!BindInventory())
             return;
 
         for (int i = 0; i < inventory.Capacity; i++)
@@ -202,5 +246,29 @@ public class InventoryUI : MonoBehaviour
         }
 
         itemViews[index] = null;
+    }
+
+    private void ClearSlots()
+    {
+        for (int i = 0; i < itemViews.Count; i++)
+            ClearItemView(i);
+
+        foreach (GameObject slotObject in slotObjects)
+        {
+            if (slotObject == null)
+                continue;
+            slotObject.SetActive(false);
+            Destroy(slotObject);
+        }
+
+        slotObjects.Clear();
+        itemViews.Clear();
+        cachedItems.Clear();
+    }
+
+    private void OnDestroy()
+    {
+        slotObserver?.Dispose();
+        ClearSlots();
     }
 }

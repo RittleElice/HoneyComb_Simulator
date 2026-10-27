@@ -1,4 +1,3 @@
-
 using System.Text;
 using TMPro;
 using UnityEngine;
@@ -17,68 +16,127 @@ public class ObservationController : MonoBehaviour
     [SerializeField] private ObservationItemView itemView;
 
     private ItemSlot observedSlot;
+    private ItemSlotObserver slotObserver;
+    private ApiaryGrid sourceGrid;
+    private int sourceX;
+    private int sourceY;
+    private bool sourceHasTarget;
+    private bool started;
+    private bool refreshPending;
+
+    // Always resolves through the current slot; never retains an old assembly.
+    public ItemSlot ObservedSlot => observedSlot;
+    public MovableItem ObservedItem => observedSlot != null ? observedSlot.Value : null;
 
     private void Start()
     {
+        started = true;
         if (backButton != null)
             backButton.onClick.AddListener(GoBack);
 
         RefreshObservation();
     }
 
-    public void RefreshObservation()
+    private void OnEnable()
+    {
+        if (started)
+            RefreshObservation();
+    }
+
+    private void OnDisable()
+    {
+        BindSlot(null);
+        refreshPending = true;
+    }
+
+    private void Update()
     {
         GameBootstrap bootstrap = GameBootstrap.Instance;
+        ApiaryGrid currentGrid = bootstrap != null && bootstrap.GameWorld != null
+            ? bootstrap.GameWorld.Apiary.Grid
+            : null;
 
-        if (bootstrap == null ||
-            bootstrap.GameWorld == null ||
-            !ObservationContext.HasTarget)
+        bool hasTarget = ObservationContext.HasTarget;
+        int x = ObservationContext.GridX;
+        int y = ObservationContext.GridY;
+        ItemSlot targetSlot = hasTarget && currentGrid != null
+            ? currentGrid.GetItemSlot(x, y)
+            : null;
+
+        if (refreshPending || !ReferenceEquals(sourceGrid, currentGrid) ||
+            sourceHasTarget != hasTarget || sourceX != x || sourceY != y ||
+            !ReferenceEquals(observedSlot, targetSlot))
+        {
+            RefreshObservation();
+        }
+    }
+
+    private void BindSlot(ItemSlot slot)
+    {
+        if (ReferenceEquals(observedSlot, slot))
+            return;
+
+        if (slotObserver == null)
+            slotObserver = new ItemSlotObserver(OnObservedSlotChanged);
+
+        slotObserver.Clear();
+        observedSlot = slot;
+        slotObserver.Observe(slot);
+    }
+
+    private void OnObservedSlotChanged(ItemSlot slot)
+    {
+        refreshPending = true;
+    }
+
+    public void RefreshObservation()
+    {
+        if (!isActiveAndEnabled)
+            return;
+
+        refreshPending = false;
+        GameBootstrap bootstrap = GameBootstrap.Instance;
+        sourceGrid = bootstrap != null && bootstrap.GameWorld != null
+            ? bootstrap.GameWorld.Apiary.Grid
+            : null;
+        sourceHasTarget = ObservationContext.HasTarget;
+        sourceX = ObservationContext.GridX;
+        sourceY = ObservationContext.GridY;
+
+        if (sourceGrid == null || !sourceHasTarget)
         {
             ShowEmpty("관찰 대상 없음");
             return;
         }
 
-        ApiaryGrid grid =
-            bootstrap.GameWorld.Apiary.Grid;
-
-        int x = ObservationContext.GridX;
-        int y = ObservationContext.GridY;
-
-        if (!grid.IsInside(x, y))
+        if (!sourceGrid.IsInside(sourceX, sourceY))
         {
             ShowEmpty("유효하지 않은 격자");
             return;
         }
 
-        if (!grid.IsUnlocked(x, y))
+        if (!sourceGrid.IsUnlocked(sourceX, sourceY))
         {
             ShowEmpty("잠긴 부지");
             return;
         }
 
-        observedSlot = grid.GetItemSlot(x, y);
+        BindSlot(sourceGrid.GetItemSlot(sourceX, sourceY));
 
         if (targetText != null)
-            targetText.text = $"관찰 위치: ({x}, {y})";
+            targetText.text = $"관찰 위치: ({sourceX}, {sourceY})";
 
-        if (observedSlot == null || observedSlot.IsEmpty)
-        {
-            if (targetInfoText != null)
-                targetInfoText.text = "비어 있는 격자";
-
-            if (itemView != null)
-                itemView.Clear();
-
-            return;
-        }
-
-        MovableItem item = observedSlot.Value;
-
+        MovableItem item = ObservedItem;
         if (targetInfoText != null)
             targetInfoText.text = BuildItemInfo(item);
 
         if (itemView != null)
-            itemView.Show(item);
+        {
+            if (item == null)
+                itemView.Clear();
+            else
+                itemView.Show(item);
+        }
     }
 
     private string BuildItemInfo(MovableItem item)
@@ -116,14 +174,12 @@ public class ObservationController : MonoBehaviour
 
     private void ShowEmpty(string message)
     {
-        observedSlot = null;
+        BindSlot(null);
 
         if (targetText != null)
             targetText.text = message;
-
         if (targetInfoText != null)
             targetInfoText.text = "";
-
         if (itemView != null)
             itemView.Clear();
     }
@@ -142,6 +198,8 @@ public class ObservationController : MonoBehaviour
 
     private void OnDestroy()
     {
+        slotObserver?.Dispose();
+        observedSlot = null;
         if (backButton != null)
             backButton.onClick.RemoveListener(GoBack);
     }

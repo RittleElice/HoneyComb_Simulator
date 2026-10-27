@@ -1,4 +1,3 @@
-
 using System.Collections;
 using TMPro;
 using UnityEngine;
@@ -50,6 +49,8 @@ public class HandUI : MonoBehaviour
 
     private HandData hand;
     private ItemSlot observedSlot;
+    private ItemSlotObserver slotObserver;
+    private bool started;
     private MovableItem cachedItem;
 
     private RectTransform presentationRoot;
@@ -70,13 +71,24 @@ public class HandUI : MonoBehaviour
     private Vector2 dragStartLocalPosition;
     private float dragStartProgress;
 
-    private bool draggingTouch;
-    private int draggingTouchId = -1;
 
     private string lastSceneName;
 
+    private void OnEnable()
+    {
+        if (started)
+            Refresh();
+    }
+
+    private void OnDisable()
+    {
+        UnbindHand();
+        ClearVisual();
+    }
+
     private void Start()
     {
+        started = true;
         if (itemContainer != null)
         {
             rootCanvas =
@@ -88,12 +100,20 @@ public class HandUI : MonoBehaviour
 
         lastSceneName = SceneManager.GetActiveScene().name;
 
-        BindHand();
         Refresh();
     }
 
     private void Update()
     {
+        // A new game may replace the source while SharedUI remains loaded.
+        GameBootstrap bootstrap = GameBootstrap.Instance;
+        HandData source = bootstrap != null && bootstrap.GameWorld != null
+            ? bootstrap.GameWorld.Hand
+            : null;
+
+        if (!ReferenceEquals(hand, source))
+            Refresh();
+
         string sceneName = SceneManager.GetActiveScene().name;
 
         if (sceneName != lastSceneName)
@@ -122,7 +142,10 @@ public class HandUI : MonoBehaviour
         if (bootstrap == null ||
             bootstrap.GameWorld == null ||
             bootstrap.GameWorld.Hand == null)
+        {
+            UnbindHand();
             return;
+        }
 
         HandData currentHand = bootstrap.GameWorld.Hand;
         ItemSlot currentSlot = currentHand.Slot;
@@ -141,7 +164,10 @@ public class HandUI : MonoBehaviour
         hand = currentHand;
         observedSlot = currentSlot;
 
-        observedSlot.OnChanged += OnHandChanged;
+        if (slotObserver == null)
+            slotObserver = new ItemSlotObserver(OnHandChanged);
+
+        slotObserver.Observe(observedSlot);
 
         if (prefabRegistry == null)
         {
@@ -152,8 +178,7 @@ public class HandUI : MonoBehaviour
 
     private void UnbindHand()
     {
-        if (observedSlot != null)
-            observedSlot.OnChanged -= OnHandChanged;
+        slotObserver?.Clear();
 
         observedSlot = null;
         hand = null;
@@ -166,6 +191,9 @@ public class HandUI : MonoBehaviour
 
     public void Refresh()
     {
+        if (!isActiveAndEnabled)
+            return;
+
         BindHand();
 
         if (hand == null || hand.IsEmpty)
@@ -600,8 +628,6 @@ public class HandUI : MonoBehaviour
     private void ResetDrag()
     {
         isDragging = false;
-        draggingTouch = false;
-        draggingTouchId = -1;
     }
 
     private void StopAnimation()
@@ -636,6 +662,7 @@ public class HandUI : MonoBehaviour
     private void OnDestroy()
     {
         UnbindHand();
+        slotObserver?.Dispose();
         ClearVisual();
     }
 }

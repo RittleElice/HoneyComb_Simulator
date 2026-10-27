@@ -539,8 +539,6 @@ MonoBehaviour:
   slotPrefab: {fileID: 8603409787720624085, guid: 97e904848c0e2154993c7f1f1d206404, type: 3}
   prefabRegistry: {fileID: 945966941}
   itemPrefab: {fileID: 5879928347907685988, guid: 6ec61c54f22a7144bab31703aca01d42, type: 3}
-  handUI: {fileID: 1261923420}
-  selectionController: {fileID: 0}
   slotFillRatio: 0.9
 --- !u!114 &750473565
 MonoBehaviour:

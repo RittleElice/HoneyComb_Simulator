@@ -23,10 +23,6 @@ public class ApiaryActionUI : MonoBehaviour
     [Header("Equipment Bounds")]
     [SerializeField] private ApiaryItemView itemView;
 
-    [Header("UI Refresh")]
-    [SerializeField] private HandUI handUI;
-    [SerializeField] private InventoryUI inventoryUI;
-
     private readonly List<Button> activeButtons =
         new List<Button>();
 
@@ -59,18 +55,6 @@ public class ApiaryActionUI : MonoBehaviour
 
     private void Start()
     {
-        if (handUI == null)
-            handUI = FindAnyObjectByType<HandUI>();
-
-        if (inventoryUI == null)
-            inventoryUI = FindAnyObjectByType<InventoryUI>();
-        
-        if (handUI == null)
-            handUI = FindAnyObjectByType<HandUI>();
-
-        if (inventoryUI == null)
-            inventoryUI = FindAnyObjectByType<InventoryUI>();
-        
         if (itemView == null)
             itemView = FindAnyObjectByType<ApiaryItemView>();
 
@@ -295,12 +279,6 @@ public class ApiaryActionUI : MonoBehaviour
 
         Debug.Log(
             $"[ApiaryActionUI] 아이템 이동 성공: ({x}, {y})");
-
-        if (handUI != null)
-            handUI.Refresh();
-
-        if (inventoryUI != null)
-            inventoryUI.Refresh();
 
         // 모든 행동 성공 후 선택 및 메뉴 닫기
         if (selectionController != null)

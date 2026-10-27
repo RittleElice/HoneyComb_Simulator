@@ -510,8 +510,7 @@ MonoBehaviour:
   targetCamera: {fileID: 1851353667}
   popupOffset: {x: 15, y: 0}
   itemView: {fileID: 896826481}
-  handUI: {fileID: 0}
-  inventoryUI: {fileID: 0}
+
 --- !u!1 &1851353665
 GameObject:
   m_ObjectHideFlags: 0
