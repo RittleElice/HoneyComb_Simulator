@@ -6,10 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scenes/SampleScene.unity" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scenes/SampleScene.unity.meta" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scenes/SharedUI.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scenes/SharedUI.unity" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/HandUI.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/HandUI.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scenes/Observation.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scenes/Observation.unity" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationItemView.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationItemView.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -135,7 +133,7 @@
       <workItem from="1792993372909" duration="4463000" />
       <workItem from="1793019402024" duration="2385000" />
       <workItem from="1793077776290" duration="1708000" />
-      <workItem from="1793086316788" duration="2232000" />
+      <workItem from="1793086316788" duration="4692000" />
     </task>
     <servers />
   </component>
