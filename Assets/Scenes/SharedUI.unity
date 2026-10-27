@@ -534,7 +534,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b056a4a32e56c8b42bc8382077d17d04, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InventoryUI
+  m_EditorClassIdentifier: Assembly-CSharp::InventoryItemPresenter
   slotContainer: {fileID: 1031221797}
   slotPrefab: {fileID: 8603409787720624085, guid: 97e904848c0e2154993c7f1f1d206404, type: 3}
   prefabRegistry: {fileID: 945966941}
@@ -800,7 +800,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b8ae7d6867088834f9c1c70f9e236696, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HandUI
+  m_EditorClassIdentifier: Assembly-CSharp::HandItemPresenter
   handText: {fileID: 0}
   itemContainer: {fileID: 2073965198}
   prefabRegistry: {fileID: 945966941}

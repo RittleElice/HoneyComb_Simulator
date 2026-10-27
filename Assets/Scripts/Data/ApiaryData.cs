@@ -100,7 +100,7 @@ public class ApiaryData
                         return true;
                     }
                 }
-                else if (slot.Value is ItemAssembly assembly)
+                else if (slot.Value is ItemAssemblyData assembly)
                 {
                     foreach (ItemData part in assembly.Parts)
                     {

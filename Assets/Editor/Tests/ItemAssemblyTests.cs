@@ -21,7 +21,7 @@ public static class ItemAssemblyTests
     {
         var parts = new List<ItemData>();
         foreach (var kind in kinds) parts.Add(Part(kind));
-        return AssemblyRules.IsValid(parts);
+        return ItemAssemblyRules.IsValid(parts);
     }
 
 #if UNITY_EDITOR
@@ -35,7 +35,7 @@ public static class ItemAssemblyTests
         TransfersAndSplit();
         FailuresAreAtomic();
         LegacyCompatibility();
-        string message = "ItemAssembly tests passed: " + checks + " checks.";
+        string message = "ItemAssemblyData tests passed: " + checks + " checks.";
 #if UNITY_EDITOR
         UnityEngine.Debug.Log(message);
 #else
@@ -59,8 +59,8 @@ public static class ItemAssemblyTests
         Check(!Valid(ItemKind.Frame), "frames are contents");
         Check(!Valid(ItemKind.Generic), "generic not stackable");
         var part = Part(ItemKind.Super);
-        Check(!AssemblyRules.IsValid(new[] { part, part }), "duplicate part");
-        Check(!AssemblyRules.IsValid(new ItemData[] { null }), "null part");
+        Check(!ItemAssemblyRules.IsValid(new[] { part, part }), "duplicate part");
+        Check(!ItemAssemblyRules.IsValid(new ItemData[] { null }), "null part");
     }
 
     private static void ExhaustiveRules()
@@ -102,18 +102,18 @@ public static class ItemAssemblyTests
         Check(!super.Frames.TryAdd(Part(ItemKind.Frame)), "eleventh frame rejected");
         var originalFrame = super.Frames.GetSlot(7).Item;
         var ground = Slot(brood);
-        var upper = Slot(new ItemAssembly(new[] { super, lid }));
+        var upper = Slot(new ItemAssemblyData(new[] { super, lid }));
         Check(ground.TryCombineFrom(upper) && upper.IsEmpty, "combine consumes upper slot");
         var hand = new HandData();
         Check(ground.TryMoveTo(hand.Slot), "whole assembly to hand");
         var held = hand.Value;
-        Check(ground.IsEmpty && ((ItemAssembly)held).Parts.Count == 3, "one hand slot");
+        Check(ground.IsEmpty && ((ItemAssemblyData)held).Parts.Count == 3, "one hand slot");
         var bag = new InventoryData(2);
         hand.Swap(bag.GetSlot(0));
         Check(hand.IsEmpty && ReferenceEquals(held, bag.GetSlot(0).Value), "swap preserves whole object");
         Check(bag.GetSlot(0).TrySplitTo(1, hand.Slot), "split middle with upper parts");
         Check(ReferenceEquals(brood, bag.GetSlot(0).Item), "bottom becomes individual");
-        var top = (ItemAssembly)hand.Value;
+        var top = (ItemAssemblyData)hand.Value;
         Check(ReferenceEquals(top.Parts[0], super) && ReferenceEquals(top.Parts[1], lid), "upper order retained");
         Check(ReferenceEquals(super.Frames.GetSlot(7).Item, originalFrame), "contents retained after transfer and split");
         Check(hand.Slot.TrySplitTo(1, ground), "lift lid first");
@@ -121,7 +121,7 @@ public static class ItemAssemblyTests
         Check(hand.Slot.TryCombineFrom(extra), "super may be added after lid lifted");
         Check(hand.Slot.TryCombineFrom(ground), "replace lid");
         Check(hand.Slot.TrySplitTo(0, ground), "index zero moves all");
-        Check(hand.IsEmpty && ((ItemAssembly)ground.Value).Parts.Count == 3, "whole split count");
+        Check(hand.IsEmpty && ((ItemAssemblyData)ground.Value).Parts.Count == 3, "whole split count");
         Check(!new ItemSlot().TryInsertValue(held), "consumed assembly cannot be reused");
         Check(!new ItemSlot().TryInsert(originalFrame), "frame cannot occupy two slots");
     }
@@ -129,7 +129,7 @@ public static class ItemAssemblyTests
     private static void FailuresAreAtomic()
     {
         var bottom = Part(ItemKind.BroodBox);
-        var lower = Slot(new ItemAssembly(new[] { bottom, Part(ItemKind.Lid) }));
+        var lower = Slot(new ItemAssemblyData(new[] { bottom, Part(ItemKind.Lid) }));
         var upper = Slot(Part(ItemKind.Super));
         var originalLower = lower.Value;
         var originalUpper = upper.Value;
@@ -146,13 +146,13 @@ public static class ItemAssemblyTests
         Check(!bottom.Frames.GetSlot(0).TryInsert(Part(ItemKind.Super)), "box not frame");
         Check(!lower.TrySwap(bottom.Frames.GetSlot(0)), "swap respects frame filter");
         Check(ReferenceEquals(lower.Value, originalLower), "failed operations preserve source");
-        var five = Slot(new ItemAssembly(new[] { Part(ItemKind.Super), Part(ItemKind.Super), Part(ItemKind.Super), Part(ItemKind.Super), Part(ItemKind.Super) }));
+        var five = Slot(new ItemAssemblyData(new[] { Part(ItemKind.Super), Part(ItemKind.Super), Part(ItemKind.Super), Part(ItemKind.Super), Part(ItemKind.Super) }));
         Check(!five.TryCombineFrom(upper), "sixth rejected transactionally");
         Check(ReferenceEquals(upper.Value, originalUpper), "rejected sixth retained");
         var individual = Part(ItemKind.Super);
         var owner = Slot(individual);
         bool threw = false;
-        try { new ItemAssembly(new[] { individual }); } catch (InvalidOperationException) { threw = true; }
+        try { new ItemAssemblyData(new[] { individual }); } catch (InvalidOperationException) { threw = true; }
         Check(threw && ReferenceEquals(owner.Item, individual), "constructor cannot steal slotted part");
         threw = false;
         try { lower.Take(); } catch (InvalidOperationException) { threw = true; }

@@ -37,7 +37,7 @@ public class ItemSlot
         if (value == null)
             return true;
 
-        if (value is ItemAssembly && !allowAssembly)
+        if (value is ItemAssemblyData && !allowAssembly)
             return false;
 
         return accepts == null || accepts(value);
@@ -82,7 +82,7 @@ public class ItemSlot
             !Accepts(value))
             return false;
 
-        if (value is ItemAssembly assembly &&
+        if (value is ItemAssemblyData assembly &&
             assembly.Parts.Count == 0)
             return false;
 
@@ -105,7 +105,7 @@ public class ItemSlot
 
     public ItemData Take()
     {
-        if (Value is ItemAssembly)
+        if (Value is ItemAssemblyData)
         {
             throw new InvalidOperationException(
                 "Use TakeValue for an assembly.");
@@ -167,7 +167,7 @@ public class ItemSlot
             upper.IsEmpty)
             return false;
 
-        if (!AssemblyRules.CanCombine(Value, upper.Value))
+        if (!ItemAssemblyRules.CanCombine(Value, upper.Value))
             return false;
 
         if (accepts != null)
@@ -185,7 +185,7 @@ public class ItemSlot
         if (value is ItemData item)
             return Accepts(item);
 
-        if (value is ItemAssembly assembly)
+        if (value is ItemAssemblyData assembly)
         {
             foreach (ItemData part in assembly.Parts)
             {
@@ -210,7 +210,7 @@ public class ItemSlot
         parts.AddRange(
             Release(upper.TakeWithoutNotify()));
 
-        SetWithoutNotify(ItemAssembly.Pack(parts));
+        SetWithoutNotify(ItemAssemblyData.Pack(parts));
 
         NotifyChanged();
         upper.NotifyChanged();
@@ -222,7 +222,7 @@ public class ItemSlot
         int firstUpperIndex,
         ItemSlot target)
     {
-        if (!(Value is ItemAssembly assembly) ||
+        if (!(Value is ItemAssemblyData assembly) ||
             target == null ||
             target == this ||
             !target.IsEmpty)
@@ -257,8 +257,8 @@ public class ItemSlot
             firstUpperIndex,
             parts.Count - firstUpperIndex);
 
-        SetWithoutNotify(ItemAssembly.Pack(parts));
-        target.SetWithoutNotify(ItemAssembly.Pack(upper));
+        SetWithoutNotify(ItemAssemblyData.Pack(parts));
+        target.SetWithoutNotify(ItemAssemblyData.Pack(upper));
 
         NotifyChanged();
         target.NotifyChanged();
@@ -268,7 +268,7 @@ public class ItemSlot
 
     private static List<ItemData> Release(MovableItem value)
     {
-        return value is ItemAssembly assembly
+        return value is ItemAssemblyData assembly
             ? assembly.ReleaseParts()
             : new List<ItemData> { (ItemData)value };
     }

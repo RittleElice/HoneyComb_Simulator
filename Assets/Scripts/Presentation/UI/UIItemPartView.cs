@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(RectTransform))]
-public class ItemIconView : MonoBehaviour
+public class UIItemPartView : MonoBehaviour
 {
     [Header("아이템 표시")]
     [SerializeField] private Image itemImage;

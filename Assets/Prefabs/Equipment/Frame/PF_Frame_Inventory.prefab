@@ -225,6 +225,6 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5ecf8d8bbf056a74f93acd23f234fe87, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ItemIconView
+  m_EditorClassIdentifier: Assembly-CSharp::UIItemPartView
   itemImage: {fileID: 5094441187900819689}
   itemNameText: {fileID: 1783679268353254171}

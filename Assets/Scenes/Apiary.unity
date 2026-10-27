@@ -391,7 +391,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e95be560a4156eb4f977b95e1c6f307f, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ApiaryItemView
+  m_EditorClassIdentifier: Assembly-CSharp::ApiaryItemPresenter
   gridView: {fileID: 896826479}
   prefabRegistry: {fileID: 0}
   broodBoxPrefab: {fileID: 581215804078796527, guid: 702667288322c494980691a5477d77f7, type: 3}

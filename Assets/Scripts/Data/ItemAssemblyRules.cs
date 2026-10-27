@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-public static class AssemblyRules
+public static class ItemAssemblyRules
 {
     public const int MaxBoxes = 5;
     public static bool IsValid(IReadOnlyList<ItemData> parts)
@@ -40,6 +40,6 @@ public static class AssemblyRules
     internal static void AppendParts(List<ItemData> parts, MovableItem value)
     {
         if (value is ItemData item) parts.Add(item);
-        else if (value is ItemAssembly assembly) parts.AddRange(assembly.Parts);
+        else if (value is ItemAssemblyData assembly) parts.AddRange(assembly.Parts);
     }
 }

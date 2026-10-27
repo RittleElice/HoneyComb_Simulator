@@ -105,7 +105,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73499b867ab512f4197ee6227864a8dd, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HiveView
+  m_EditorClassIdentifier: Assembly-CSharp::WorldItemPartView
   widthRatio: 0.8
   heightRatio: 0.5
   positionX: 0.5

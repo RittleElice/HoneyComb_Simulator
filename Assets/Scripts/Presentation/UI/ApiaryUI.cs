@@ -71,7 +71,7 @@ public class ApiaryUI : MonoBehaviour
                     if (item.Kind == ItemKind.BroodBox)
                         count++;
                 }
-                else if (slot.Value is ItemAssembly assembly)
+                else if (slot.Value is ItemAssemblyData assembly)
                 {
                     foreach (ItemData part in assembly.Parts)
                     {

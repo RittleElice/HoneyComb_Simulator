@@ -119,11 +119,11 @@ public class ApiarySelectionHighlight : MonoBehaviour
         currentRenderers.Clear();
 
         // 현재 활성화된 장비만 검색
-        HiveView[] views =
-            FindObjectsByType<HiveView>(
+        WorldItemPartView[] views =
+            FindObjectsByType<WorldItemPartView>(
                 FindObjectsSortMode.None);
 
-        foreach (HiveView view in views)
+        foreach (WorldItemPartView view in views)
         {
             if (view == null ||
                 !view.HasGridPosition ||

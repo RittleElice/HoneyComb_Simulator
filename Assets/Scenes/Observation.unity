@@ -783,7 +783,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1c7b603793ec5c40bd549dd8394527a, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ObservationItemView
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationItemPresenter
   itemContainer: {fileID: 2019306178}
   groundImage: {fileID: 1702219564}
   prefabRegistry: {fileID: 0}
@@ -837,7 +837,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1c7b603793ec5c40bd549dd8394527a, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ObservationItemView
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationItemPresenter
   itemContainer: {fileID: 2019306178}
   groundImage: {fileID: 0}
   prefabRegistry: {fileID: 0}

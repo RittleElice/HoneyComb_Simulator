@@ -13,7 +13,7 @@ public class ObservationController : MonoBehaviour
     [SerializeField] private TMP_Text targetInfoText;
 
     [Header("Equipment Display")]
-    [SerializeField] private ObservationItemView itemView;
+    [SerializeField] private ObservationItemPresenter itemView;
 
     private ItemSlot observedSlot;
     private ItemSlotObserver slotObserver;
@@ -150,7 +150,7 @@ public class ObservationController : MonoBehaviour
                    $"종류: {single.Kind}";
         }
 
-        if (item is ItemAssembly assembly)
+        if (item is ItemAssemblyData assembly)
         {
             StringBuilder builder = new StringBuilder();
 

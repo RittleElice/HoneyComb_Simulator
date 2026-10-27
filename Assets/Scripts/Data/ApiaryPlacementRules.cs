@@ -9,7 +9,7 @@ public static class ApiaryPlacementRules
         if (item is ItemData data)
             return IsAllowedKind(data.Kind);
 
-        if (item is ItemAssembly assembly)
+        if (item is ItemAssemblyData assembly)
         {
             if (assembly.Parts.Count == 0)
                 return false;

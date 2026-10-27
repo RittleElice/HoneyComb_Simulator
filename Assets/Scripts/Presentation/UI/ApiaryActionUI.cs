@@ -21,7 +21,7 @@ public class ApiaryActionUI : MonoBehaviour
         new Vector2(15f, 0f);
 
     [Header("Equipment Bounds")]
-    [SerializeField] private ApiaryItemView itemView;
+    [SerializeField] private ApiaryItemPresenter itemView;
 
     private readonly List<Button> activeButtons =
         new List<Button>();
@@ -56,7 +56,7 @@ public class ApiaryActionUI : MonoBehaviour
     private void Start()
     {
         if (itemView == null)
-            itemView = FindAnyObjectByType<ApiaryItemView>();
+            itemView = FindAnyObjectByType<ApiaryItemPresenter>();
 
         if (selectionController == null ||
             buttonContainer == null ||
@@ -193,7 +193,7 @@ public class ApiaryActionUI : MonoBehaviour
 
             MovableItem item = gridSlot.Value;
 
-            if (item is ItemAssembly assembly)
+            if (item is ItemAssemblyData assembly)
             {
                 // 위층부터 아래층 순서로 버튼 생성
                 for (int i = assembly.Parts.Count - 1; i >= 0; i--)

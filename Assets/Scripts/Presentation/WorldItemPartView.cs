@@ -1,7 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(SpriteRenderer))]
-public class HiveView : MonoBehaviour
+public class WorldItemPartView : MonoBehaviour
 {
     private SpriteRenderer spriteRenderer;
 

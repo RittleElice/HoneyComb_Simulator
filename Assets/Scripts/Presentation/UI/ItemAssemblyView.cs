@@ -27,7 +27,7 @@ public class ItemAssemblyView : MonoBehaviour
         MovableItem item,
         ItemPrefabRegistry registry,
         ItemViewContext context,
-        ItemIconView fallbackPrefab,
+        UIItemPartView fallbackPrefab,
         float maxWidth,
         float maxHeight,
         AssemblyAlignment alignment = AssemblyAlignment.Center)
@@ -41,7 +41,7 @@ public class ItemAssemblyView : MonoBehaviour
 
         List<ItemData> parts = new List<ItemData>();
 
-        if (item is ItemAssembly assembly)
+        if (item is ItemAssemblyData assembly)
         {
             foreach (ItemData part in assembly.Parts)
                 parts.Add(part);
@@ -85,8 +85,8 @@ public class ItemAssemblyView : MonoBehaviour
             GameObject obj = Instantiate(
                 prefab, transform, false);
 
-            ItemIconView icon =
-                obj.GetComponent<ItemIconView>();
+            UIItemPartView icon =
+                obj.GetComponent<UIItemPartView>();
 
             RectTransform rect =
                 obj.GetComponent<RectTransform>();
@@ -95,7 +95,7 @@ public class ItemAssemblyView : MonoBehaviour
             {
                 Debug.LogWarning(
                     $"[ItemAssemblyView] {prefab.name}에 " +
-                    "ItemIconView 또는 RectTransform이 없습니다.");
+                    "UIItemPartView 또는 RectTransform이 없습니다.");
 
                 obj.SetActive(false);
                 Destroy(obj);

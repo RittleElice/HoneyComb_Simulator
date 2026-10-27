@@ -96,7 +96,7 @@ public class ApiaryGrid
         if (slot.Value is ItemData item)
             return GetHiveIdFromPart(item);
 
-        if (slot.Value is ItemAssembly assembly)
+        if (slot.Value is ItemAssemblyData assembly)
         {
             foreach (ItemData part in assembly.Parts)
             {

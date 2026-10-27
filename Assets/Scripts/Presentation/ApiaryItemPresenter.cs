@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [DefaultExecutionOrder(100)]
-public class ApiaryItemView : MonoBehaviour
+public class ApiaryItemPresenter : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private ApiaryGridView gridView;
@@ -21,7 +21,7 @@ public class ApiaryItemView : MonoBehaviour
     private sealed class PartVisual
     {
         public GameObject Object;
-        public HiveView View;
+        public WorldItemPartView View;
         public SpriteRenderer Renderer;
 
         public int GridX;
@@ -101,7 +101,7 @@ public class ApiaryItemView : MonoBehaviour
 
         if (gridView == null)
         {
-            Debug.LogError("[ApiaryItemView] Grid View를 연결하세요.", this);
+            Debug.LogError("[ApiaryItemPresenter] Grid View를 연결하세요.", this);
             enabled = false;
             return false;
         }
@@ -208,7 +208,7 @@ public class ApiaryItemView : MonoBehaviour
     {
         SpriteRenderer previous = null;
 
-        if (item is ItemAssembly assembly)
+        if (item is ItemAssemblyData assembly)
         {
             foreach (ItemData part in assembly.Parts)
             {
@@ -284,14 +284,14 @@ public class ApiaryItemView : MonoBehaviour
         if (prefab == null)
         {
             Debug.LogWarning(
-                $"[ApiaryItemView] {item.Kind} 프리팹이 없습니다.");
+                $"[ApiaryItemPresenter] {item.Kind} 프리팹이 없습니다.");
             return null;
         }
 
         GameObject obj = Instantiate(prefab, visualRoot);
 
         // Registry의 Apiary 스프라이트 적용
-        // HiveView 초기화보다 먼저 실행해야 한다.
+        // WorldItemPartView 초기화보다 먼저 실행해야 한다.
         if (prefabRegistry != null)
         {
             prefabRegistry.ApplySprite(
@@ -300,7 +300,7 @@ public class ApiaryItemView : MonoBehaviour
                 ItemViewContext.Apiary);
         }
 
-        HiveView view = obj.GetComponent<HiveView>();
+        WorldItemPartView view = obj.GetComponent<WorldItemPartView>();
         SpriteRenderer renderer =
             obj.GetComponent<SpriteRenderer>();
 
@@ -311,7 +311,7 @@ public class ApiaryItemView : MonoBehaviour
             renderer.sprite.bounds.size.y <= 0f)
         {
             Debug.LogWarning(
-                $"[ApiaryItemView] {prefab.name}의 루트에 " +
+                $"[ApiaryItemPresenter] {prefab.name}의 루트에 " +
                 "유효한 HiveView와 SpriteRenderer가 필요합니다.");
 
             obj.SetActive(false);
@@ -409,7 +409,7 @@ public class ApiaryItemView : MonoBehaviour
         }
     }
 
-    // HiveView 회전 이후 조립체 정렬
+    // WorldItemPartView 회전 이후 조립체 정렬
     private void LateUpdate()
     {
         foreach (StackLink link in stackLinks)

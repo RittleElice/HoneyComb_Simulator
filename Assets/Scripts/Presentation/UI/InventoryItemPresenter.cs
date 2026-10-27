@@ -3,7 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class InventoryUI : MonoBehaviour
+public class InventoryItemPresenter : MonoBehaviour
 {
     [Header("슬롯 표시")]
     [SerializeField] private Transform slotContainer;
@@ -13,7 +13,7 @@ public class InventoryUI : MonoBehaviour
     [SerializeField] private ItemPrefabRegistry prefabRegistry;
 
     [Header("기본 아이템 프리팹")]
-    [SerializeField] private ItemIconView itemPrefab;
+    [SerializeField] private UIItemPartView itemPrefab;
 
     [Header("조립체 표시 크기")]
     [SerializeField, Range(0.1f, 1f)]
@@ -89,7 +89,7 @@ public class InventoryUI : MonoBehaviour
 
         if (slotContainer == null || slotPrefab == null)
         {
-            Debug.LogError("[InventoryUI] Slot Container / Slot Prefab을 연결하세요.", this);
+            Debug.LogError("[InventoryItemPresenter] Slot Container / Slot Prefab을 연결하세요.", this);
             enabled = false;
             return false;
         }

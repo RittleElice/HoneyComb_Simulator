@@ -5,13 +5,13 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-public class HandUI : MonoBehaviour
+public class HandItemPresenter : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private TMP_Text handText;
     [SerializeField] private RectTransform itemContainer;
     [SerializeField] private ItemPrefabRegistry prefabRegistry;
-    [SerializeField] private ItemIconView itemPrefab;
+    [SerializeField] private UIItemPartView itemPrefab;
 
     [Header("기본 배율")]
     [SerializeField, Min(0.01f)]
@@ -238,7 +238,7 @@ public class HandUI : MonoBehaviour
         if (itemContainer == null)
         {
             Debug.LogWarning(
-                "[HandUI] ItemContainer가 없습니다.");
+                "[HandItemPresenter] ItemContainer가 없습니다.");
             return;
         }
 

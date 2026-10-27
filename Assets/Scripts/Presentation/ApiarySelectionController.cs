@@ -9,14 +9,14 @@ public class ApiarySelectionController : MonoBehaviour
 {
     [SerializeField] private Camera targetCamera;
     [SerializeField] private ApiaryGridView gridView;
-    [SerializeField] private ApiaryItemView itemView;
+    [SerializeField] private ApiaryItemPresenter itemView;
     private readonly List<RaycastResult> uiHits = new List<RaycastResult>();
 
     private void Awake()
     {
         if (targetCamera == null) targetCamera = Camera.main;
         if (gridView == null) gridView = FindAnyObjectByType<ApiaryGridView>();
-        if (itemView == null) itemView = FindAnyObjectByType<ApiaryItemView>();
+        if (itemView == null) itemView = FindAnyObjectByType<ApiaryItemPresenter>();
     }
 
     private void OnDisable()

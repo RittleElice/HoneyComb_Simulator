@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class ObservationItemView : MonoBehaviour
+public class ObservationItemPresenter : MonoBehaviour
 {
     [Header("Equipment Container")]
     [SerializeField] private RectTransform itemContainer;
@@ -12,7 +12,7 @@ public class ObservationItemView : MonoBehaviour
     [SerializeField] private ItemPrefabRegistry prefabRegistry;
 
     [Header("Fallback")]
-    [SerializeField] private ItemIconView fallbackPrefab;
+    [SerializeField] private UIItemPartView fallbackPrefab;
 
     [Header("Display Size")]
     [SerializeField, Min(1f)]
@@ -84,14 +84,14 @@ public class ObservationItemView : MonoBehaviour
         if (groundImage == null)
         {
             Debug.LogWarning(
-                "[ObservationItemView] Ground Image를 연결하세요.",
+                "[ObservationItemPresenter] Ground Image를 연결하세요.",
                 this);
         }
         else if (basePartRect == null)
         {
             Debug.LogWarning(
-                "[ObservationItemView] 맨 아래 부품의 표시를 찾지 못했습니다. " +
-                "관찰용 프리팹과 ItemIconView 연결을 확인하세요.",
+                "[ObservationItemPresenter] 맨 아래 부품의 표시를 찾지 못했습니다. " +
+                "관찰용 프리팹과 UIItemPartView 연결을 확인하세요.",
                 this);
         }
 
@@ -100,7 +100,7 @@ public class ObservationItemView : MonoBehaviour
 
     private static ItemData GetBasePart(MovableItem item)
     {
-        if (item is ItemAssembly assembly)
+        if (item is ItemAssemblyData assembly)
         {
             return assembly.Parts.Count > 0
                 ? assembly.Parts[0]
@@ -124,7 +124,7 @@ public class ObservationItemView : MonoBehaviour
             if (!child.gameObject.activeSelf)
                 continue;
 
-            ItemIconView icon = child.GetComponent<ItemIconView>();
+            UIItemPartView icon = child.GetComponent<UIItemPartView>();
 
             if (icon != null && ReferenceEquals(icon.Item, part))
                 return child as RectTransform;
