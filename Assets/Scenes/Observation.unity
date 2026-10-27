@@ -799,7 +799,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2019306178}
-  - component: {fileID: 2019306179}
   m_Layer: 5
   m_Name: EquipmentContainer
   m_TagString: Untagged
@@ -826,24 +825,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &2019306179
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2019306177}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a1c7b603793ec5c40bd549dd8394527a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ObservationItemPresenter
-  itemContainer: {fileID: 2019306178}
-  groundImage: {fileID: 0}
-  prefabRegistry: {fileID: 0}
-  fallbackPrefab: {fileID: 5879928347907685988, guid: 6ec61c54f22a7144bab31703aca01d42, type: 3}
-  maxWidth: 600
-  maxHeight: 800
 --- !u!1 &2080681308
 GameObject:
   m_ObjectHideFlags: 0

@@ -282,7 +282,8 @@ public class HandItemPresenter : MonoBehaviour
             itemPrefab,
             displayWidth,
             displayHeight,
-            AssemblyAlignment.Bottom);
+            AssemblyAlignment.Bottom,
+            AssemblyScaleMode.Fixed);
 
         visualRect.anchorMin =
             new Vector2(0.5f, 0.5f);

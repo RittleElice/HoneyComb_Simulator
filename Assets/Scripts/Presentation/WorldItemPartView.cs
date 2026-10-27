@@ -1,9 +1,43 @@
 using UnityEngine;
 
 [RequireComponent(typeof(SpriteRenderer))]
-public class WorldItemPartView : MonoBehaviour
+public class WorldItemPartView : MonoBehaviour, IItemPartView
 {
     private SpriteRenderer spriteRenderer;
+    [Header("결합점 (미지정 시 Sprite 경계 사용)")]
+    [SerializeField] private Transform bottomAnchor;
+    [SerializeField] private Transform topAnchor;
+
+    public ItemData Part { get; private set; }
+    public int PartIndex { get; private set; } = -1;
+    public Transform PartTransform => transform;
+    public SpriteRenderer Renderer
+    {
+        get
+        {
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponent<SpriteRenderer>();
+            return spriteRenderer;
+        }
+    }
+
+    public void Bind(ItemData part, int partIndex)
+    {
+        Part = part;
+        PartIndex = partIndex;
+    }
+
+    private Vector3 EdgeWorld(bool upper)
+    {
+        Bounds bounds = Renderer.sprite.bounds;
+        return transform.TransformPoint(new Vector3(bounds.center.x,
+            upper ? bounds.max.y : bounds.min.y, bounds.center.z));
+    }
+
+    public Vector3 BottomWorld => bottomAnchor != null ? bottomAnchor.position : EdgeWorld(false);
+    public Vector3 TopWorld => topAnchor != null ? topAnchor.position : EdgeWorld(true);
+    public Bounds GetBoundsIn(Transform space) =>
+        ItemAssemblyLayout.TransformBounds(Renderer.localBounds, transform, space);
 
     [Header("격자 크기 대비 벌통 크기")]
     [SerializeField, Min(0.01f)]

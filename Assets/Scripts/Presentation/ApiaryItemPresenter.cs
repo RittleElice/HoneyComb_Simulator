@@ -30,8 +30,8 @@ public class ApiaryItemPresenter : MonoBehaviour
 
     private struct StackLink
     {
-        public SpriteRenderer Lower;
-        public SpriteRenderer Upper;
+        public WorldItemPartView Lower;
+        public WorldItemPartView Upper;
     }
 
     private readonly Dictionary<ItemData, PartVisual> partViews =
@@ -206,40 +206,25 @@ public class ApiaryItemPresenter : MonoBehaviour
 
     private void DrawItem(int x, int y, MovableItem item)
     {
-        SpriteRenderer previous = null;
-
-        if (item is ItemAssemblyData assembly)
+        IReadOnlyList<ItemData> parts = ItemVisualFactory.GetParts(item);
+        WorldItemPartView previous = null;
+        for (int i = 0; i < parts.Count; i++)
         {
-            foreach (ItemData part in assembly.Parts)
-            {
-                SpriteRenderer current = DrawPart(x, y, part);
-
-                if (previous != null && current != null)
-                {
-                    stackLinks.Add(new StackLink
-                    {
-                        Lower = previous,
-                        Upper = current
-                    });
-                }
-
-                previous = current;
-            }
-        }
-        else if (item is ItemData single)
-        {
-            DrawPart(x, y, single);
+            WorldItemPartView current = DrawPart(x, y, parts[i], i);
+            if (previous != null && current != null)
+                stackLinks.Add(new StackLink { Lower = previous, Upper = current });
+            previous = current;
         }
     }
 
-    private SpriteRenderer DrawPart(int x, int y, ItemData item)
+    private WorldItemPartView DrawPart(int x, int y, ItemData item, int partIndex)
     {
         activeParts.Add(item);
 
         if (!partViews.TryGetValue(item, out PartVisual visual) ||
             visual.Object == null)
         {
-            visual = CreatePartVisual(item);
+            visual = CreatePartVisual(item, partIndex);
 
             if (visual == null)
                 return null;
@@ -247,6 +232,7 @@ public class ApiaryItemPresenter : MonoBehaviour
             partViews[item] = visual;
         }
 
+        visual.View.Bind(item, partIndex);
         visual.GridX = x;
         visual.GridY = y;
 
@@ -273,82 +259,22 @@ public class ApiaryItemPresenter : MonoBehaviour
 
         ApplyGridSorting(visual.Renderer, y);
 
-        return visual.Renderer;
+        return visual.View;
     }
 
     
-    private PartVisual CreatePartVisual(ItemData item)
+    private PartVisual CreatePartVisual(ItemData item, int partIndex)
     {
-        GameObject prefab = GetPrefab(item.Kind);
-
-        if (prefab == null)
-        {
-            Debug.LogWarning(
-                $"[ApiaryItemPresenter] {item.Kind} 프리팹이 없습니다.");
+        IItemPartView created = ItemVisualFactory.Create(item, partIndex,
+            ItemViewContext.Apiary, prefabRegistry, GetPrefab(item.Kind), visualRoot);
+        if (!(created is WorldItemPartView view))
             return null;
-        }
-
-        GameObject obj = Instantiate(prefab, visualRoot);
-
-        // Registry의 Apiary 스프라이트 적용
-        // WorldItemPartView 초기화보다 먼저 실행해야 한다.
-        if (prefabRegistry != null)
-        {
-            prefabRegistry.ApplySprite(
-                obj,
-                item.Kind,
-                ItemViewContext.Apiary);
-        }
-
-        WorldItemPartView view = obj.GetComponent<WorldItemPartView>();
-        SpriteRenderer renderer =
-            obj.GetComponent<SpriteRenderer>();
-
-        if (view == null ||
-            renderer == null ||
-            renderer.sprite == null ||
-            renderer.sprite.bounds.size.x <= 0f ||
-            renderer.sprite.bounds.size.y <= 0f)
-        {
-            Debug.LogWarning(
-                $"[ApiaryItemPresenter] {prefab.name}의 루트에 " +
-                "유효한 HiveView와 SpriteRenderer가 필요합니다.");
-
-            obj.SetActive(false);
-            Destroy(obj);
-            return null;
-        }
-
-        obj.name = item.Name;
-
-        HiveData hive = item.GetContent<HiveData>();
-
-        if (item.Kind == ItemKind.BroodBox && hive != null)
-        {
-            view.Initialize(
-                hive,
-                grid.Width,
-                gridView.CellSize);
-        }
-
-        // 기존 Collider 비활성화 유지
-        foreach (Collider collider in
-                 obj.GetComponentsInChildren<Collider>(true))
-        {
-            collider.enabled = false;
-        }
-
-        foreach (Collider2D collider in
-                 obj.GetComponentsInChildren<Collider2D>(true))
-        {
-            collider.enabled = false;
-        }
 
         return new PartVisual
         {
-            Object = obj,
+            Object = view.gameObject,
             View = view,
-            Renderer = renderer
+            Renderer = view.Renderer
         };
     }
 
@@ -414,28 +340,8 @@ public class ApiaryItemPresenter : MonoBehaviour
     {
         foreach (StackLink link in stackLinks)
         {
-            if (link.Lower == null || link.Upper == null)
-                continue;
-
-            Transform lower = link.Lower.transform;
-            Transform upper = link.Upper.transform;
-
-            upper.rotation = lower.rotation;
-
-            Bounds lowerBounds = link.Lower.sprite.bounds;
-            Bounds upperBounds = link.Upper.sprite.bounds;
-
-            Vector3 top = lower.TransformPoint(new Vector3(
-                lowerBounds.center.x,
-                lowerBounds.max.y,
-                lowerBounds.center.z));
-
-            Vector3 bottom = upper.TransformPoint(new Vector3(
-                upperBounds.center.x,
-                upperBounds.min.y,
-                upperBounds.center.z));
-
-            upper.position += top - bottom;
+            if (link.Lower != null && link.Upper != null)
+                ItemAssemblyLayout.Stack(link.Lower, link.Upper, true);
         }
     }
 
