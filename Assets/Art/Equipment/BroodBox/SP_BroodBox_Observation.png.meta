@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 6ecc5315bd81ff041adfa835cae4639e
+guid: 2e19fedb0d1571543919ee84a1a25885
 TextureImporter:
   internalIDToNameTable:
   - first:
@@ -116,9 +116,9 @@ TextureImporter:
       name: SP_BroodBox_Observation
       rect:
         serializedVersion: 2
-        x: 2
+        x: 0
         y: 0
-        width: 920
+        width: 919
         height: 800
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 03fe516cd97e7eb4eb19b9e1ba52dff9
+    spriteID: 101185225ce431a4eb690fef7acb08f9
     internalID: 0
     vertices: []
     indices: 

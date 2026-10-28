@@ -6,6 +6,21 @@
   <component name="ChangeListManager">
     <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Art/Equipment/BroodBox/SP_BroodBox_Observation.png" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Art/Equipment/BroodBox/SP_BroodBox_Observation.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Art/Equipment/BroodBox/SP_BroodBox_Observation.png.meta" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Art/Equipment/BroodBox/SP_BroodBox_Observation.png.meta" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Art/Equipment/Frame/SP_Frame_Observation.png" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Art/Equipment/Frame/SP_Frame_Observation.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Art/Equipment/Frame/SP_Frame_Observation.png.meta" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Art/Equipment/Frame/SP_Frame_Observation.png.meta" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Art/Equipment/Super/SP_Super_Observation.png" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Art/Equipment/Super/SP_Super_Observation.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Art/Equipment/Super/SP_Super_Observation.png.meta" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Art/Equipment/Super/SP_Super_Observation.png.meta" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/BroodBox/PF_BroodBox_Observation.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/BroodBox/PF_BroodBox_Observation.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Frame/PF_Frame_Observation.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Frame/PF_Frame_Observation.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Super/PF_Super_Observation.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Equipment/Super/PF_Super_Observation.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Resources/SpriteAlphaMasks.asset" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Resources/SpriteAlphaMasks.asset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/ItemData.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/ItemData.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/ObservationSelection.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/ObservationSelection.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/ObservationSelectionController.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/ObservationSelectionController.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationActionUI.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationActionUI.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationSelectionHighlight.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationSelectionHighlight.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,9 +45,9 @@
     <setting file="file://$PROJECT_DIR$/Assets/Scripts/Presentation/ItemViewContext.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Assets/Scripts/Presentation/ObservationController.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ApiaryActionUI.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Assets/Scripts/Presentation/UI/HandUI.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Assets/Scripts/Presentation/UI/InventoryUI.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Assets/Scripts/Presentation/UI/MainMenuUI.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationFrameSlotGraphic.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Assets/Scripts/Presentation/UI/ObservationFrameSlotLayout.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="ProjectColorInfo">{
@@ -131,7 +146,8 @@
       <workItem from="1792993372909" duration="4463000" />
       <workItem from="1793019402024" duration="2385000" />
       <workItem from="1793077776290" duration="1708000" />
-      <workItem from="1793086316788" duration="9083000" />
+      <workItem from="1793086316788" duration="9790000" />
+      <workItem from="1793152761042" duration="8441000" />
     </task>
     <servers />
   </component>
