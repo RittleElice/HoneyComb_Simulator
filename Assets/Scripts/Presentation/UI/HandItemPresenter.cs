@@ -1,7 +1,7 @@
+
 using System.Collections;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -40,7 +40,7 @@ public class HandItemPresenter : MonoBehaviour
     [SerializeField, Min(1f)]
     private float displayHeight = 1200f;
 
-    private enum DisplayState
+    public enum HandDisplayState
     {
         Pickup,
         Lowered,
@@ -50,6 +50,7 @@ public class HandItemPresenter : MonoBehaviour
     private HandData hand;
     private ItemSlot observedSlot;
     private ItemSlotObserver slotObserver;
+
     private bool started;
     private MovableItem cachedItem;
 
@@ -60,19 +61,53 @@ public class HandItemPresenter : MonoBehaviour
     private Canvas rootCanvas;
     private Coroutine animation;
 
-    private DisplayState state = DisplayState.Lowered;
+    private HandDisplayState state = HandDisplayState.Lowered;
 
     private float currentTopY;
     private float currentScale;
 
     private bool isFrame;
-    private bool isDragging;
-
-    private Vector2 dragStartLocalPosition;
-    private float dragStartProgress;
-
-
     private string lastSceneName;
+
+    public bool IsInspecting =>
+        state == HandDisplayState.Inspecting &&
+        animation == null &&
+        !IsInspectionInputCaptured;
+
+    public HandDisplayState State => state;
+    public bool IsTransitioning => animation != null;
+    public bool IsAtInspectionHeight => state == HandDisplayState.Inspecting && !IsTransitioning;
+    public float HeightRange => inspectionHeight - loweredHeight;
+    public float HeightProgress => GetCurrentProgress();
+    public event System.Action VisualInvalidated;
+
+    public void AnimateToLowered() => AnimateTo(HandDisplayState.Lowered);
+    public void AnimateToInspecting() => AnimateTo(HandDisplayState.Inspecting);
+    public void SetHeightProgress(float progress)
+    {
+        StopAnimation();
+        ApplyDragProgress(progress);
+    }
+    public bool TryScreenToLocal(Vector2 screen, out Vector2 local)
+    {
+        local = default;
+        return itemContainer != null && RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            itemContainer, screen, GetUICamera(), out local);
+    }
+
+    public bool IsFrameHeld =>
+        isFrame && cachedItem != null;
+
+    public MovableItem CurrentItem => cachedItem;
+
+    public RectTransform InspectionVisual => visualRect;
+
+    public bool IsInspectionInputCaptured { get; private set; }
+
+    public void SetInspectionInputCaptured(bool captured)
+    {
+        IsInspectionInputCaptured = captured;
+    }
 
     private void OnEnable()
     {
@@ -89,6 +124,7 @@ public class HandItemPresenter : MonoBehaviour
     private void Start()
     {
         started = true;
+
         if (itemContainer != null)
         {
             rootCanvas =
@@ -98,23 +134,27 @@ public class HandItemPresenter : MonoBehaviour
                 rootCanvas = rootCanvas.rootCanvas;
         }
 
-        lastSceneName = SceneManager.GetActiveScene().name;
+        lastSceneName =
+            SceneManager.GetActiveScene().name;
 
         Refresh();
     }
 
     private void Update()
     {
-        // A new game may replace the source while SharedUI remains loaded.
         GameBootstrap bootstrap = GameBootstrap.Instance;
-        HandData source = bootstrap != null && bootstrap.GameWorld != null
-            ? bootstrap.GameWorld.Hand
-            : null;
+
+        HandData source =
+            bootstrap != null &&
+            bootstrap.GameWorld != null
+                ? bootstrap.GameWorld.Hand
+                : null;
 
         if (!ReferenceEquals(hand, source))
             Refresh();
 
-        string sceneName = SceneManager.GetActiveScene().name;
+        string sceneName =
+            SceneManager.GetActiveScene().name;
 
         if (sceneName != lastSceneName)
         {
@@ -122,22 +162,23 @@ public class HandItemPresenter : MonoBehaviour
 
             if (sceneName != "Observation")
             {
-                isDragging = false;
+                VisualInvalidated?.Invoke();
+                IsInspectionInputCaptured = false;
 
                 if (presentationRoot != null &&
-                    state == DisplayState.Inspecting)
+                    state == HandDisplayState.Inspecting)
                 {
-                    AnimateTo(DisplayState.Lowered);
+                    AnimateTo(HandDisplayState.Lowered);
                 }
             }
         }
 
-        HandleDrag();
     }
 
     private void BindHand()
     {
-        GameBootstrap bootstrap = GameBootstrap.Instance;
+        GameBootstrap bootstrap =
+            GameBootstrap.Instance;
 
         if (bootstrap == null ||
             bootstrap.GameWorld == null ||
@@ -147,8 +188,11 @@ public class HandItemPresenter : MonoBehaviour
             return;
         }
 
-        HandData currentHand = bootstrap.GameWorld.Hand;
-        ItemSlot currentSlot = currentHand.Slot;
+        HandData currentHand =
+            bootstrap.GameWorld.Hand;
+
+        ItemSlot currentSlot =
+            currentHand.Slot;
 
         if (currentSlot == null)
             return;
@@ -165,7 +209,10 @@ public class HandItemPresenter : MonoBehaviour
         observedSlot = currentSlot;
 
         if (slotObserver == null)
-            slotObserver = new ItemSlotObserver(OnHandChanged);
+        {
+            slotObserver =
+                new ItemSlotObserver(OnHandChanged);
+        }
 
         slotObserver.Observe(observedSlot);
 
@@ -211,7 +258,9 @@ public class HandItemPresenter : MonoBehaviour
         if (ReferenceEquals(cachedItem, hand.Value) &&
             currentView != null &&
             currentView.gameObject.activeInHierarchy)
+        {
             return;
+        }
 
         ClearVisual();
 
@@ -226,11 +275,10 @@ public class HandItemPresenter : MonoBehaviour
         if (presentationRoot == null)
             return;
 
-        // 모든 장비는 Pickup 위치에서 시작
-        ApplyState(DisplayState.Pickup);
+        ApplyState(HandDisplayState.Pickup);
 
-        // 잠시 정지한 뒤 자동으로 Lowered 이동
-        animation = StartCoroutine(PickupRoutine());
+        animation =
+            StartCoroutine(PickupRoutine());
     }
 
     private void CreateVisual()
@@ -246,7 +294,9 @@ public class HandItemPresenter : MonoBehaviour
             "HandPresentationRoot",
             typeof(RectTransform));
 
-        root.transform.SetParent(itemContainer, false);
+        root.transform.SetParent(
+            itemContainer,
+            false);
 
         presentationRoot =
             root.GetComponent<RectTransform>();
@@ -260,17 +310,22 @@ public class HandItemPresenter : MonoBehaviour
         presentationRoot.pivot =
             new Vector2(0.5f, 0.5f);
 
-        presentationRoot.anchoredPosition = Vector2.zero;
-        presentationRoot.localScale = Vector3.one;
+        presentationRoot.anchoredPosition =
+            Vector2.zero;
+
+        presentationRoot.localScale =
+            Vector3.one;
 
         GameObject visual = new GameObject(
             "HandItemVisual",
             typeof(RectTransform));
 
         visual.transform.SetParent(
-            presentationRoot, false);
+            presentationRoot,
+            false);
 
-        visualRect = visual.GetComponent<RectTransform>();
+        visualRect =
+            visual.GetComponent<RectTransform>();
 
         currentView =
             visual.AddComponent<ItemAssemblyView>();
@@ -291,7 +346,8 @@ public class HandItemPresenter : MonoBehaviour
         visualRect.anchorMax =
             new Vector2(0.5f, 0.5f);
 
-        visualRect.anchoredPosition = Vector2.zero;
+        visualRect.anchoredPosition =
+            Vector2.zero;
     }
 
     private IEnumerator PickupRoutine()
@@ -302,29 +358,34 @@ public class HandItemPresenter : MonoBehaviour
                 raisedHoldDuration);
         }
 
-        animation = null;
+        else
+        {
+            yield return null;
+        }
 
-        AnimateTo(DisplayState.Lowered);
+        animation = null;
+        AnimateTo(HandDisplayState.Lowered);
     }
 
     private void GetTarget(
-        DisplayState target,
+        HandDisplayState target,
         out float topY,
         out float scale)
     {
-        scale = target == DisplayState.Inspecting
-            ? inspectionScale
-            : displayScale;
+        scale =
+            target == HandDisplayState.Inspecting
+                ? inspectionScale
+                : displayScale;
 
-        if (target == DisplayState.Pickup)
+        if (target == HandDisplayState.Pickup)
         {
-            // Pickup은 이미지 중앙 기준
             float height = GetVisualHeight();
 
             topY =
-                raisedHeight + height * scale * 0.5f;
+                raisedHeight +
+                height * scale * 0.5f;
         }
-        else if (target == DisplayState.Inspecting)
+        else if (target == HandDisplayState.Inspecting)
         {
             topY = inspectionHeight;
         }
@@ -359,14 +420,13 @@ public class HandItemPresenter : MonoBehaviour
         presentationRoot.localScale =
             Vector3.one * scale;
 
-        // Bottom 정렬의 실제 이미지 최상단 기준
         presentationRoot.anchoredPosition =
             new Vector2(
                 0f,
                 topY - height * scale);
     }
 
-    private void ApplyState(DisplayState target)
+    private void ApplyState(HandDisplayState target)
     {
         GetTarget(
             target,
@@ -374,19 +434,21 @@ public class HandItemPresenter : MonoBehaviour
             out float scale);
 
         ApplyPresentation(topY, scale);
+
         state = target;
     }
 
-    private void AnimateTo(DisplayState target)
+    private void AnimateTo(HandDisplayState target)
     {
         StopAnimation();
 
-        animation = StartCoroutine(
-            AnimateRoutine(target));
+        if (presentationRoot == null || !isActiveAndEnabled) return;
+        if (animationDuration <= 0f) { ApplyState(target); return; }
+        animation = StartCoroutine(AnimateRoutine(target));
     }
 
     private IEnumerator AnimateRoutine(
-        DisplayState target)
+        HandDisplayState target)
     {
         float startY = currentTopY;
         float startScale = currentScale;
@@ -399,6 +461,7 @@ public class HandItemPresenter : MonoBehaviour
         if (animationDuration <= 0f)
         {
             ApplyPresentation(endY, endScale);
+
             state = target;
             animation = null;
             yield break;
@@ -428,104 +491,21 @@ public class HandItemPresenter : MonoBehaviour
         animation = null;
     }
 
-    private void HandleDrag()
-    {
-        if (!isFrame ||
-            currentView == null ||
-            presentationRoot == null ||
-            itemContainer == null ||
-            SceneManager.GetActiveScene().name != "Observation")
-        {
-            ResetDrag();
-            return;
-        }
-
-        // Pickup 및 자동 하강 중에는 드래그 불가
-        if (state == DisplayState.Pickup ||
-            (animation != null && !isDragging))
-            return;
-
-        if (!TryGetPointer(
-                out Vector2 screenPosition,
-                out bool pressed,
-                out bool down,
-                out bool up))
-            return;
-
-        if (!RectTransformUtility
-            .ScreenPointToLocalPointInRectangle(
-                itemContainer,
-                screenPosition,
-                GetUICamera(),
-                out Vector2 localPosition))
-            return;
-
-        // 실제 이미지 영역에서 드래그 시작
-        if (down && !isDragging)
-        {
-            if (ObservationInputGuard.IsOverUI(screenPosition) || !IsPointerOnHand(screenPosition))
-                return;
-
-            StopAnimation();
-
-            isDragging = true;
-            dragStartLocalPosition = localPosition;
-
-            float range =
-                inspectionHeight - loweredHeight;
-
-            dragStartProgress =
-                Mathf.Abs(range) < 0.001f
-                    ? 0f
-                    : Mathf.Clamp01(
-                        (currentTopY - loweredHeight) / range);
-        }
-
-        // 드래그 중: 위치와 배율 함께 보간
-        if (isDragging && pressed)
-        {
-            float range =
-                inspectionHeight - loweredHeight;
-
-            if (Mathf.Abs(range) < 0.001f)
-                return;
-
-            float deltaY =
-                localPosition.y - dragStartLocalPosition.y;
-
-            float progress = Mathf.Clamp01(
-                dragStartProgress + deltaY / range);
-
-            ApplyDragProgress(progress);
-        }
-
-        // 손가락을 떼면 가까운 끝으로 이동
-        if (isDragging && (up || !pressed))
-        {
-            float progress = GetCurrentProgress();
-
-            ResetDrag();
-
-            AnimateTo(
-                progress >= 0.5f
-                    ? DisplayState.Inspecting
-                    : DisplayState.Lowered);
-        }
-    }
-
     private void ApplyDragProgress(float progress)
     {
         progress = Mathf.Clamp01(progress);
 
-        float topY = Mathf.Lerp(
-            loweredHeight,
-            inspectionHeight,
-            progress);
+        float topY =
+            Mathf.Lerp(
+                loweredHeight,
+                inspectionHeight,
+                progress);
 
-        float scale = Mathf.Lerp(
-            displayScale,
-            inspectionScale,
-            progress);
+        float scale =
+            Mathf.Lerp(
+                displayScale,
+                inspectionScale,
+                progress);
 
         ApplyPresentation(topY, scale);
     }
@@ -539,15 +519,20 @@ public class HandItemPresenter : MonoBehaviour
             return 0f;
 
         return Mathf.Clamp01(
-            (currentTopY - loweredHeight) / range);
+            (currentTopY - loweredHeight) /
+            range);
     }
 
-    // Hand visuals use manual input, so they must also shield observation selection.
-    public bool BlocksObservationInput(Vector2 position) =>
-        isActiveAndEnabled && (isDragging || IsPointerOnHand(position));
+    public bool BlocksObservationInput(Vector2 position)
+    {
+        return isActiveAndEnabled &&
+               (GetComponent<HandGestureController>()?.BlocksObservationInput == true ||
+                IsInspectionInputCaptured ||
+                IsPointerOnHand(position));
+    }
 
-    // Use the same visible-pixel test as equipment selection and camera input shielding.
-    private bool IsPointerOnHand(Vector2 screenPosition)
+    public bool IsPointerOnHand(
+        Vector2 screenPosition)
     {
         if (currentView == null)
             return false;
@@ -564,7 +549,10 @@ public class HandItemPresenter : MonoBehaviour
                 image.sprite == null)
                 continue;
 
-            if (SpriteImageHitTest.Contains(image, screenPosition, uiCamera))
+            if (SpriteImageHitTest.Contains(
+                    image,
+                    screenPosition,
+                    uiCamera))
             {
                 return true;
             }
@@ -583,54 +571,6 @@ public class HandItemPresenter : MonoBehaviour
         return rootCanvas.worldCamera;
     }
 
-    private bool TryGetPointer(
-        out Vector2 position,
-        out bool pressed,
-        out bool down,
-        out bool up)
-    {
-        position = Vector2.zero;
-        pressed = false;
-        down = false;
-        up = false;
-
-        Touchscreen touchscreen = Touchscreen.current;
-
-        if (touchscreen != null)
-        {
-            var touch = touchscreen.primaryTouch;
-
-            if (touch.press.isPressed ||
-                touch.press.wasPressedThisFrame ||
-                touch.press.wasReleasedThisFrame)
-            {
-                position = touch.position.ReadValue();
-                pressed = touch.press.isPressed;
-                down = touch.press.wasPressedThisFrame;
-                up = touch.press.wasReleasedThisFrame;
-
-                return true;
-            }
-        }
-
-        Mouse mouse = Mouse.current;
-
-        if (mouse == null)
-            return false;
-
-        position = mouse.position.ReadValue();
-        pressed = mouse.leftButton.isPressed;
-        down = mouse.leftButton.wasPressedThisFrame;
-        up = mouse.leftButton.wasReleasedThisFrame;
-
-        return true;
-    }
-
-    private void ResetDrag()
-    {
-        isDragging = false;
-    }
-
     private void StopAnimation()
     {
         if (animation == null)
@@ -642,8 +582,10 @@ public class HandItemPresenter : MonoBehaviour
 
     private void ClearVisual()
     {
+        VisualInvalidated?.Invoke();
         StopAnimation();
-        ResetDrag();
+
+        IsInspectionInputCaptured = false;
 
         if (presentationRoot != null)
         {
@@ -657,7 +599,7 @@ public class HandItemPresenter : MonoBehaviour
         cachedItem = null;
 
         isFrame = false;
-        state = DisplayState.Lowered;
+        state = HandDisplayState.Lowered;
     }
 
     private void OnDestroy()

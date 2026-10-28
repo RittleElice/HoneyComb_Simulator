@@ -68,12 +68,23 @@ public class GameWorld
 
         // 테스트용 소비장 2개
         Inventory.TryAdd(
-            new ItemData(104, "소비장 1", ItemKind.Frame)
+            new ItemData(
+                104,
+                "소비장 1",
+                ItemKind.Frame,
+                new FrameData()
+            )
         );
 
         Inventory.TryAdd(
-            new ItemData(105, "소비장 2", ItemKind.Frame)
+            new ItemData(
+                105,
+                "소비장 2",
+                ItemKind.Frame,
+                new FrameData()
+            )
         );
+
         
         // 추가 테스트용 계상 3개
         Inventory.TryAdd(

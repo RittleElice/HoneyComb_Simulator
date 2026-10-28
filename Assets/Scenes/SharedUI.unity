@@ -696,6 +696,11 @@ GameObject:
   - component: {fileID: 1261923422}
   - component: {fileID: 1261923421}
   - component: {fileID: 1261923420}
+  - component: {fileID: 1261923428}
+  - component: {fileID: 1261923427}
+  - component: {fileID: 1261923426}
+  - component: {fileID: 1261923425}
+  - component: {fileID: 1261923424}
   m_Layer: 5
   m_Name: HandSlot
   m_TagString: Untagged
@@ -830,6 +835,73 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1261923418}
   m_CullTransparentMesh: 1
+--- !u!114 &1261923424
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1261923418}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 504968a660a188d4f97c22e04f15835f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HandGestureController
+  gestureThreshold: 15
+--- !u!114 &1261923425
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1261923418}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f580152047f1e64992d7b948182f382, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HandInspectionController
+  handPresenter: {fileID: 1261923420}
+  frameFlip: {fileID: 1261923426}
+  handLower: {fileID: 1261923427}
+--- !u!114 &1261923426
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1261923418}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2aaabec5c5fc2e841ac8f97a60c0a8f9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FrameFlipAction
+  handPresenter: {fileID: 1261923420}
+  dragDistance: 300
+  snapDuration: 0.25
+--- !u!114 &1261923427
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1261923418}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d85f6307621605242b6d6d5d6ba401b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HandLowerAction
+--- !u!114 &1261923428
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1261923418}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f814225fecff6f344ab1dbc33320c5a9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HandRaiseController
 --- !u!1 &1867626454
 GameObject:
   m_ObjectHideFlags: 0

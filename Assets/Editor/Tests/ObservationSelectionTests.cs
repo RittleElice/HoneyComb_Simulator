@@ -96,8 +96,8 @@ public static class ObservationSelectionTests
             Set(hand,"currentView",presenter.CurrentView); Set(selection,"hand",hand);
             var body=presenter.CurrentView.Parts[0];
             Check(selection.IsBlocked(body.Image.transform.TransformPoint(body.VisibleRect.center)),"hand image blocks click-through");
-            Set(hand,"isDragging",true); Check(selection.IsBlocked(new Vector2(30,30)),"hand drag captures outside its image");
-            Set(hand,"isDragging",false); Set(hand,"currentView",null); UnityEngine.Object.DestroyImmediate(handGo);
+            hand.SetInspectionInputCaptured(true); Check(selection.IsBlocked(new Vector2(30,30)),"hand drag captures outside its image");
+            hand.SetInspectionInputCaptured(false); Set(hand,"currentView",null); UnityEngine.Object.DestroyImmediate(handGo);
 
             selection.Selection.SelectPart(slot,parts[2]);
             var handSlot=new ItemSlot(); slot.TrySplitTo(2,handSlot); presenter.Show(slot.Value); selection.Synchronize();
