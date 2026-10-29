@@ -67,22 +67,11 @@ public class GameWorld
         );
 
         // 테스트용 소비장 2개
-        Inventory.TryAdd(
-            new ItemData(
-                104,
-                "소비장 1",
-                ItemKind.Frame,
-                new FrameData()
-            )
+        Inventory.TryAdd(new ItemData(104, "소비장 1", ItemKind.Frame, new FrameData())
         );
 
         Inventory.TryAdd(
-            new ItemData(
-                105,
-                "소비장 2",
-                ItemKind.Frame,
-                new FrameData()
-            )
+            new ItemData(105, "소비장 2", ItemKind.Frame, new FrameData())
         );
 
         
@@ -98,6 +87,12 @@ public class GameWorld
         Inventory.TryAdd(
             new ItemData(108, "계상 5", ItemKind.Super)
         );
+        
+        Inventory.TryAdd(
+            new ItemData(109, "격왕판", ItemKind.QueenExcluder
+            )
+        );
+
 
     }
 }

@@ -77,5 +77,17 @@ MonoBehaviour:
     context: 3
     prefab: {fileID: 1146316118959187193, guid: 57dcb5f7b18043299fb760a0faf9a398, type: 3}
     sprite: {fileID: 6126336805409458193, guid: 0b368c95f1e823248a39dae34c4587ea, type: 3}
+  - kind: 5
+    context: 3
+    prefab: {fileID: 1146316118959187193, guid: 57dcb5f7b18043299fb760a0faf9a398, type: 3}
+    sprite: {fileID: 6126336805409458193, guid: 0b368c95f1e823248a39dae34c4587ea, type: 3}
+  - kind: 4
+    context: 3
+    prefab: {fileID: 1146316118959187193, guid: 57dcb5f7b18043299fb760a0faf9a398, type: 3}
+    sprite: {fileID: 6126336805409458193, guid: 0b368c95f1e823248a39dae34c4587ea, type: 3}
+  - kind: 4
+    context: 3
+    prefab: {fileID: 1146316118959187193, guid: 57dcb5f7b18043299fb760a0faf9a398, type: 3}
+    sprite: {fileID: 6126336805409458193, guid: 0b368c95f1e823248a39dae34c4587ea, type: 3}
   defaultApiaryPrefab: {fileID: 0}
   defaultUIPrefab: {fileID: 1146316118959187193, guid: 6ec61c54f22a7144bab31703aca01d42, type: 3}

@@ -139,7 +139,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -1896118295794578104, guid: 85da9a6e7d3547e49b1c66c23e322cc3, type: 3}
+  m_Sprite: {fileID: -5969171877990807766, guid: e81bb829fb432f84db930c1798aa7863, type: 3}
   m_Type: 0
   m_PreserveAspect: 1
   m_FillCenter: 1
@@ -184,3 +184,6 @@ MonoBehaviour:
   - {x: 1, y: 1}
   - {x: 0.32173914, y: 1}
   - {x: 0, y: 0.21693122}
+  alphaThreshold: 0.1
+  useAlphaHitTest: 1
+  restrictAlphaToPolygon: 0

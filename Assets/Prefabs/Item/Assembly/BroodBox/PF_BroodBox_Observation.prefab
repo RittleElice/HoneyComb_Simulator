@@ -85,6 +85,7 @@ GameObject:
   - component: {fileID: 900000010}
   - component: {fileID: 6038370449165107252}
   - component: {fileID: 2006548320941293030}
+  - component: {fileID: 6398087238416378338}
   m_Layer: 5
   m_Name: PF_BroodBox_Observation
   m_TagString: Untagged
@@ -106,6 +107,7 @@ RectTransform:
   m_Children:
   - {fileID: 900000002}
   - {fileID: 900000004}
+  - {fileID: 348002931761557783}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -222,3 +224,57 @@ MonoBehaviour:
   widthScale: 1
   heightScale: 1
   positionOffset: {x: 0, y: 0}
+--- !u!114 &6398087238416378338
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1146316118959187193}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9089826996dc0174383025abf24e6420, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationTopAttachmentView
+  attachmentArea: {fileID: 348002931761557783}
+  prefabRegistry: {fileID: 0}
+  fallbackPrefab: {fileID: 0}
+  positionOffset: {x: 0, y: 0}
+  displayScale: 1
+  widthScale: 1
+  heightScale: 1
+--- !u!1 &1405489590250854612
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 348002931761557783}
+  m_Layer: 5
+  m_Name: TopAttachmentArea
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &348002931761557783
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1405489590250854612}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3659750254237693246}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 250.70874}
+  m_SizeDelta: {x: 920, y: 298.5824}
+  m_Pivot: {x: 0.5, y: 0.5}

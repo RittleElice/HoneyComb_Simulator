@@ -26,6 +26,7 @@ public class ObservationActionUI : MonoBehaviour
     private ItemSlot observedSlot;
     private ItemSlot handSlot;
     private ItemSlot observedFrameSlot;
+    private ItemSlot observedTopSlot;
 
     private ItemSlotObserver observer;
     private bool dirty = true;
@@ -78,13 +79,17 @@ public class ObservationActionUI : MonoBehaviour
                 selection.Selection.GetSelectedFrameSlot();
         }
 
+        ItemSlot currentTopSlot = ObservationSelection.GetExposedBox(currentTarget)?.TopSlot;
+
         bool referencesChanged =
+            !ReferenceEquals(observedTopSlot, currentTopSlot) ||
             !ReferenceEquals(handSlot, currentHand) ||
             !ReferenceEquals(observedSlot, currentTarget) ||
             !ReferenceEquals(observedFrameSlot, currentFrameSlot);
 
         if (referencesChanged)
         {
+            observedTopSlot = currentTopSlot;
             handSlot = currentHand;
             observedSlot = currentTarget;
             observedFrameSlot = currentFrameSlot;
@@ -114,6 +119,8 @@ public class ObservationActionUI : MonoBehaviour
 
         if (observedFrameSlot != null)
             observer.Observe(observedFrameSlot);
+        if (observedTopSlot != null)
+            observer.Observe(observedTopSlot);
     }
 
     public void RefreshActions()
@@ -168,7 +175,8 @@ public class ObservationActionUI : MonoBehaviour
         // Combine/Place는 기존 독립 버튼에서 처리
         if (action == ObservationAction.Lift ||
             action == ObservationAction.InsertFrame ||
-            action == ObservationAction.TakeFrame)
+            action == ObservationAction.TakeFrame ||
+            action == ObservationAction.TakeTopAttachment)
         {
             CreateActionButton(
                 action,
@@ -220,6 +228,9 @@ public class ObservationActionUI : MonoBehaviour
     {
         switch (state.Kind)
         {
+            case ObservationSelectionKind.TopAttachment:
+                return state.Part.Name;
+
             case ObservationSelectionKind.Ground:
                 return "바닥";
 
@@ -289,6 +300,9 @@ public class ObservationActionUI : MonoBehaviour
         int expectedPartIndex = state.PartIndex;
         int expectedFrameIndex = state.FrameSlotIndex;
 
+        ItemSlot expectedAttachmentSlot = state.SelectedTopAttachmentSlot;
+        MovableItem expectedAttachment = expectedAttachmentSlot?.Value;
+
         ItemSlot expectedFrameSlot = frameSlot;
         MovableItem expectedFrameValue = frameSlot?.Value;
 
@@ -322,6 +336,8 @@ public class ObservationActionUI : MonoBehaviour
                     : null;
 
             bool valid =
+                ReferenceEquals(liveState.SelectedTopAttachmentSlot, expectedAttachmentSlot) &&
+                ReferenceEquals(liveState.SelectedTopAttachmentSlot?.Value, expectedAttachment) &&
                 ReferenceEquals(current, expectedSlot) &&
                 ReferenceEquals(current?.Value, expectedValue) &&
                 ReferenceEquals(liveHand, expectedHandSlot) &&
@@ -373,6 +389,9 @@ public class ObservationActionUI : MonoBehaviour
     {
         switch (action)
         {
+            case ObservationAction.TakeTopAttachment:
+                return "들기";
+
             case ObservationAction.InsertFrame:
                 return "소비장 넣기";
 
@@ -627,7 +646,8 @@ public class ObservationActionUI : MonoBehaviour
             }
             else
             {
-                Image image = selection.SelectedImage;
+                Image image = selection.Selection.Kind == ObservationSelectionKind.TopAttachment
+                    ? TopImage(out _) : selection.SelectedImage;
 
                 if (image == null)
                     SetVisible(false);
@@ -709,6 +729,11 @@ public class ObservationActionUI : MonoBehaviour
         }
 
         return false;
+    }
+
+    public void FollowTopAttachment(RectTransform menu, Image image)
+    {
+        Follow(menu, image, true);
     }
 
     private void Follow(
@@ -842,6 +867,7 @@ public class ObservationActionUI : MonoBehaviour
         handSlot = null;
         observedSlot = null;
         observedFrameSlot = null;
+        observedTopSlot = null;
 
         SetVisible(false);
 

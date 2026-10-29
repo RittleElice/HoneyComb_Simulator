@@ -6,7 +6,8 @@ public enum ObservationSelectionKind
     None,
     Ground,
     EquipmentPart,
-    FrameSlot
+    FrameSlot,
+    TopAttachment
 }
 
 // 실제 장비와 슬롯을 참조하며 데이터를 복제하지 않음
@@ -23,8 +24,15 @@ public sealed class ObservationSelection
     // 조립체 내부 장비 인덱스
     public int PartIndex { get; private set; } = -1;
 
-    // 소비장 슬롯 인덱스 (0~9)
+    // 내부 장비 슬롯 인덱스 (0~9)
     public int FrameSlotIndex { get; private set; } = -1;
+
+    // 선택한 상단 부착 장비가 들어 있는 실제 슬롯
+    public ItemSlot SelectedTopAttachmentSlot
+    {
+        get;
+        private set;
+    }
 
     public void Clear()
     {
@@ -33,6 +41,7 @@ public sealed class ObservationSelection
         Part = null;
         PartIndex = -1;
         FrameSlotIndex = -1;
+        SelectedTopAttachmentSlot = null;
     }
 
     public void SelectGround(ItemSlot slot)
@@ -71,7 +80,7 @@ public sealed class ObservationSelection
             box == null ||
             box.Frames == null ||
             index < 0 ||
-            index >= 10)
+            index >= box.Frames.Capacity)
             return false;
 
         Slot = slot;
@@ -80,6 +89,37 @@ public sealed class ObservationSelection
         Kind = ObservationSelectionKind.FrameSlot;
 
         return Revalidate(slot);
+    }
+
+    // 설치된 상단 장비 자체를 선택
+    public bool SelectTopAttachment(
+        ItemSlot observedSlot,
+        ItemData box)
+    {
+        Clear();
+
+        if (observedSlot == null ||
+            box == null ||
+            box.TopSlot == null ||
+            box.TopSlot.IsEmpty)
+            return false;
+
+        if (!ReferenceEquals(
+            GetExposedBox(observedSlot), box))
+            return false;
+
+        ItemData attachment = box.TopSlot.Item;
+
+        if (attachment == null ||
+            attachment.Category != SlotCategory.TopSlot)
+            return false;
+
+        Slot = observedSlot;
+        Part = attachment;
+        SelectedTopAttachmentSlot = box.TopSlot;
+        Kind = ObservationSelectionKind.TopAttachment;
+
+        return Revalidate(observedSlot);
     }
 
     // 현재 접근 가능한 최상단 상자
@@ -116,6 +156,17 @@ public sealed class ObservationSelection
         return Part.Frames.GetSlot(FrameSlotIndex);
     }
 
+    public ItemSlot GetSelectedTopAttachmentSlot()
+    {
+        if (Kind != ObservationSelectionKind.TopAttachment)
+            return null;
+
+        if (!Revalidate(Slot))
+            return null;
+
+        return SelectedTopAttachmentSlot;
+    }
+
     public bool Revalidate(ItemSlot currentSlot)
     {
         if (Kind == ObservationSelectionKind.None)
@@ -130,6 +181,34 @@ public sealed class ObservationSelection
 
         if (Kind == ObservationSelectionKind.Ground)
             return true;
+
+        // 상단 장비는 조립체 Parts에 포함되지 않으므로
+        // 일반 EquipmentPart와 별도로 검증
+        if (Kind == ObservationSelectionKind.TopAttachment)
+        {
+            ItemData exposedBox = GetExposedBox(currentSlot);
+
+            bool valid =
+                exposedBox != null &&
+                exposedBox.TopSlot != null &&
+                ReferenceEquals(
+                    SelectedTopAttachmentSlot,
+                    exposedBox.TopSlot) &&
+                ReferenceEquals(
+                    SelectedTopAttachmentSlot.Value,
+                    Part) &&
+                Part != null &&
+                Part.Category == SlotCategory.TopSlot;
+
+            if (!valid)
+            {
+                Clear();
+                return false;
+            }
+
+            PartIndex = -1;
+            return true;
+        }
 
         var parts = ItemVisualFactory.GetParts(currentSlot.Value);
 
@@ -155,14 +234,21 @@ public sealed class ObservationSelection
 
         if (Kind == ObservationSelectionKind.FrameSlot)
         {
+            // 격왕판 등 상단 장비가 설치되어 있으면
+            // 내부 소비장 슬롯에 접근할 수 없다.
+            bool topAttachmentBlocksInterior =
+                Part.TopSlot != null &&
+                !Part.TopSlot.IsEmpty;
+
             if (Part.Frames == null ||
                 (Part.Kind != ItemKind.BroodBox &&
                  Part.Kind != ItemKind.Super) ||
+                topAttachmentBlocksInterior ||
                 FrameSlotIndex < 0 ||
-                FrameSlotIndex >= 10 ||
                 FrameSlotIndex >= Part.Frames.Capacity ||
                 Part.Frames.GetSlot(FrameSlotIndex) == null ||
-                !ReferenceEquals(GetExposedBox(currentSlot), Part))
+                !ReferenceEquals(
+                    GetExposedBox(currentSlot), Part))
             {
                 Clear();
                 return false;
@@ -183,7 +269,9 @@ public enum ObservationAction
     Lift,
     Combine,
     InsertFrame,
-    TakeFrame
+    TakeFrame,
+    PlaceTopAttachment,
+    TakeTopAttachment
 }
 
 public static class ObservationActions
@@ -210,6 +298,21 @@ public static class ObservationActions
                 : ObservationAction.None;
         }
 
+        // 설치된 상단 장비 선택 후 빈손으로 들기
+        if (selection.Kind ==
+            ObservationSelectionKind.TopAttachment)
+        {
+            ItemSlot attachmentSlot =
+                selection.GetSelectedTopAttachmentSlot();
+
+            return hand.IsEmpty &&
+                   attachmentSlot != null &&
+                   !attachmentSlot.IsEmpty &&
+                   !ReferenceEquals(attachmentSlot, hand)
+                ? ObservationAction.TakeTopAttachment
+                : ObservationAction.None;
+        }
+
         if (selection.Kind == ObservationSelectionKind.FrameSlot)
         {
             ItemSlot frameSlot =
@@ -219,7 +322,6 @@ public static class ObservationActions
                 ReferenceEquals(frameSlot, hand))
                 return ObservationAction.None;
 
-            // 빈 슬롯에 손의 소비장 넣기
             if (frameSlot.IsEmpty)
             {
                 return HiveInteriorRules.CanInsert(hand.Value)
@@ -227,13 +329,13 @@ public static class ObservationActions
                     : ObservationAction.None;
             }
 
-            // 소비장이 있는 슬롯에서 빈손으로 꺼내기
             return hand.IsEmpty
                 ? ObservationAction.TakeFrame
                 : ObservationAction.None;
         }
 
-        if (selection.Kind != ObservationSelectionKind.EquipmentPart)
+        if (selection.Kind !=
+            ObservationSelectionKind.EquipmentPart)
             return ObservationAction.None;
 
         if (hand.IsEmpty)
@@ -267,7 +369,8 @@ public static class ObservationActions
 
             case ObservationAction.Lift:
                 return currentSlot.Value is ItemAssemblyData
-                    ? currentSlot.TrySplitTo(selection.PartIndex, hand)
+                    ? currentSlot.TrySplitTo(
+                        selection.PartIndex, hand)
                     : currentSlot.TryMoveTo(hand);
 
             case ObservationAction.InsertFrame:
@@ -288,8 +391,53 @@ public static class ObservationActions
                        frameSlot.TryMoveTo(hand);
             }
 
+            case ObservationAction.TakeTopAttachment:
+            {
+                ItemSlot attachmentSlot =
+                    selection.GetSelectedTopAttachmentSlot();
+
+                return attachmentSlot != null &&
+                       attachmentSlot.TryMoveTo(hand);
+            }
+
             default:
                 return false;
         }
+    }
+
+    // 선택 상태와 무관하게 상단 장비 설치 가능 여부 확인
+    public static bool CanPlaceTopAttachment(
+        ItemSlot observedSlot,
+        ItemSlot hand)
+    {
+        if (observedSlot == null ||
+            hand == null ||
+            ReferenceEquals(observedSlot, hand) ||
+            hand.IsEmpty)
+            return false;
+
+        ItemData box =
+            ObservationSelection.GetExposedBox(observedSlot);
+
+        return box != null &&
+               box.TopSlot != null &&
+               box.TopSlot.IsEmpty &&
+               !ReferenceEquals(box.TopSlot, hand) &&
+               HiveTopAttachmentRules.CanInsert(hand.Value);
+    }
+
+    // 상단 장비 설치 실행
+    public static bool PlaceTopAttachment(
+        ItemSlot observedSlot,
+        ItemSlot hand)
+    {
+        if (!CanPlaceTopAttachment(observedSlot, hand))
+            return false;
+
+        ItemData box =
+            ObservationSelection.GetExposedBox(observedSlot);
+
+        return box != null &&
+               hand.TryMoveTo(box.TopSlot);
     }
 }

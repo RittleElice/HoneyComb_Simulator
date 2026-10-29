@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!29 &1
 OcclusionCullingSettings:
@@ -234,6 +234,7 @@ GameObject:
   m_Component:
   - component: {fileID: 182998585}
   - component: {fileID: 182998586}
+  - component: {fileID: 930000001}
   - component: {fileID: 910000001}
   - component: {fileID: 910000002}
   m_Layer: 0
@@ -1177,3 +1178,21 @@ SceneRoots:
   - {fileID: 446444865}
   - {fileID: 164535431}
   - {fileID: 182998585}
+
+--- !u!114 &930000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 182998584}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc8dbd0b9b754724955b8859d21f7d9a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObservationTopAttachmentActionUI
+  selection: {fileID: 910000001}
+  presenter: {fileID: 1767056663}
+  positioner: {fileID: 910000004}
+  actionLayer: {fileID: 920000002}
+  buttonPrefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}

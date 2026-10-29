@@ -5,13 +5,17 @@ public class ItemData : MovableItem
     public object Content { get; }
     public ItemKind Kind { get; }
 
-    // 단상·계상 내부의 범용 장비 슬롯
+    // ItemKind에 따라 상위 카테고리 자동 결정
+    public SlotCategory Category =>
+        ItemClassification.GetCategory(Kind);
+
+    // 단상·계상 내부의 범용 장비 슬롯 10개
     public InventoryData InteriorSlots { get; }
 
     // 기존 코드와의 호환성
     public InventoryData Frames => InteriorSlots;
 
-    // 단상·계상 상단의 범용 부착 장비 슬롯
+    // 단상·계상 상단의 범용 장비 슬롯 1개
     public ItemSlot TopSlot { get; }
 
     public ItemData(int id, string name, object content = null)
