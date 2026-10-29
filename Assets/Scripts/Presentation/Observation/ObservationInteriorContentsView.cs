@@ -201,6 +201,34 @@ public class ObservationInteriorContentsView : MonoBehaviour
 
         rect.position += targetWorld - currentCenter;
     }
+    
+    public bool TryGetFrameVisual(
+        int index,
+        ItemData expectedItem,
+        out RectTransform rect)
+    {
+        rect = null;
+
+        if (box == null ||
+            box.Frames == null ||
+            visuals == null ||
+            displayedItems == null ||
+            index < 0 ||
+            index >= visuals.Length)
+            return false;
+
+        ItemSlot slot = box.Frames.GetSlot(index);
+
+        if (slot == null ||
+            !ReferenceEquals(slot.Value, expectedItem) ||
+            !ReferenceEquals(displayedItems[index], expectedItem) ||
+            visuals[index] == null)
+            return false;
+
+        rect = visuals[index].RectTransform;
+        return rect != null;
+    }
+
 
     private void ReleaseSlot(int index)
     {

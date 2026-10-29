@@ -18,6 +18,10 @@ public class ObservationActionUI : MonoBehaviour
     [Header("Position")]
     [SerializeField] private float anchorGap = 16f;
     [SerializeField] private float screenPadding = 16f;
+    
+    [Header("Frame Slot Menu")]
+    [SerializeField]
+    private float frameMenuGap = 20f;
 
     private Button combineButton;
     private Button actionButton;
@@ -688,6 +692,7 @@ public class ObservationActionUI : MonoBehaviour
         }
     }
 
+   
     private bool FollowFrameSlot(RectTransform menu)
     {
         if (presenter == null ||
@@ -718,19 +723,20 @@ public class ObservationActionUI : MonoBehaviour
             if (polygon == null || polygon.Length < 4)
                 return false;
 
-            // 오른쪽 변의 중앙
-            Vector3 rightCenter =
-                (polygon[1] + polygon[2]) * 0.5f;
+            // 선택한 소비장 슬롯의 위쪽 두 점
+            // (기존 polygon[1], polygon[2]는 오른쪽 변)
+            Vector3 topCenter =
+                (polygon[2] + polygon[3]) * 0.5f;
 
+            // true = 메뉴를 기준점 위쪽에 배치
             return FollowWorldPoint(
                 menu,
-                rightCenter,
-                false);
+                topCenter,
+                true);
         }
 
         return false;
     }
-
     public void FollowTopAttachment(RectTransform menu, Image image)
     {
         Follow(menu, image, true);

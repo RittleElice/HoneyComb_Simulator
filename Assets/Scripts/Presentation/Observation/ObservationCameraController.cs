@@ -1,7 +1,7 @@
-
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[DefaultExecutionOrder(110)]
 public class ObservationCameraController : MonoBehaviour
 {
     [Header("References")]
@@ -333,6 +333,14 @@ public class ObservationCameraController : MonoBehaviour
 
     private void HandlePan()
     {
+        // 선택된 소비장 위에서 시작한 포인터 제스처는 카메라에 전달하지 않는다.
+        // 드래그가 끝나는 프레임에도 카메라가 움직이지 않도록 아래에서
+        // pointerRejected를 유지하고 release 시에만 초기화한다.
+        if (selection != null && selection.BlocksCameraPan)
+        {
+            pointerRejected = true;
+            dragging = false;
+        }
         Vector2 position = Vector2.zero;
         bool pressed = false;
         bool down = false;
@@ -411,7 +419,8 @@ public class ObservationCameraController : MonoBehaviour
 
             pointerRejected =
                 !IsInsideViewport(position) ||
-                IsInputBlocked(position);
+                IsInputBlocked(position) ||
+                (selection != null && selection.CanCaptureFrameDragAt(position));
         }
 
         if (!pointerTracking)
