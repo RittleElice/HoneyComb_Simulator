@@ -11,6 +11,9 @@ public class ItemData : MovableItem
     // 기존 코드와의 호환성
     public InventoryData Frames => InteriorSlots;
 
+    // 단상·계상 상단의 범용 부착 장비 슬롯
+    public ItemSlot TopSlot { get; }
+
     public ItemData(int id, string name, object content = null)
         : this(id, name, ItemKind.Generic, content)
     {
@@ -33,6 +36,9 @@ public class ItemData : MovableItem
             InteriorSlots = new InventoryData(
                 10,
                 HiveInteriorRules.CanInsert);
+
+            TopSlot = new ItemSlot(
+                HiveTopAttachmentRules.CanInsert);
         }
     }
 
