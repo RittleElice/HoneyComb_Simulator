@@ -4,14 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
-      <change beforePath="$PROJECT_DIR$/Assets/Resources/ActionButtonCatalog.asset" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Resources/ActionButtonCatalog.asset" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scenes/SharedUI.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scenes/SharedUI.unity" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Item/ItemClassification.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Item/ItemClassification.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Item/ItemData.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Item/ItemData.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Item/MovableItem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Item/MovableItem.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationCameraController.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationCameraController.cs" afterDir="false" />
-    </list>
+    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -133,7 +126,7 @@
       <workItem from="1793086316788" duration="9790000" />
       <workItem from="1793152761042" duration="9288000" />
       <workItem from="1793216170673" duration="14211000" />
-      <workItem from="1793308929636" duration="6732000" />
+      <workItem from="1793308929636" duration="8540000" />
     </task>
     <servers />
   </component>
