@@ -23,6 +23,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 15
     followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 0
@@ -43,6 +45,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 15
     followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 0
@@ -63,6 +67,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 15
     followAnchor: 1
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 0
@@ -105,6 +111,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 16
     followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 0
@@ -125,6 +133,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 16
     followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 0
@@ -145,6 +155,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 16
     followAnchor: 1
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 0
@@ -165,6 +177,8 @@ MonoBehaviour:
     anchor: {x: 0, y: 1}
     followGap: 16
     followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 0
@@ -185,6 +199,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 16
     followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 1
@@ -205,6 +221,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 16
     followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 1
@@ -225,6 +243,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 16
     followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 1
@@ -245,6 +265,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 16
     followAnchor: 1
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 0
@@ -265,6 +287,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 16
     followAnchor: 1
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 0
@@ -284,7 +308,9 @@ MonoBehaviour:
     placement: 1
     anchor: {x: 0.5, y: 0.5}
     followGap: 16
-    followAnchor: 0
+    followAnchor: 4
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 4
     clampToScreen: 1
     padding: 16
     showLabel: 0
@@ -305,6 +331,8 @@ MonoBehaviour:
     anchor: {x: 0.5, y: 0.5}
     followGap: 16
     followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
     clampToScreen: 0
     padding: 16
     showLabel: 0

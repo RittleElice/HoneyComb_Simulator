@@ -10,6 +10,8 @@ public static class ItemClassification
                 return SlotCategory.Assembly;
 
             case ItemKind.Frame:
+            case ItemKind.DividerBoard:
+            case ItemKind.InsulationBoard:
                 return SlotCategory.InteriorSlot;
             
             case ItemKind.QueenExcluder:

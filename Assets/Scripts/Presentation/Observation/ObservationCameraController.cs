@@ -46,11 +46,16 @@ public class ObservationCameraController : MonoBehaviour
     [SerializeField, Min(0f)]
     private float verticalPanMargin = 300f;
 
+    [Tooltip("Height of the object top kept above the viewport bottom when panning down, in UI units.")]
+    [SerializeField, Min(0f)]
+    private float minimumVisibleHeight = 80f;
+
     private float fitScale = 1f;
     private float zoomRatio = 1f;
 
     private Bounds contentBounds;
     private bool hasBounds;
+    private float equipmentTop;
 
     private bool dragging;
     private bool pointerTracking;
@@ -66,6 +71,9 @@ public class ObservationCameraController : MonoBehaviour
     private int lastPartCount = -1;
 
     private bool initialCameraApplied;
+    private ItemSlot lastTargetSlot;
+    private int lastTargetX = int.MinValue;
+    private int lastTargetY = int.MinValue;
 
     private readonly Vector3[] corners = new Vector3[4];
 
@@ -88,15 +96,37 @@ public class ObservationCameraController : MonoBehaviour
 
     private void CheckContentChanges()
     {
+        // A rebuilt view (combine/split) is still the same observed location.
+        ItemSlot targetSlot = selection != null && selection.Observation != null
+            ? selection.Observation.ObservedSlot : null;
+        if (!ReferenceEquals(lastTargetSlot, targetSlot) ||
+            lastTargetX != ObservationContext.GridX || lastTargetY != ObservationContext.GridY)
+        {
+            lastTargetSlot = targetSlot;
+            lastTargetX = ObservationContext.GridX;
+            lastTargetY = ObservationContext.GridY;
+            initialCameraApplied = false;
+            ResetPointer();
+        }
+
         ItemAssemblyView view =
             presenter != null ? presenter.CurrentView : null;
 
         int count = view != null ? view.Parts.Count : 0;
 
-        if (view != lastView || count != lastPartCount)
+        // Do not lock a ground-only fit while a non-empty target is still rendering.
+        if (!initialCameraApplied && targetSlot != null &&
+            targetSlot.Value != null && count == 0)
+            return;
+
+        if (!initialCameraApplied || view != lastView || count != lastPartCount)
         {
             lastView = view;
             lastPartCount = count;
+
+            // Resolve the first Canvas layout before measuring the initial fit.
+            if (!initialCameraApplied)
+                Canvas.ForceUpdateCanvases();
 
             RecalculateBounds();
 
@@ -119,8 +149,6 @@ public class ObservationCameraController : MonoBehaviour
         Vector3 previousScale = world.localScale;
         world.localScale = Vector3.one;
 
-        EncapsulateRect(groundImage);
-
         if (presenter != null &&
             presenter.CurrentView != null)
         {
@@ -136,10 +164,31 @@ public class ObservationCameraController : MonoBehaviour
             }
         }
 
+        // Capture equipment separately so a large ground image cannot hide its loss of visibility.
+        bool hasEquipment = hasBounds;
+        equipmentTop = hasEquipment ? contentBounds.max.y : 0f;
+        EncapsulateRect(groundImage);
+        if (!hasEquipment && hasBounds)
+            equipmentTop = contentBounds.max.y;
+
         world.localScale = previousScale;
 
         if (!hasBounds)
             return;
+
+        // Keep the initial fit as the zoom baseline for this observation target.
+        // Re-clamping a compensated ratio against a new fit can also cause jumps.
+        if (initialCameraApplied)
+        {
+            ClampPosition();
+            return;
+        }
+
+        if (viewport.rect.width <= 0f || viewport.rect.height <= 0f)
+        {
+            hasBounds = false;
+            return;
+        }
 
         float availableWidth = Mathf.Max(
             1f,
@@ -223,6 +272,11 @@ public class ObservationCameraController : MonoBehaviour
 
     private float GetBottomAlignedPosition()
     {
+        return GetBottomAlignedPosition(initialBottomPadding);
+    }
+
+    private float GetBottomAlignedPosition(float bottomPadding)
+    {
         var image = groundImage.GetComponent<UnityEngine.UI.Image>();
         Rect rect = image != null ? SpriteImageHitTest.VisibleRect(image) : groundImage.rect;
         float bottom = 0f;
@@ -231,7 +285,7 @@ public class ObservationCameraController : MonoBehaviour
         Vector3 groundPoint = groundImage.TransformPoint(new Vector3(rect.center.x,
             rect.yMin + rect.height * bottom));
         Vector3 target = viewport.TransformPoint(new Vector3(viewport.rect.center.x,
-            viewport.rect.yMin + initialBottomPadding));
+            viewport.rect.yMin + bottomPadding));
         // Compare in the anchored transform's parent space, including arbitrary anchors/pivots.
         return world.anchoredPosition.y + world.parent.InverseTransformPoint(target).y
             - world.parent.InverseTransformPoint(groundPoint).y;
@@ -598,6 +652,11 @@ public class ObservationCameraController : MonoBehaviour
                 Mathf.Max(maximum, bottomAligned + verticalPanMargin));
         }
 
+        // Allow the base below the screen, but retain a strip of the equipment top.
+        float visibleHeight = Mathf.Clamp(minimumVisibleHeight, 0f, viewportHeight);
+        float lowestPosition = viewMin + visibleHeight - equipmentTop * scale;
+        position.y = Mathf.Max(position.y, lowestPosition);
+
         position.x =
             -contentBounds.center.x * scale;
 
@@ -617,6 +676,7 @@ public class ObservationCameraController : MonoBehaviour
     private void OnDisable()
     {
         ResetPointer();
+        initialCameraApplied = false;
     }
 
     private void OnValidate()
@@ -634,6 +694,7 @@ public class ObservationCameraController : MonoBehaviour
 
         dragThreshold = Mathf.Max(0f, dragThreshold);
         verticalPanMargin = Mathf.Max(0f, verticalPanMargin);
+        minimumVisibleHeight = Mathf.Max(0f, minimumVisibleHeight);
         fitPadding = Mathf.Max(0f, fitPadding);
         initialBottomPadding = Mathf.Max(0f, initialBottomPadding);
     }

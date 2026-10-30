@@ -15,5 +15,7 @@ public enum ItemKind
     Frame,
     Lid,
     Super,
-    QueenExcluder
+    QueenExcluder,
+    DividerBoard,
+    InsulationBoard
 }
