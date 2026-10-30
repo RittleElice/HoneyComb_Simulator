@@ -533,8 +533,9 @@ public class ObservationSelectionController : MonoBehaviour
                 return false;
             }
 
-            if (!RectTransformUtility.RectangleContainsScreenPoint(
-                    image.rectTransform,
+            // Match the rendered sprite, including transparent pixels and aspect padding.
+            if (!SpriteImageHitTest.Contains(
+                    image,
                     screenPosition,
                     UICamera))
             {

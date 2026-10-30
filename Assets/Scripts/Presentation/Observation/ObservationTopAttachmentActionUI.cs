@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -51,18 +51,16 @@ public sealed class ObservationTopAttachmentActionUI : MonoBehaviour
             expectedBox = ObservationSelection.GetExposedBox(target);
             if (available && placeButton == null)
             {
-                placeButton = Instantiate(buttonPrefab, actionLayer, false);
+                placeButton = ActionButtonManager.Create(buttonPrefab, actionLayer, ActionButtonId.PlaceTopAttachment);
                 placeButton.name = "PlaceTopAttachmentButton";
                 var rect = (RectTransform)placeButton.transform;
                 rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
-                rect.sizeDelta = new Vector2(280f, 80f); rect.localScale = Vector3.one;
-                var label = placeButton.GetComponentInChildren<TMP_Text>(true);
-                if (label != null) { label.text = "배치하기"; label.enableAutoSizing = true; label.fontSizeMin = 16f; label.fontSizeMax = 25f; }
+                rect.localScale = Vector3.one;
                 placeButton.onClick.AddListener(Place);
             }
         }
         if (placeButton == null) return;
-        placeButton.gameObject.SetActive(available);
+        ActionButtonManager.SetVisible(placeButton, available);
         if (available) positioner.FollowTopAttachment((RectTransform)placeButton.transform, image);
     }
     private Image BoxImage(ItemData box)

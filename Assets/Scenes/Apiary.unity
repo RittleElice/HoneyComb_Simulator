@@ -178,6 +178,7 @@ GameObject:
   - component: {fileID: 270781041}
   - component: {fileID: 270781040}
   - component: {fileID: 270781039}
+  - component: {fileID: 270781042}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -269,6 +270,19 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
+--- !u!114 &270781042
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 270781037}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33c45148bd624965b7fc03371d8b7068, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ActionButtonManager
+  catalog: {fileID: 11400000, guid: 23c15a17db3fa5545a95584a9ab90851, type: 2}
 --- !u!1 &343857001
 GameObject:
   m_ObjectHideFlags: 0
@@ -510,7 +524,6 @@ MonoBehaviour:
   targetCamera: {fileID: 1851353667}
   popupOffset: {x: 15, y: 0}
   itemView: {fileID: 896826481}
-
 --- !u!1 &1851353665
 GameObject:
   m_ObjectHideFlags: 0
@@ -599,7 +612,7 @@ Transform:
   m_GameObject: {fileID: 1851353665}
   serializedVersion: 2
   m_LocalRotation: {x: 0.17364816, y: 0, z: 0, w: 0.9848078}
-  m_LocalPosition: {x: 0, y: 1, z: -1}
+  m_LocalPosition: {x: 0, y: 2.3, z: -2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -621,7 +634,7 @@ MonoBehaviour:
   gridView: {fileID: 896826479}
   dragSensitivity: 1
   limitCameraMovement: 1
-  boundaryPadding: 1
+  boundaryPadding: 2.5
   referenceDistance: 12
 --- !u!114 &1851353670
 MonoBehaviour:

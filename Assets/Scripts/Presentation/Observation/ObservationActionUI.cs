@@ -1,4 +1,4 @@
-
+﻿
 using System;
 using TMPro;
 using UnityEngine;
@@ -163,6 +163,7 @@ public class ObservationActionUI : MonoBehaviour
                 : null;
 
         title.text = BuildTitle(state, frameSlot);
+        title.gameObject.SetActive(false);
 
         if (actionButton != null)
         {
@@ -267,30 +268,17 @@ public class ObservationActionUI : MonoBehaviour
         ItemSlot slot,
         ItemSlot frameSlot)
     {
-        actionButton = Instantiate(
-            buttonPrefab,
-            buttonContainer,
-            false);
+        actionButton = ActionButtonManager.Create(buttonPrefab, buttonContainer,
+            action == ObservationAction.InsertFrame ? ActionButtonId.InsertFrame :
+            action == ObservationAction.TakeFrame ? ActionButtonId.TakeFrame :
+            action == ObservationAction.TakeTopAttachment ? ActionButtonId.TakeTopAttachment : ActionButtonId.ObservationLift,
+            GetActionLabel(action, state, slot));
 
         actionButton.gameObject.SetActive(true);
 
-        TMP_Text label =
-            actionButton.GetComponentInChildren<TMP_Text>(true);
-
-        if (label != null)
-        {
-            label.text = GetActionLabel(action, state, slot);
-
-            label.enableAutoSizing = true;
-            label.fontSizeMin = 16f;
-            label.fontSizeMax = 25f;
-        }
-
-        LayoutElement layout =
-            actionButton.GetComponent<LayoutElement>() ??
-            actionButton.gameObject.AddComponent<LayoutElement>();
-
-        layout.preferredHeight = 90f;
+        actionButton.GetComponent<ActionButtonView>().SetContext(
+            state.Part != null && state.Part.Kind == ItemKind.Lid,
+            slot?.Value is ItemAssemblyData ? state.PartIndex + 1 : 0);
 
         // 버튼 생성 시점의 선택 상태
         ItemSlot expectedSlot = slot;
@@ -517,10 +505,7 @@ public class ObservationActionUI : MonoBehaviour
 
         if (available && combineButton == null)
         {
-            combineButton = Instantiate(
-                buttonPrefab,
-                actionLayer,
-                false);
+            combineButton = ActionButtonManager.Create(buttonPrefab, actionLayer, ActionButtonId.ObservationCombine);
 
             combineButton.name = "CombineButton";
 
@@ -531,22 +516,13 @@ public class ObservationActionUI : MonoBehaviour
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
 
-            rect.sizeDelta = new Vector2(280f, 80f);
             rect.localScale = Vector3.one;
-
-            TMP_Text label =
-                combineButton.GetComponentInChildren<TMP_Text>(true);
-
-            if (label != null)
-            {
-                label.text = "결합하기";
-                label.enableAutoSizing = true;
-                label.fontSizeMin = 16f;
-                label.fontSizeMax = 25f;
-            }
 
             combineButton.onClick.AddListener(Combine);
         }
+
+        if (combineButton != null && action != ObservationAction.None)
+            ActionButtonManager.Adopt(combineButton, action == ObservationAction.Place ? ActionButtonId.ObservationPlace : ActionButtonId.ObservationCombine);
 
         expectedAction = action;
 
@@ -559,7 +535,7 @@ public class ObservationActionUI : MonoBehaviour
         expectedTop = top;
 
         if (combineButton != null)
-            combineButton.gameObject.SetActive(available);
+            ActionButtonManager.SetVisible(combineButton, available);
     }
 
     private void Combine()
@@ -650,13 +626,12 @@ public class ObservationActionUI : MonoBehaviour
             }
             else
             {
-                Image image = selection.Selection.Kind == ObservationSelectionKind.TopAttachment
-                    ? TopImage(out _) : selection.SelectedImage;
+                Image image = selection.SelectedImage;
 
                 if (image == null)
                     SetVisible(false);
                 else
-                    Follow(menu, image, false);
+                    Follow(menu, image, selection.Selection.Kind == ObservationSelectionKind.TopAttachment);
             }
         }
 
@@ -732,7 +707,7 @@ public class ObservationActionUI : MonoBehaviour
             return FollowWorldPoint(
                 menu,
                 topCenter,
-                true);
+                true, ScreenBounds(polygon[0], polygon[1], polygon[2], polygon[3]));
         }
 
         return false;
@@ -783,14 +758,50 @@ public class ObservationActionUI : MonoBehaviour
                     ? new Vector3(r.center.x, r.yMax, 0f)
                     : new Vector3(r.xMax, r.center.y, 0f));
 
-        FollowWorldPoint(menu, worldPoint, above);
+        FollowWorldPoint(menu, worldPoint, above, ScreenBounds(
+            image.transform.TransformPoint(new Vector3(r.xMin, r.yMin)),
+            image.transform.TransformPoint(new Vector3(r.xMin, r.yMax)),
+            image.transform.TransformPoint(new Vector3(r.xMax, r.yMax)),
+            image.transform.TransformPoint(new Vector3(r.xMax, r.yMin))));
+    }
+
+    private Rect ScreenBounds(Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+    {
+        Vector2 pa = RectTransformUtility.WorldToScreenPoint(selection.UICamera, a);
+        Vector2 pb = RectTransformUtility.WorldToScreenPoint(selection.UICamera, b);
+        Vector2 pc = RectTransformUtility.WorldToScreenPoint(selection.UICamera, c);
+        Vector2 pd = RectTransformUtility.WorldToScreenPoint(selection.UICamera, d);
+        Vector2 min = Vector2.Min(Vector2.Min(pa, pb), Vector2.Min(pc, pd));
+        Vector2 max = Vector2.Max(Vector2.Max(pa, pb), Vector2.Max(pc, pd));
+        return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+    }
+
+    private void SetFollowTarget(ActionButtonView view, Vector3 point, bool above, Rect? bounds)
+    {
+        if (bounds.HasValue)
+            view.SetScreenBounds(bounds.Value, RectTransformUtility.WorldToScreenPoint(selection.UICamera, point),
+                above ? Vector2.up : Vector2.right, anchorGap);
+        else view.SetFollowPoint(point, selection.UICamera, above, anchorGap);
     }
 
     private bool FollowWorldPoint(
         RectTransform menu,
         Vector3 worldPoint,
-        bool above)
+        bool above, Rect? targetBounds = null)
     {
+        if (panelCanvasGroup != null && menu == panelCanvasGroup.transform && actionButton != null)
+        {
+            var selectedView = actionButton.GetComponent<ActionButtonView>();
+            if (selectedView != null) SetFollowTarget(selectedView, worldPoint, above, targetBounds);
+        }
+        var common = menu.GetComponent<ActionButtonView>();
+        if (common != null && common.HasStyle)
+        {
+            SetFollowTarget(common, worldPoint, above, targetBounds);
+            // ActionButtonView flushes position after all controllers in LateUpdate.
+            return true;
+        }
+
         Canvas canvas =
             actionLayer.GetComponentInParent<Canvas>().rootCanvas;
 

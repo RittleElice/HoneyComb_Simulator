@@ -1,0 +1,1 @@
+PASS: 3 common-button real Canvas input checks in Play Mode.

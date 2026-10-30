@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 [DefaultExecutionOrder(100)]
@@ -350,7 +350,7 @@ public class ApiaryItemPresenter : MonoBehaviour
         int gridX,
         int gridY,
         Camera camera,
-        out Rect screenBounds)
+        out Rect screenBounds, ItemData onlyPart = null)
     {
         screenBounds = default;
 
@@ -367,6 +367,7 @@ public class ApiaryItemPresenter : MonoBehaviour
 
         foreach (var pair in partViews)
         {
+            if (onlyPart != null && !ReferenceEquals(pair.Key, onlyPart)) continue;
             PartVisual visual = pair.Value;
 
             if (!activeParts.Contains(pair.Key) ||

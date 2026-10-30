@@ -1,0 +1,10 @@
+양봉장 뚜껑 들기 위치
+Catalog > Lift > Override Lid Follow Anchor: 켬
+Lid Follow Anchor: 위쪽 중앙 (Top)
+관리창: Tools > HoneyComb > Button Manager > Lift > 뚜껑 추적 위치 별도 지정 / 뚜껑 추적 위치
+일반 층별 들기는 기존 Follow Anchor를 사용합니다. Follow Gap과 Offset은 공통입니다.
+
+Unity 6000.5.1f1 검증 복사본 컴파일 및 실행 통과. 원본 반영 후 SHA256 일치.
+위치 검사 24, 갱신 검사 140, 통합 버튼 검사 49, Play Mode 콜백 검사 9 통과. 관찰 및 조립 회귀 검사 통과.
+씬 6개 / 프리팹 22개 연결 검사 오류 0.
+실제 화면 및 터치 검수는 미실시.

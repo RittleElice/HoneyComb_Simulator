@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -31,6 +31,17 @@ public class ObservationController : MonoBehaviour
     private void Start()
     {
         started = true;
+        if (targetInfoText != null) targetInfoText.gameObject.SetActive(false);
+        ActionButtonManager.Adopt(backButton, ActionButtonId.Back);
+        if (backButton != null)
+        {
+            // SharedUI inventory Canvas uses order 100. Keep only navigation above it.
+            var navigationCanvas = backButton.GetComponent<Canvas>();
+            if (navigationCanvas == null) navigationCanvas = backButton.gameObject.AddComponent<Canvas>();
+            navigationCanvas.overrideSorting = true;
+            navigationCanvas.sortingOrder = 101;
+            if (backButton.GetComponent<GraphicRaycaster>() == null) backButton.gameObject.AddComponent<GraphicRaycaster>();
+        }
         if (backButton != null)
             backButton.onClick.AddListener(GoBack);
 

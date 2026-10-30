@@ -6,13 +6,20 @@
   <component name="ChangeListManager">
     <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Editor/Tests/ObservationPlayInputTests.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Editor/Tests/ObservationPlayInputTests.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Editor/Tests/ObservationSelectionTests.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Editor/Tests/ObservationSelectionTests.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Editor/Tests/ObservationTopAttachmentTests.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Editor/Tests/ObservationTopAttachmentTests.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scenes/Apiary.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scenes/Apiary.unity" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Assets/Scenes/Observation.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scenes/Observation.unity" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/ScriptableObjects/ItemPrefabCatalog.asset" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/ScriptableObjects/ItemPrefabCatalog.asset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Apiary/ApiaryActionUI.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Apiary/ApiaryActionUI.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Apiary/ApiaryItemPresenter.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Apiary/ApiaryItemPresenter.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationActionUI.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationActionUI.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationCameraController.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationCameraController.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationFrameMoveAction.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationFrameMoveAction.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationController.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationController.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationInteriorContentsView.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationInteriorContentsView.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationSelectionController.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationSelectionController.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationTopAttachmentActionUI.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationTopAttachmentActionUI.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationTopAttachmentView.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Observation/ObservationTopAttachmentView.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/InventoryItemPresenter.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/UI/InventoryItemPresenter.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -135,7 +142,7 @@
       <workItem from="1793086316788" duration="9790000" />
       <workItem from="1793152761042" duration="9288000" />
       <workItem from="1793216170673" duration="14211000" />
-      <workItem from="1793308929636" duration="4334000" />
+      <workItem from="1793308929636" duration="5539000" />
     </task>
     <servers />
   </component>

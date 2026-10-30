@@ -1,0 +1,18 @@
+PASS: 0 errors; 6 scenes, 22 prefabs; 2 scene buttons, 2 prefab buttons.
+Observe : Apiary / ApiaryActionUI / GameFlow.OpenObservation
+Place : Apiary / ApiaryActionUI / handSlot.TryMoveTo
+Combine : Apiary / ApiaryActionUI / gridSlot.TryCombineFrom
+Lift : Apiary / ApiaryActionUI / TryMoveTo / TrySplitTo
+UnlockLand : Apiary / ApiaryActionUI / TryUnlockNextColumn
+Assets/Scenes/MainMenu.unity/NewGameButton → NewGame
+NewGame : MainMenu / MainMenuUI + ActionButtonBinding / OnNewGameClicked → StartNewGame
+Assets/Scenes/Observation.unity/BackButton → Back
+InsertFrame : Observation / ObservationActionUI / ObservationActions.Execute → TryMoveTo
+TakeFrame : Observation / ObservationActionUI / ObservationActions.Execute → TryMoveTo
+PlaceTopAttachment : Observation / ObservationTopAttachmentActionUI / ObservationActions.PlaceTopAttachment
+Back : Observation / ObservationController + ActionButtonBinding / GoBack → GameFlow.OpenApiary
+ObservationPlace : Observation / ObservationActionUI / Combine → Execute(Place)
+ObservationCombine : Observation / ObservationActionUI / Combine → TryCombineFrom
+ObservationLift : Observation / ObservationActionUI / Execute(Lift) → TryMoveTo / TrySplitTo
+TakeTopAttachment : Observation / ObservationActionUI / Execute(TakeTopAttachment) → TryMoveTo
+InventorySlot : SharedUI / InventoryItemPresenter / OnSlotClicked → hand.Swap

@@ -30,6 +30,8 @@ public class ObservationInteriorContentsView : MonoBehaviour
 
     private RectTransform visualRoot;
 
+    public RectTransform VisualRoot => visualRoot;
+
     public void Initialize(
         ItemData targetBox,
         ObservationFrameSlotLayout layout,
@@ -83,6 +85,9 @@ public class ObservationInteriorContentsView : MonoBehaviour
         visualRoot.anchoredPosition = Vector2.zero;
         visualRoot.localRotation = Quaternion.identity;
         visualRoot.localScale = Vector3.one;
+
+        // Bind creates the attachment first; this runtime root is created later.
+        GetComponent<ObservationTopAttachmentView>()?.UpdateRenderOrder();
     }
 
     private void OnSlotChanged(ItemSlot changedSlot)

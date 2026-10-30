@@ -1,0 +1,111 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5656a3e0a6264dd8befbeb7a44966141, type: 3}
+  m_Name: ActionButtonCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::ActionButtonCatalog
+  entries:
+  - id: 0
+    icon: {fileID: -3419950601789127554, guid: 61fb7c19b9ec06b40a5e507983c1ee3f, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 2
+    anchor: {x: 0.5, y: 0.5}
+    clampToScreen: 1
+    padding: 16
+    showLabel: 1
+    label: "\uAD00\uCC30"
+    useLayoutSlot: 1
+  - id: 1
+    icon: {fileID: 6389715194338302484, guid: 09142254436e6d74eb8ada9c3a48c11e, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    clampToScreen: 1
+    padding: 16
+    showLabel: 1
+    label: "\uB193\uAE30"
+    useLayoutSlot: 0
+  - id: 2
+    icon: {fileID: 6389715194338302484, guid: 09142254436e6d74eb8ada9c3a48c11e, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    clampToScreen: 1
+    padding: 16
+    showLabel: 1
+    label: "\uACB0\uD569\uD558\uAE30"
+    useLayoutSlot: 0
+  - id: 3
+    icon: {fileID: 5173428323833975206, guid: 4ffb4bed085b3304eb7a91a0145032b0, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 2
+    anchor: {x: 0.5, y: 0.5}
+    clampToScreen: 1
+    padding: 16
+    showLabel: 1
+    label: "\uB4E4\uAE30"
+    useLayoutSlot: 1
+  - id: 4
+    icon: {fileID: 6389715194338302484, guid: 09142254436e6d74eb8ada9c3a48c11e, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 2
+    anchor: {x: 0.5, y: 0.5}
+    clampToScreen: 1
+    padding: 16
+    showLabel: 1
+    label: "\uC18C\uBE44\uC7A5 \uB123\uAE30"
+    useLayoutSlot: 1
+  - id: 5
+    icon: {fileID: 5173428323833975206, guid: 4ffb4bed085b3304eb7a91a0145032b0, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 2
+    anchor: {x: 0.5, y: 0.5}
+    clampToScreen: 1
+    padding: 16
+    showLabel: 1
+    label: "\uC18C\uBE44\uC7A5 \uAEBC\uB0B4\uAE30"
+    useLayoutSlot: 1
+  - id: 6
+    icon: {fileID: 6389715194338302484, guid: 09142254436e6d74eb8ada9c3a48c11e, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    clampToScreen: 1
+    padding: 16
+    showLabel: 1
+    label: "\uACA9\uC655\uD310 \uBC30\uCE58\uD558\uAE30"
+    useLayoutSlot: 0
+  - id: 7
+    icon: {fileID: 5173428323833975206, guid: 4ffb4bed085b3304eb7a91a0145032b0, type: 3}
+    iconRotation: 90
+    size: {x: 128, y: 96}
+    offset: {x: 80, y: -225}
+    placement: 0
+    anchor: {x: 0, y: 1}
+    clampToScreen: 1
+    padding: 16
+    showLabel: 1
+    label: "\uB4A4\uB85C\uAC00\uAE30"
+    useLayoutSlot: 0

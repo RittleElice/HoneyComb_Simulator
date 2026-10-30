@@ -1,0 +1,5 @@
+적용: 검은 관찰 선택 패널 배경 및 패널 빈 영역 raycast 제거. 양봉장 관찰 버튼은 전체 장비 이미지 중앙, 층/뚜껑 들기 버튼은 각 부품 이미지 오른쪽 경계+간격을 추적. 관찰 아이콘 텍스트 비표시. 뒤로가기 전용 Canvas sortingOrder=101, SharedUI 소지품 Canvas=100, 별도 GraphicRaycaster로 클릭 유지.
+변경: ApiaryActionUI.cs, ApiaryItemPresenter.cs, ActionButtonView.cs, ActionButtonPositioner.cs, ObservationController.cs, ActionButtonSetup.cs, ActionButtonCatalog.asset, Observation.unity. 검증 도구: ApiaryIconLayoutTests.cs.
+검증: Unity 6000.5.1f1 복사본 컴파일 통과, 공통 버튼 25개 및 층별 경계/배치/뒤로가기 10개 검사 통과. 기존 프리팹과 GUID는 변경하지 않음.
+수동 미검증: 실제 게임 화면의 확대/축소별 아이콘 겹침, 화면 끝에서 경계 제한에 따른 배치, 소지품과 겹친 위치에서 뒤로가기 클릭, 모바일 터치. 원본 직접 Play는 수행하지 않음.
+백업: outputs/common-buttons/apiary-layout-before/

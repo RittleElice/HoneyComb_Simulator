@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -41,6 +41,14 @@ public static class ObservationPlayInputTests
                 child.transform.SetParent(go.transform,false);
                 var rect=(RectTransform)child.transform; rect.anchorMin=Vector2.zero;rect.anchorMax=Vector2.one;rect.offsetMin=rect.offsetMax=Vector2.zero;
                 blocker=child.GetComponent<Image>(); group=child.GetComponent<CanvasGroup>();
+                var button = child.AddComponent<Button>(); button.targetGraphic = blocker;
+                var commonView = ActionButtonManager.Adopt(button, ActionButtonId.Back);
+                var manager = go.GetComponent<ActionButtonManager>();
+                manager.Catalog = UnityEngine.Object.Instantiate(manager.Catalog);
+                var style = manager.Catalog.Find(ActionButtonId.Back);
+                style.anchor = new Vector2(.5f, .5f); style.offset = Vector2.zero;
+                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
+                commonView.Apply();
             }
             if(frame<20) return;
             Canvas.ForceUpdateCanvases();
@@ -50,7 +58,7 @@ public static class ObservationPlayInputTests
             if(ObservationInputGuard.IsOverUI(point)) throw new Exception("Hidden panel still blocks input");
             group.blocksRaycasts=true; blocker.raycastTarget=false;
             if(ObservationInputGuard.IsOverUI(point)) throw new Exception("Decorative image blocks input");
-            File.WriteAllText("observation-play-result.txt","PASS: 3 real Canvas input checks in Play Mode.");
+            File.WriteAllText("observation-play-result.txt","PASS: 3 common-button real Canvas input checks in Play Mode.");
             Finish(0);
         }
         catch(Exception e)

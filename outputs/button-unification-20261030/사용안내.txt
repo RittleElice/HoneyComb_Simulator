@@ -1,0 +1,49 @@
+버튼 통합 관리
+
+Unity 메뉴: Tools > HoneyComb > Button Manager
+설정 에셋: Assets/Resources/ActionButtonCatalog.asset
+
+관리 창에서 씬/ID/문구로 검색하고, 항목을 펼쳐 아이콘·문구·크기·배치를 수정한 뒤 저장합니다.
+담당 코드 열기와 씬 에셋 선택으로 실제 생성/이벤트 담당을 확인할 수 있습니다.
+씬 배치 버튼(새 게임, 뒤로가기)은 기존 오브젝트와 이벤트를 유지합니다.
+동적 버튼의 Prefab 설정은 다음 생성 시부터 적용됩니다. 크기·문구·아이콘은 실행 중 View가 다시 적용합니다.
+
+기존 ID 0~7은 직렬화 호환성을 위해 유지했습니다.
+0 Observe: 양봉장 관찰
+1 Place: 양봉장 놓기
+2 Combine: 양봉장 결합
+3 Lift: 양봉장 들기
+4 InsertFrame: 소비장 넣기
+5 TakeFrame: 소비장 꺼내기
+6 PlaceTopAttachment: 격왕판 배치
+7 Back: 뒤로가기
+8 NewGame: 새 게임
+9 UnlockLand: 부지 해금
+10 InventorySlot: 인벤토리 슬롯
+11 ObservationPlace: 관찰 바닥 놓기
+12 ObservationCombine: 관찰 결합
+13 ObservationLift: 관찰 들기
+14 TakeTopAttachment: 격왕판 꺼내기
+
+문구: Label은 일반 상태, Lid Label은 뚜껑, Stack Label은 조립체 층별 문구입니다.
+Stack Label의 {level}에 층 번호가 들어갑니다.
+인벤토리의 Occupied Label은 아이템이 들어 있는 슬롯의 문구이며 기본은 빈 문자열입니다.
+기존 행동 버튼은 기본적으로 아이콘만 표시합니다. Show Label을 켜면 문구가 표시됩니다.
+
+배치:
+- Fixed: Canvas 앵커 + Offset
+- FollowTarget: Controller가 제공하는 기준점 + Follow Gap + Offset
+- Relative: 부모 또는 기존 LayoutGroup 슬롯 기준
+- Grid: 인벤토리 전용. Size / Grid Spacing / Grid Columns를 조정합니다.
+Grid에서는 개별 Offset과 Clamp를 적용하지 않으며 GridLayoutGroup이 위치를 결정합니다.
+
+연결 검사:
+관리 창의 '연결 검사'는 모든 Assets 씬/프리팹을 검사합니다.
+Catalog의 중복·누락 ID, 동적 프리팹, 정적 버튼 Binding, Controller 참조, 인벤토리 Grid, Missing Script를 검사합니다.
+새 행동 ID 추가 시 Catalog 항목과 ActionButtonAudit.Usages에도 담당 정보를 추가해야 합니다.
+'누락 항목 설치'는 기존 설정을 유지하면서 빠진 기본 항목과 씬 연결을 보충합니다.
+
+손 올리기·뒤집기·내리기는 HandGestureController 계열의 제스처입니다.
+클릭 리스너와 참조가 없는 HandSlot Button만 제거하고 손 컴포넌트와 Image는 유지합니다.
+
+검증 결과는 outputs/common-buttons/에 기록됩니다.

@@ -12,6 +12,176 @@ public static class ObservationTopAttachmentTests
     private static int checks;
     private static void Check(bool ok, string message) { checks++; if (!ok) throw new Exception(message); }
     private static object Field(object o, string name) => o.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance).GetValue(o);
+    public static void RunRenderOrderBatch()
+    {
+        try
+        {
+            var scene = EditorSceneManager.OpenPreviewScene("Assets/Scenes/SharedUI.unity");
+            try
+            {
+                var registry = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<ItemPrefabRegistry>(true)).Single();
+                foreach (var kind in new[] { ItemKind.BroodBox, ItemKind.Super })
+                {
+                    var box = new ItemData(100, "RenderBox", kind);
+                    var queen = new ItemData(101, "RenderQueen", ItemKind.QueenExcluder);
+                    var frame = new ItemData(102, "RenderFrame", ItemKind.Frame);
+                    Check(box.TopSlot.TryInsertValue(queen), "insert queen");
+                    Check(box.Frames.GetSlot(0).TryInsertValue(frame), "insert frame");
+                    var ground = new ItemSlot(); var inventory = new ItemSlot();
+                    ground.TryInsertValue(box);
+                    for (int cycle = 0; cycle < 3; cycle++)
+                    {
+                        var host = new GameObject("RenderTestCanvas", typeof(RectTransform), typeof(Canvas));
+                        UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(host, scene);
+                        try
+                        {
+                            var view = ItemVisualFactory.InstantiatePrefab(registry.GetPrefab(kind, ItemViewContext.Observation), kind, ItemViewContext.Observation, registry, host.transform).GetComponent<UIItemPartView>();
+                            var top = view.GetComponent<ObservationTopAttachmentView>();
+                            typeof(ObservationTopAttachmentView).GetField("prefabRegistry", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(top, registry);
+                            view.Bind(box, 0);
+                            var contents = view.GetComponent<ObservationInteriorContentsView>();
+                            var layout = view.GetComponent<ObservationFrameSlotLayout>();
+                            var overlay = new GameObject("SelectionOverlay", typeof(RectTransform));
+                            overlay.transform.SetParent(view.transform, false);
+                            contents.Initialize(box, layout, registry, null);
+                            Transform area = top.CurrentView.transform.parent;
+                            Check(contents.VisualRoot.GetSiblingIndex() < area.GetSiblingIndex(), kind + " initial/recreated order");
+                            Check(area.GetSiblingIndex() < overlay.transform.GetSiblingIndex(), "overlay remains above attachment");
+                            int index = contents.VisualRoot.GetSiblingIndex();
+                            top.Refresh(); top.UpdateRenderOrder();
+                            Check(index == contents.VisualRoot.GetSiblingIndex(), "repeated refresh stable");
+                            var held = new ItemSlot();
+                            box.Frames.GetSlot(0).TryMoveTo(held); held.TryMoveTo(box.Frames.GetSlot(0));
+                            Check(contents.TryGetFrameVisual(0, frame, out var rect), "frame remove/reinsert visual");
+                            Check(contents.VisualRoot.GetSiblingIndex() < area.GetSiblingIndex(), "frame recreation order");
+                            var selection = new ObservationSelection();
+                            Check(selection.SelectTopAttachment(ground, box), "select queen");
+                            Check(ObservationActions.Execute(ObservationAction.TakeTopAttachment, selection, ground, held), "take queen");
+                            Check(ReferenceEquals(held.Value, queen), "queen identity");
+                            Check(ObservationActions.PlaceTopAttachment(ground, held), "replace queen");
+                            Check(contents.VisualRoot.GetSiblingIndex() < area.GetSiblingIndex(), "queen recreation order");
+                            // Nested local parent: compare the branches, not incomparable child indices.
+                            var wrapper = new GameObject("NestedAttachment", typeof(RectTransform));
+                            wrapper.transform.SetParent(view.transform, false);
+                            area.SetParent(wrapper.transform, false);
+                            contents.VisualRoot.SetAsLastSibling(); top.UpdateRenderOrder();
+                            Check(contents.VisualRoot.GetSiblingIndex() < wrapper.transform.GetSiblingIndex(), "nested parent order");
+                            // Independent sorting canvases must not silently alter global sorting/UI.
+                            var canvas = wrapper.AddComponent<Canvas>(); canvas.overrideSorting = true; canvas.sortingOrder = 25;
+                            contents.VisualRoot.SetAsLastSibling(); index = contents.VisualRoot.GetSiblingIndex();
+                            top.UpdateRenderOrder();
+                            Check(contents.VisualRoot.GetSiblingIndex() == index && canvas.sortingOrder == 25, "independent canvas unchanged");
+                            UnityEngine.Object.DestroyImmediate(canvas);
+                            area.SetParent(host.transform, false); index = contents.VisualRoot.GetSiblingIndex();
+                            top.UpdateRenderOrder();
+                            Check(contents.VisualRoot.GetSiblingIndex() == index, "external parent unchanged");
+                        }
+                        finally
+                        {
+                            // PreviewScene edit-mode objects do not receive runtime OnDestroy reliably.
+                            foreach (var topView in host.GetComponentsInChildren<ObservationTopAttachmentView>(true))
+                                topView.BindItem(null);
+                            foreach (var interiorView in host.GetComponentsInChildren<ObservationInteriorContentsView>(true))
+                                interiorView.Initialize(null, null, null, null);
+                            UnityEngine.Object.DestroyImmediate(host);
+                        }
+                        Check(ground.TryMoveTo(inventory) && inventory.TryMoveTo(ground), "inventory round trip");
+                        Check(ReferenceEquals(ground.Value, box) && ReferenceEquals(box.Frames.GetSlot(0).Value, frame) && ReferenceEquals(box.TopSlot.Value, queen), "round trip preserves data");
+                    }
+                }
+            }
+            finally { EditorSceneManager.ClosePreviewScene(scene); }
+            File.WriteAllText("render-order-tests-result.txt", "PASS: " + checks + " checks");
+            EditorApplication.Exit(0);
+        }
+        catch (Exception e) { Debug.LogException(e); File.WriteAllText("render-order-tests-result.txt", "FAIL: " + e); EditorApplication.Exit(1); }
+    }
+
+    public static void RunAlphaBatch()
+    {
+        try
+        {
+            var scene = EditorSceneManager.OpenPreviewScene("Assets/Scenes/Observation.unity");
+            var shared = EditorSceneManager.OpenPreviewScene("Assets/Scenes/SharedUI.unity");
+            try
+            {
+                var controller = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<ObservationSelectionController>(true)).Single();
+                var presenter = (ObservationItemPresenter)Field(controller, "presenter");
+                var registry = shared.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<ItemPrefabRegistry>(true)).Single();
+                typeof(ObservationItemPresenter).GetField("prefabRegistry", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(presenter, registry);
+                foreach (var kind in new[] { ItemKind.BroodBox, ItemKind.Super })
+                {
+                    var box = new ItemData(700, "AlphaBox", kind);
+                    box.TopSlot.TryInsertValue(new ItemData(701, "AlphaQueen", ItemKind.QueenExcluder));
+                    var slot = new ItemSlot(); slot.TryInsertValue(box);
+                    presenter.Show(slot.Value);
+                    var top = presenter.CurrentView.Parts.Single(p => ReferenceEquals(p.Part, box)).GetComponent<ObservationTopAttachmentView>();
+                    typeof(ObservationTopAttachmentView).GetField("prefabRegistry", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(top, registry);
+                    top.BindItem(box);
+                    // Preview scenes have no rendered camera; use an overlay canvas for screen coordinates.
+                    var host = new GameObject("AlphaTestCanvas", typeof(RectTransform), typeof(Canvas));
+                    UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(host, scene);
+                    host.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                    presenter.CurrentView.transform.SetParent(host.transform, false);
+                    presenter.CurrentView.transform.localScale = Vector3.one;
+                    typeof(ObservationSelectionController).GetField("inputArea", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(controller, host.GetComponent<RectTransform>());
+                    Canvas.ForceUpdateCanvases();
+                    VerifyAttachmentHits(controller, presenter, slot, box);
+                }
+            }
+            finally { EditorSceneManager.ClosePreviewScene(scene); EditorSceneManager.ClosePreviewScene(shared); }
+            File.WriteAllText("attachment-alpha-result.txt", "PASS: " + checks + " checks");
+            try { ObservationSelectionTests.RunAll(); File.WriteAllText("observation-tests-result.txt", "PASS"); }
+            catch (Exception e) { File.WriteAllText("observation-tests-result.txt", "FAIL: " + e); Debug.LogWarning(e); }
+            ObservationPlayInputTests.BeginBatch();
+        }
+        catch (Exception e) { Debug.LogException(e); File.WriteAllText("attachment-alpha-result.txt", "FAIL: " + e); EditorApplication.Exit(1); }
+    }
+
+    private static void VerifyAttachmentHits(ObservationSelectionController controller,
+        ObservationItemPresenter presenter, ItemSlot slot, ItemData box)
+    {
+        var part = presenter.CurrentView.Parts.Single(p => ReferenceEquals(p.Part, box));
+        var top = part.GetComponent<ObservationTopAttachmentView>();
+        var image = top.CurrentView.Image;
+        var hit = typeof(ObservationSelectionController).GetMethod("TrySelectTopAttachment", BindingFlags.NonPublic | BindingFlags.Instance);
+        var frameHit = typeof(ObservationSelectionController).GetMethod("TrySelectFrameSlot", BindingFlags.NonPublic | BindingFlags.Instance);
+        var area = part.GetComponent<ObservationHitArea>();
+        Rect rect = SpriteImageHitTest.VisibleRect(image);
+        int opaque = 0, transparent = 0, side = 0;
+        for (int y = 1; y < 20; y++)
+        for (int x = 1; x < 20; x++)
+        {
+            var uv = new Vector2(x / 20f, y / 20f);
+            Check(SpriteAlphaMaskDatabase.TrySample(image.overrideSprite, uv, out float alpha), "queen generated mask available");
+            var point = RectTransformUtility.WorldToScreenPoint(controller.UICamera,
+                image.rectTransform.TransformPoint(new Vector3(rect.xMin + uv.x * rect.width, rect.yMin + uv.y * rect.height)));
+            Check(SpriteImageHitTest.TryGetNormalizedPoint(image, point, controller.UICamera, out var sampledUV), "screen point maps into sprite");
+            Check(SpriteAlphaMaskDatabase.TrySample(image.overrideSprite, sampledUV, out alpha), "screen point mask sample");
+            controller.Selection.Clear();
+            bool selected = (bool)hit.Invoke(controller, new object[] { slot, point });
+            if (alpha >= .1f)
+            {
+                opaque++;
+                Check(selected && controller.Selection.Kind == ObservationSelectionKind.TopAttachment, "opaque queen selected");
+                Check((bool)hit.Invoke(controller, new object[] { slot, point }) && controller.Selection.Kind == ObservationSelectionKind.None, "repeat opaque click toggles selection");
+            }
+            else
+            {
+                transparent++;
+                Check(!selected, "transparent queen passes through");
+                if (area.Contains(point, controller.UICamera))
+                {
+                    side++;
+                    Check(!(bool)frameHit.Invoke(controller, new object[] { slot, point }), "covered frames remain blocked at transparent point");
+                    Check(controller.Selection.SelectPart(slot, box), "underlying equipment remains selectable");
+                }
+            }
+        }
+        Check(opaque > 0 && transparent > 0 && side > 0, $"fixture coverage: {opaque} opaque, {transparent} transparent, {side} underlying box");
+        Debug.Log($"Attachment alpha regression: {opaque} opaque, {transparent} transparent, {side} underlying box points");
+    }
+
     public static void RunBatch()
     {
         try
@@ -88,6 +258,7 @@ public static class ObservationTopAttachmentTests
                     Check(!box.TopSlot.IsEmpty && world.Hand.Slot.IsEmpty, "refreshed placement click");
                     tick.Invoke(ui, null);
                     Check(!place.gameObject.activeSelf, "OnChanged hides occupied placement");
+
                     selection.Selection.SelectTopAttachment(solo, box); menu.RefreshActions();
                     var stale = (Button)Field(menu, "actionButton");
                     box.TopSlot.TakeValue(); box.TopSlot.TryInsertValue(held);

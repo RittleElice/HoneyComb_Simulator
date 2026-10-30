@@ -1,0 +1,4 @@
+FAIL: System.Exception: Item visual test failed: all sixteen registrations retained
+  at ItemVisualTests.Check (System.Boolean value, System.String message) [0x00020] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\button_validation\Assets\Editor\Tests\ItemVisualTests.cs:17 
+  at ItemVisualTests.RunAll () [0x0007f] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\button_validation\Assets\Editor\Tests\ItemVisualTests.cs:34 
+  at ObservationTopAttachmentTests.RunBatch () [0x00730] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\button_validation\Assets\Editor\Tests\ObservationTopAttachmentTests.cs:102 

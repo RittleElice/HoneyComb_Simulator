@@ -1,9 +1,10 @@
-
+﻿
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+[DefaultExecutionOrder(180)]
 public class ApiaryActionUI : MonoBehaviour
 {
     [Header("References")]
@@ -31,6 +32,38 @@ public class ApiaryActionUI : MonoBehaviour
     private Canvas rootCanvas;
 
     private bool panelVisible;
+    private readonly Dictionary<Button, ItemData> liftParts = new Dictionary<Button, ItemData>();
+    private Button observeButton;
+    private Button placeButton;
+    private Button combineButton;
+    private Button unlockButton;
+
+    private void UpdateIconPositions(int x, int y, Rect gridBounds)
+    {
+        Rect equipment = gridBounds;
+        Rect bounds = default;
+        if (itemView != null && itemView.TryGetEquipmentScreenBounds(x, y, targetCamera, out bounds)) equipment = bounds;
+        bool paired = observeButton != null && placeButton != null;
+        float halfGap = Mathf.Max(0f, popupOffset.x) * .5f;
+        if (observeButton != null)
+            observeButton.GetComponent<ActionButtonView>().SetScreenBounds(
+                paired ? gridBounds : equipment,
+                paired ? gridBounds.center : equipment.center,
+                paired ? Vector2.left : Vector2.zero, paired ? halfGap : 0f, .5f);
+        if (placeButton != null)
+            placeButton.GetComponent<ActionButtonView>().SetScreenBounds(
+                gridBounds, gridBounds.center, paired ? Vector2.right : Vector2.zero, paired ? halfGap : 0f, .5f);
+        if (combineButton != null)
+            combineButton.GetComponent<ActionButtonView>().SetScreenBounds(equipment, new Vector2(equipment.xMax, equipment.center.y), Vector2.right, popupOffset.x);
+        if (unlockButton != null)
+            unlockButton.GetComponent<ActionButtonView>().SetScreenBounds(gridBounds, gridBounds.center, Vector2.zero, 0);
+        foreach (var pair in liftParts)
+        {
+            bool visible = itemView != null && itemView.TryGetEquipmentScreenBounds(x, y, targetCamera, out bounds, pair.Value);
+            pair.Key.gameObject.SetActive(visible);
+            if (visible) pair.Key.GetComponent<ActionButtonView>().SetScreenBounds(bounds, new Vector2(bounds.xMax, bounds.center.y), Vector2.right, popupOffset.x);
+        }
+    }
 
     private void Awake()
     {
@@ -140,7 +173,7 @@ public class ApiaryActionUI : MonoBehaviour
             {
                 GameBootstrap.Instance.GameFlow
                     .OpenObservation(x, y);
-            });
+            }, ActionButtonId.Observe);
         }
 
         // 잠긴 영역: 부지 해금 메뉴
@@ -170,7 +203,7 @@ public class ApiaryActionUI : MonoBehaviour
                     selectionController.ClearSelection();
 
                 HidePanel();
-            });
+            }, ActionButtonId.UnlockLand);
 
             ShowPanel(x, y);
             return;
@@ -213,7 +246,7 @@ public class ApiaryActionUI : MonoBehaviour
                             handSlot);
 
                         OnActionCompleted(success, x, y);
-                    });
+                    }, ActionButtonId.Lift, part, i + 1);
                 }
             }
             else
@@ -222,7 +255,7 @@ public class ApiaryActionUI : MonoBehaviour
                 {
                     bool success = gridSlot.TryMoveTo(handSlot);
                     OnActionCompleted(success, x, y);
-                });
+                }, ActionButtonId.Lift, item as ItemData);
             }
         }
         else
@@ -235,7 +268,7 @@ public class ApiaryActionUI : MonoBehaviour
                 {
                     bool success = handSlot.TryMoveTo(gridSlot);
                     OnActionCompleted(success, x, y);
-                });
+                }, ActionButtonId.Place);
             }
             // 기존 장비에 조립 가능한 경우
             else if (!gridSlot.IsEmpty &&
@@ -247,7 +280,7 @@ public class ApiaryActionUI : MonoBehaviour
                         gridSlot.TryCombineFrom(handSlot);
 
                     OnActionCompleted(success, x, y);
-                });
+                }, ActionButtonId.Combine);
             }
         }
 
@@ -440,6 +473,7 @@ public class ApiaryActionUI : MonoBehaviour
 
         panelRect.anchoredPosition =
             localPosition - anchorReference;
+        UpdateIconPositions(x, y, gridBounds);
 
         if (panelVisible && panelCanvasGroup != null)
         {
@@ -462,21 +496,17 @@ public class ApiaryActionUI : MonoBehaviour
     }
 
     private void CreateButton(
-        string label,
-        UnityEngine.Events.UnityAction action)
+        string fallbackLabel, UnityEngine.Events.UnityAction action,
+        ActionButtonId id, ItemData part = null, int level = 0)
     {
-        Button button = Instantiate(
-            buttonPrefab,
-            buttonContainer);
-
+        Button button = ActionButtonManager.Create(buttonPrefab, buttonContainer, id, fallbackLabel);
         button.gameObject.SetActive(true);
-
-        TMP_Text text =
-            button.GetComponentInChildren<TMP_Text>();
-
-        if (text != null)
-            text.text = label;
-
+        button.GetComponent<ActionButtonView>().SetContext(part != null && part.Kind == ItemKind.Lid, level);
+        if (id == ActionButtonId.Observe) observeButton = button;
+        if (id == ActionButtonId.Place) placeButton = button;
+        if (id == ActionButtonId.Combine) combineButton = button;
+        if (id == ActionButtonId.UnlockLand) unlockButton = button;
+        if (id == ActionButtonId.Lift) liftParts.Add(button, part);
         button.onClick.AddListener(action);
         activeButtons.Add(button);
     }
@@ -493,5 +523,10 @@ public class ApiaryActionUI : MonoBehaviour
         }
 
         activeButtons.Clear();
+        liftParts.Clear();
+        observeButton = null;
+        placeButton = null;
+        combineButton = null;
+        unlockButton = null;
     }
 }

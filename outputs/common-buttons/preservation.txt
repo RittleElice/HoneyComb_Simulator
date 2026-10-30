@@ -1,0 +1,1 @@
+PASS: 258 existing prefab/meta files unchanged. Existing scene object IDs retained. Combine / Place / GoBack method bodies unchanged. Only Canvas manager component/reference additions merged into scenes.

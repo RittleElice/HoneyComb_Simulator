@@ -1,0 +1,317 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5656a3e0a6264dd8befbeb7a44966141, type: 3}
+  m_Name: ActionButtonCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::ActionButtonCatalog
+  entries:
+  - id: 0
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: -3419950601789127554, guid: 61fb7c19b9ec06b40a5e507983c1ee3f, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 15
+    followAnchor: 0
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uAD00\uCC30"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 1
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 6389715194338302484, guid: 09142254436e6d74eb8ada9c3a48c11e, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 15
+    followAnchor: 0
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uB193\uAE30"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 2
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 6389715194338302484, guid: 09142254436e6d74eb8ada9c3a48c11e, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 15
+    followAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uACB0\uD569\uD558\uAE30"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 3
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 5173428323833975206, guid: 4ffb4bed085b3304eb7a91a0145032b0, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 15
+    followAnchor: 4
+    overrideLidFollowAnchor: 1
+    lidFollowAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uB4E4\uAE30"
+    lidLabel: "\uB69C\uAED1 \uB4E4\uAE30"
+    stackLabel: "{level}\uCE35\uBD80\uD130 \uB4E4\uAE30"
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 4
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 6389715194338302484, guid: 09142254436e6d74eb8ada9c3a48c11e, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 0
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uC18C\uBE44\uC7A5 \uB123\uAE30"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 5
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 5173428323833975206, guid: 4ffb4bed085b3304eb7a91a0145032b0, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 0
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uC18C\uBE44\uC7A5 \uAEBC\uB0B4\uAE30"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 6
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 6389715194338302484, guid: 09142254436e6d74eb8ada9c3a48c11e, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uACA9\uC655\uD310 \uBC30\uCE58\uD558\uAE30"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 7
+    prefab: {fileID: 0}
+    icon: {fileID: 5173428323833975206, guid: 4ffb4bed085b3304eb7a91a0145032b0, type: 3}
+    iconRotation: 90
+    size: {x: 128, y: 96}
+    offset: {x: 80, y: -225}
+    placement: 0
+    anchor: {x: 0, y: 1}
+    followGap: 16
+    followAnchor: 0
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uB4A4\uB85C\uAC00\uAE30"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 8
+    prefab: {fileID: 0}
+    icon: {fileID: 0}
+    iconRotation: 0
+    size: {x: 160, y: 30}
+    offset: {x: 0, y: 0}
+    placement: 0
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 0
+    clampToScreen: 0
+    padding: 16
+    showLabel: 1
+    label: "\uC0C8 \uAC8C\uC784"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 9
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 0}
+    iconRotation: 0
+    size: {x: 220, y: 40}
+    offset: {x: 0, y: 0}
+    placement: 2
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 0
+    clampToScreen: 0
+    padding: 16
+    showLabel: 1
+    label: "\uBD80\uC9C0 \uD574\uAE08"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 1
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 10
+    prefab: {fileID: 7990658940380822260, guid: 97e904848c0e2154993c7f1f1d206404, type: 3}
+    icon: {fileID: 0}
+    iconRotation: 0
+    size: {x: 80, y: 80}
+    offset: {x: 0, y: 0}
+    placement: 3
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 0
+    clampToScreen: 0
+    padding: 16
+    showLabel: 1
+    label: "\uBE48 \uCE78"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 11
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 6389715194338302484, guid: 09142254436e6d74eb8ada9c3a48c11e, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uB193\uAE30"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 12
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 6389715194338302484, guid: 09142254436e6d74eb8ada9c3a48c11e, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uACB0\uD569\uD558\uAE30"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 13
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 5173428323833975206, guid: 4ffb4bed085b3304eb7a91a0145032b0, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 0
+    clampToScreen: 1
+    padding: 16
+    showLabel: 0
+    label: "\uB4E4\uAE30"
+    lidLabel: "\uB69C\uAED1 \uB4E4\uAE30"
+    stackLabel: "{level}\uCE35\uBD80\uD130 \uC704 \uBAA8\uB450 \uB4E4\uAE30"
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 14
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 5173428323833975206, guid: 4ffb4bed085b3304eb7a91a0145032b0, type: 3}
+    iconRotation: 0
+    size: {x: 128, y: 96}
+    offset: {x: 0, y: 0}
+    placement: 1
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 0
+    clampToScreen: 0
+    padding: 16
+    showLabel: 0
+    label: "\uB4E4\uAE30"
+    lidLabel: "\uB69C\uAED1 \uB4E4\uAE30"
+    stackLabel: "{level}\uCE35\uBD80\uD130 \uB4E4\uAE30"
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6

@@ -1,0 +1,21 @@
+Catalog 추적 위치 확장
+
+Unity: Tools > HoneyComb > Button Manager > 양봉장 / 결합
+Placement: FollowTarget
+Follow Anchor / 추적 위치: 위쪽 중앙 (Top)
+Follow Gap: 원하는 간격 (예: 15)
+Offset: 기본 (0,0), 미세 조정에 사용
+저장 버튼으로 Catalog 저장
+Resources/ActionButtonCatalog 에셋의 followAnchor에서도 동일하게 조정할 수 있습니다.
+
+선택값: 기존 배치 / 위쪽 중앙 / 아래쪽 중앙 / 왼쪽 중앙 / 오른쪽 중앙 / 대상 중앙.
+기존 배치(Automatic=0)가 기본값이며 기존 설정은 자동 이동하지 않습니다.
+양봉장 장비 경계, 관찰 이미지 경계, 소비장 슬롯 경계를 화면 좌표로 전달합니다. 방향 선택은 경계의 각 변 중앙 기준이며 버튼 반 크기와 Follow Gap을 더합니다. 중앙은 간격 없이 중심에 배치합니다. 기존 Offset과 화면 경계 보정도 유지합니다.
+고정/Relative/Grid 배치에서는 Follow Anchor를 사용하지 않습니다.
+
+Unity 6000.5.1f1 검증 복사본에서 컴파일 오류 0. 원본에 검증 파일 복사 후 SHA-256 확인.
+방향/크기/기존 배치 검사 16개 통과.
+이전 갱신 최적화 검사 140개 통과.
+기존 통합 버튼 49, 공통 버튼 32, 배치/이동 10, 관찰 89, 조립 3363, Play Mode 콜백 9개 통과.
+씬 6개·프리팹 22개 연결 누락 0.
+원본 화면/Android 터치 검수는 수행하지 않았습니다.

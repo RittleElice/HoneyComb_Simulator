@@ -34,6 +34,7 @@ public class InventoryItemPresenter : MonoBehaviour
     private ItemSlotObserver slotObserver;
     private bool started;
     private bool refreshPending;
+    private Vector2 styledSlotSize;
 
     private void Start()
     {
@@ -55,6 +56,15 @@ public class InventoryItemPresenter : MonoBehaviour
 
     private void Update()
     {
+        var style = ActionButtonManager.CatalogFor(slotContainer)?.Find(ActionButtonId.InventorySlot);
+        if (style != null && style.size != styledSlotSize)
+        {
+            styledSlotSize = style.size;
+            foreach (var slotObject in slotObjects)
+                slotObject.GetComponent<ActionButtonView>()?.Apply();
+            for (int i = 0; i < itemViews.Count; i++) ClearItemView(i);
+            refreshPending = true;
+        }
         GameBootstrap bootstrap = GameBootstrap.Instance;
         InventoryData source = bootstrap != null && bootstrap.GameWorld != null
             ? bootstrap.GameWorld.Inventory
@@ -115,12 +125,12 @@ public class InventoryItemPresenter : MonoBehaviour
             for (int i = 0; i < inventory.Capacity; i++)
             {
                 int index = i;
-                GameObject slotObject = Instantiate(slotPrefab, slotContainer);
+                Button button = ActionButtonManager.Create(slotPrefab.GetComponent<Button>(), slotContainer, ActionButtonId.InventorySlot);
+                GameObject slotObject = button.gameObject;
                 slotObjects.Add(slotObject);
                 itemViews.Add(null);
                 cachedItems.Add(null);
 
-                Button button = slotObject.GetComponent<Button>();
                 if (button != null)
                     button.onClick.AddListener(() => OnSlotClicked(index));
             }
@@ -166,26 +176,7 @@ public class InventoryItemPresenter : MonoBehaviour
             ItemSlot slot = inventory.GetSlot(i);
             GameObject slotObject = slotObjects[i];
 
-            // 아이콘 내부 텍스트를 잘못 수정하지 않도록
-            // 슬롯의 직접 자식에서만 텍스트 조회
-            TMP_Text slotText = null;
-
-            foreach (Transform child in slotObject.transform)
-            {
-                if (child.GetComponent<ItemAssemblyView>() != null)
-                    continue;
-
-                slotText = child.GetComponent<TMP_Text>();
-
-                if (slotText != null)
-                    break;
-            }
-
-            if (slotText != null)
-            {
-                slotText.text =
-                    slot.IsEmpty ? "빈 칸" : "";
-            }
+            slotObject.GetComponent<ActionButtonView>()?.SetContext(filled: !slot.IsEmpty);
 
             if (ReferenceEquals(
                     cachedItems[i], slot.Value) &&
@@ -242,7 +233,7 @@ public class InventoryItemPresenter : MonoBehaviour
         if (view != null)
         {
             view.gameObject.SetActive(false);
-            Destroy(view.gameObject);
+            ItemVisualFactory.Release(view.gameObject);
         }
 
         itemViews[index] = null;
@@ -258,7 +249,7 @@ public class InventoryItemPresenter : MonoBehaviour
             if (slotObject == null)
                 continue;
             slotObject.SetActive(false);
-            Destroy(slotObject);
+            ItemVisualFactory.Release(slotObject);
         }
 
         slotObjects.Clear();

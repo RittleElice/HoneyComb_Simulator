@@ -129,20 +129,38 @@ public class ObservationTopAttachmentView :
         UpdateRenderOrder();
     }
     
-    private void UpdateRenderOrder()
+    public void UpdateRenderOrder()
     {
-        if (currentView == null)
+        var contents = GetComponent<ObservationInteriorContentsView>();
+        Transform interior = contents != null ? contents.VisualRoot : null;
+        if (currentView == null || interior == null || interior.parent != transform)
             return;
 
-        // 격왕판 이미지를 표시 영역 내부의 맨 앞으로
-        currentView.transform.SetAsLastSibling();
+        // Stay inside this box: never reorder the assembly or selection UI roots.
+        Transform attachment = currentView.transform;
+        if (!attachment.IsChildOf(transform) ||
+            SortingCanvas(attachment) != SortingCanvas(interior))
+            return;
 
-        // 상단 장비 표시 영역을 소비장 표시 영역보다 앞으로
-        if (attachmentArea != null)
-            attachmentArea.SetAsLastSibling();
+        // The attachment can be nested under a local display container.
+        while (attachment.parent != transform)
+            attachment = attachment.parent;
+
+        if (attachment != interior &&
+            interior.GetSiblingIndex() > attachment.GetSiblingIndex())
+            interior.SetSiblingIndex(attachment.GetSiblingIndex());
     }
 
-
+    private static Canvas SortingCanvas(Transform visual)
+    {
+        for (Transform parent = visual; parent != null; parent = parent.parent)
+        {
+            Canvas canvas = parent.GetComponent<Canvas>();
+            if (canvas != null && (canvas.overrideSorting || canvas.isRootCanvas))
+                return canvas;
+        }
+        return null;
+    }
 
     private void PositionVisual()
     {

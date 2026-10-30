@@ -1,0 +1,68 @@
+﻿공통 버튼 관리 시스템 적용 결과 (2026-10-30 KST)
+
+대상: C:\UnityProject\HoneyComb_Simulator
+
+1. 구현
+Assets/Scripts/Presentation/Common/Buttons/
+  ActionButtonId.cs: Observe, Place, Combine, Lift, InsertFrame, TakeFrame, PlaceTopAttachment, Back
+  ActionButtonCatalog.cs: ScriptableObject. Sprite, 아이콘 회전, 크기, 오프셋, Fixed/FollowTarget/Relative, 앵커, 화면 경계 제한/여백, 텍스트 표시.
+  ActionButtonManager.cs: Canvas별 기존 Button 등록/생성/표시 관리. 같은 Button 재등록 시 View를 재사용하며 onClick을 교체하지 않음.
+  ActionButtonView.cs: 아이콘/텍스트/크기 적용. 아이콘이 없으면 텍스트 대체. 드래그 시작 시 클릭 취소, 장식 그래픽 raycast 비활성.
+  ActionButtonPositioner.cs: Canvas 좌표 배치, 추적점 투영, 실제 모서리 기반 화면/Canvas 경계 제한. 확대된 장비와 별도 UI 계층 유지.
+
+2. 연결한 기존 파일
+Assets/Scripts/Presentation/Observation/ObservationActionUI.cs
+Assets/Scripts/Presentation/Observation/ObservationTopAttachmentActionUI.cs
+Assets/Scripts/Presentation/Observation/ObservationController.cs
+Assets/Scripts/Presentation/Apiary/ApiaryActionUI.cs
+Assets/Scenes/Observation.unity
+Assets/Scenes/Apiary.unity
+관찰 진입 버튼은 ApiaryActionUI에 있으므로 해당 버튼만 추가 전환. 양봉장의 다른 행동 버튼은 기존 표시 유지.
+관찰 선택/자동 결합/소비장/격왕판 버튼은 기존 유효성 검사와 실행 콜백 유지.
+기존 뒤로가기 Button을 재사용하고 GoBack 동작 유지. 별도 뒤로가기 Button을 생성하지 않음.
+선택 제목 패널의 위치 계산은 호환용으로 유지. 개별 버튼의 공통 설정은 View가 적용.
+카탈로그 항목이 없는 경우 기존 표시로 동작하도록 호환 경로 유지.
+
+3. Inspector 사용
+Assets/Resources/ActionButtonCatalog.asset을 선택해 entries에서 ID별 설정 편집.
+Observation/Apiary 씬의 root Canvas에 ActionButtonManager가 연결되어 있고 Catalog 참조가 지정되어 있음.
+기존 buttonPrefab, selection, presenter, actionLayer, backButton 참조는 변경하지 않음.
+동적 버튼은 실행 중 ActionButtonView/Positioner가 붙음. 프리팹에 중복으로 붙일 필요 없음.
+Fixed: 루트 Canvas의 정규화 anchor(0~1) + offset. 뒤로가기 기본값.
+FollowTarget: 기존 장비/바닥/소비장 선택 추적점 + 간격 + offset. 놓기/결합/격왕판 기본값.
+Relative: 다른 RectTransform 기준 anchor + offset. View의 Relative Target이 비어 있으면 부모 기준.
+Use Layout Slot: Relative에서 기존 LayoutGroup 슬롯 유지. 관찰 진입/들기/소비장 넣기/꺼내기 기본값.
+Relative에서 원하는 절대 기준점을 쓰려면 Use Layout Slot을 끄고 anchor/offset 설정.
+크기/오프셋/여백은 Canvas UI 단위. CanvasScaler에 따라 실제 픽셀 크기는 달라짐.
+Show Label을 끄면 아이콘만 표시. 아이콘이 없는 경우 안전하게 텍스트 표시.
+동적 층수·뚜껑 들기 등 상황별 문구는 기존 컨트롤러의 문구를 유지.
+기존 UI_Observe/UI_UP/UI_Down Sprite를 재사용했으며 뒤로가기는 위 화살표를 90도 회전.
+여러 행동이 화살표를 공유하므로 기본값은 아이콘+텍스트. 행동별 전용 그림은 각 icon 슬롯에서 교체 가능.
+
+4. 검증
+Unity 6000.5.1f1 검증 복사본에서 컴파일 통과, C# 오류 0.
+기존 경고 4개: ApiarySelectionHighlight 구형 API 2개, ObservationItemPresenter/ObservationActionUI 미사용 필드 각 1개.
+공통 버튼 25개 검사 통과: 중복/리스너 보존, 위치 안정성/추적/경계, 크기, 드래그 클릭 취소, 텍스트 대체 등.
+조립 데이터 3,363개, 관찰 선택/행동 89개, 격왕판 27개 검사 통과.
+Play Mode 실제 Canvas 입력 3개 검사 통과: 공통 버튼 UI 차단, 숨김 패널 비차단, 장식 그래픽 비차단.
+기존 표시 테스트는 등록 수 16개 고정 검사에서 실패. 현재 변경하지 않은 ItemPrefabCatalog 등록은 20개임. 전체 표시 회귀 통과로 간주하지 않음.
+Play Mode 시작 중 UnityEditor.Search.SearchDatabase의 ArgumentOutOfRangeException이 기록됨. 테스트는 완료되어 종료 코드 0; 게임 코드 예외와 구분함.
+원본 프로젝트 잠금이 점유되어 원본 직접 배치 실행/수동 Play 확인은 못함. 동일 소스 복사본에서 검사했고 검증된 카탈로그와 최소 씬 연결을 원본에 반영.
+기존 prefab/meta 해시와 씬 오브젝트 ID 보존 결과는 preservation.txt 참조.
+
+5. 추가/수정한 검증 도구
+Assets/Editor/ActionButtonSetup.cs (설치 메뉴, 기존 카탈로그 설정을 덮어쓰지 않음)
+Assets/Editor/ActionButtonTests.cs
+Assets/Editor/Tests/ObservationSelectionTests.cs (공통 크기 기반 위치, 놓기 라벨 기대값)
+Assets/Editor/Tests/ObservationPlayInputTests.cs (실제 공통 버튼으로 Canvas 입력 확인)
+
+6. 남은 수동 확인
+원본 에디터에서 재임포트 후 Bootstrap부터 Play 실행.
+관찰 진입, 뒤로가기, 바닥 놓기, 결합, 층/뚜껑 들기, 소비장 넣기/꺼내기, 격왕판 배치/들기를 확인.
+손 교체·선택 변경 후 오래된 버튼 클릭이 행동을 실행하지 않는지 확인.
+각 배치 모드와 오프셋을 바꿔 확대/이동, 화면 가장자리, 여러 화면 비율에서 겹침/가독성을 확인.
+실기기 터치, 버튼에서 시작한 드래그, 소비장 슬롯 이동/손 뒤집기/카메라 팬 간 충돌 확인.
+Android/APK 빌드 및 실제 기기 검증은 하지 않음.
+
+원본 백업: outputs/common-buttons/before/
+검증 로그: outputs/common-buttons/*.log 및 *result.txt, tests.txt

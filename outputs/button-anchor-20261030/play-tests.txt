@@ -1,0 +1,1 @@
+PASS: 9 Play Mode checks; real scene transitions and onClick callbacks (not physical pointer simulation).
