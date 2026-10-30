@@ -6,8 +6,8 @@ public enum FrameSide
 
 public sealed class FrameData
 {
-    public const int DefaultWidth = 78;
-    public const int DefaultHeight = 43;
+    public const int DefaultWidth = 84;
+    public const int DefaultHeight = 40;
 
     public FrameSurface Front { get; }
     public FrameSurface Back { get; }

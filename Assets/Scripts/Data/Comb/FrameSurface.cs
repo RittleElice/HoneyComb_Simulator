@@ -5,6 +5,15 @@ public sealed class FrameSurface
 {
     private readonly CellData[] cells;
 
+    public int Revision { get; private set; }
+    public bool TrySetType(int x, int y, CombCellType type)
+    {
+        if (!IsInside(x, y)) return false;
+        cells[GetIndex(x, y)].SetType(type);
+        Revision++;
+        return true;
+    }
+
     public int Width { get; }
     public int Height { get; }
     public int CellCount => cells.Length;
@@ -50,6 +59,7 @@ public sealed class FrameSurface
         int index = GetIndex(x, y);
 
         cells[index].SetConstruction(value);
+        Revision++;
         return true;
     }
 
@@ -63,11 +73,14 @@ public sealed class FrameSurface
 
         int index = GetIndex(x, y);
 
-        return cells[index].TrySetContent(content);
+        bool changed = cells[index].TrySetContent(content);
+        if (changed) Revision++;
+        return changed;
     }
 
     public void SetAllConstruction(byte value)
     {
+        Revision++;
         for (int i = 0; i < cells.Length; i++)
             cells[i].SetConstruction(value);
     }

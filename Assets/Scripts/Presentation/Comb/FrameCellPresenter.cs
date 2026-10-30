@@ -27,6 +27,10 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
     private int cellsPerMesh = 400;
 
     private FrameData frame;
+    private ItemData boundItem;
+    private FrameSide lastSide;
+    private int lastRevision = -1;
+    private float displayScale;
     private RectTransform visualRoot;
 
     private readonly List<FrameCellMesh> meshes =
@@ -39,6 +43,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
 
     public void BindItem(ItemData item)
     {
+        boundItem = item;
         frame = item != null && item.Kind == ItemKind.Frame
             ? item.GetContent<FrameData>()
             : null;
@@ -51,6 +56,12 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         if (frame == null || cellArea == null)
             return;
 
+        if (lastSide != frame.FacingSide || lastRevision != frame.GetFacingSurface().Revision)
+        {
+            foreach (var mesh in meshes) mesh.SetSurface(frame.GetFacingSurface());
+            lastSide = frame.FacingSide;
+            lastRevision = frame.GetFacingSurface().Revision;
+        }
         Vector2 size = cellArea.rect.size;
 
         if (size != lastAreaSize ||
@@ -75,31 +86,12 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         int columns = frame.Width;
         int rows = frame.Height;
 
-        // Pointy-top 정육각형의 전체 배열 크기
-        // 홀수 행은 가로로 반 칸 이동
-        float widthUnits =
-            Mathf.Sqrt(3f) *
-            (columns + (rows > 1 ? 0.5f : 0f));
-
-        float heightUnits =
-            1.5f * (rows - 1) + 2f;
-
-        float availableWidth = area.width * areaFill;
-        float availableHeight = area.height * areaFill;
-
-        float radius = Mathf.Min(
-            availableWidth / widthUnits,
-            availableHeight / heightUnits);
-
-        if (radius <= 0f)
-            return;
-
-        float totalWidth = widthUnits * radius;
-        float totalHeight = heightUnits * radius;
-
-        Vector2 origin = new Vector2(
-            -totalWidth * 0.5f,
-            -totalHeight * 0.5f);
+        var geometry = new CombGeometry(columns, rows);
+        displayScale = Mathf.Min(area.width / (float)CombGeometry.AreaWidth,
+            area.height / (float)CombGeometry.AreaHeight) * areaFill;
+        float radius = (float)geometry.Radius * displayScale;
+        Vector2 origin = new Vector2(-(float)geometry.Width * displayScale / 2,
+            -(float)geometry.Height * displayScale / 2);
 
         GameObject rootObject = new GameObject(
             "FrameCellVisuals",
@@ -117,7 +109,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         visualRoot.localScale = Vector3.one;
 
         int total = columns * rows;
-        int chunkSize = Mathf.Max(1, cellsPerMesh);
+        int chunkSize = Mathf.Clamp(cellsPerMesh, 50, 500);
 
         for (int start = 0; start < total; start += chunkSize)
         {
@@ -152,11 +144,25 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
                 origin,
                 outlineColor);
 
+            mesh.SetSurface(frame.GetFacingSurface());
             meshes.Add(mesh);
         }
 
         lastAreaSize = area.size;
         lastFill = areaFill;
+    }
+
+    // Caller supplies a point local to cellArea; no per-cell raycast objects.
+    public bool TryGetCellAtLocalPoint(Vector2 point, out CombCellId id)
+    {
+        id = default;
+        if (!showCells || frame == null || cellArea == null || displayScale <= 0) return false;
+        point -= cellArea.rect.center;
+        var geometry = new CombGeometry(frame.Width, frame.Height);
+        if (!geometry.TryFind(point.x / displayScale + CombGeometry.AreaWidth / 2,
+            point.y / displayScale + CombGeometry.AreaHeight / 2, out int c, out int r)) return false;
+        id = new CombCellId(boundItem, frame.FacingSide, c, r);
+        return true;
     }
 
     private void ClearMeshes()

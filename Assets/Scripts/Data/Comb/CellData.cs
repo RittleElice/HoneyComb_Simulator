@@ -9,8 +9,18 @@ public enum CellContentKind
     Nectar
 }
 
+public enum CombCellType { Worker, Drone }
+
 public struct CellData
 {
+    public CombCellType Type { get; private set; }
+    public void SetType(CombCellType type)
+    {
+        if (type != CombCellType.Worker && type != CombCellType.Drone)
+            throw new System.ArgumentOutOfRangeException(nameof(type));
+        Type = type;
+    }
+
     public byte Construction { get; private set; }
     public CellContentKind Content { get; private set; }
 
@@ -18,6 +28,7 @@ public struct CellData
 
     public CellData(byte construction, CellContentKind content)
     {
+        Type = CombCellType.Worker;
         Construction = (byte)System.Math.Min(100, (int)construction);
 
         Content = Construction == 100
