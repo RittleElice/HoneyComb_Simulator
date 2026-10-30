@@ -9,8 +9,10 @@ public sealed class FrameSurface
     public bool TrySetType(int x, int y, CombCellType type)
     {
         if (!IsInside(x, y)) return false;
-        cells[GetIndex(x, y)].SetType(type);
-        Revision++;
+        int index = GetIndex(x, y);
+        var before = cells[index];
+        cells[index].SetType(type);
+        MarkChanged(index, before);
         return true;
     }
 
@@ -58,8 +60,9 @@ public sealed class FrameSurface
 
         int index = GetIndex(x, y);
 
+        var before = cells[index];
         cells[index].SetConstruction(value);
-        Revision++;
+        MarkChanged(index, before);
         return true;
     }
 
@@ -73,16 +76,61 @@ public sealed class FrameSurface
 
         int index = GetIndex(x, y);
 
-        bool changed = cells[index].TrySetContent(content);
-        if (changed) Revision++;
-        return changed;
+        var before = cells[index];
+        bool success = cells[index].TrySetContent(content);
+        MarkChanged(index, before);
+        return success;
+    }
+
+    public bool TrySetStoredContent(int x, int y, CellContentKind content, float fillRatio)
+    {
+        if (!IsInside(x, y)) return false;
+        int index = GetIndex(x, y);
+        var before = cells[index];
+        bool success = cells[index].TrySetStoredContent(content, fillRatio);
+        MarkChanged(index, before);
+        return success;
+    }
+
+    public bool TrySetFillRatio(int x, int y, float value)
+    {
+        if (!IsInside(x, y)) return false;
+        int index = GetIndex(x, y);
+        var before = cells[index];
+        bool success = cells[index].TrySetFillRatio(value);
+        MarkChanged(index, before);
+        return success;
+    }
+
+    public bool TrySetCapped(int x, int y, bool value)
+    {
+        if (!IsInside(x, y)) return false;
+        int index = GetIndex(x, y);
+        var before = cells[index];
+        bool success = cells[index].TrySetCapped(value);
+        MarkChanged(index, before);
+        return success;
+    }
+
+    private static bool SameState(CellData a, CellData b) =>
+        a.Type == b.Type && a.Construction == b.Construction && a.Content == b.Content &&
+        a.FillRatio == b.FillRatio && a.IsCapped == b.IsCapped;
+
+    private void MarkChanged(int index, CellData before)
+    {
+        if (!SameState(before, cells[index])) unchecked { Revision++; }
     }
 
     public void SetAllConstruction(byte value)
     {
-        Revision++;
+        bool changed = false;
         for (int i = 0; i < cells.Length; i++)
+        {
+            var before = cells[i];
             cells[i].SetConstruction(value);
+            changed |= !SameState(before, cells[i]);
+        }
+        if (changed) unchecked { Revision++; }
     }
 
     public int CountCompletedCells()
