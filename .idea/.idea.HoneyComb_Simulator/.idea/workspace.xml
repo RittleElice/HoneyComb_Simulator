@@ -4,7 +4,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="" />
+    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
+      <change beforePath="$PROJECT_DIR$/Assets/Editor/DeveloperTimeWindow.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Editor/DeveloperTimeWindow.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Resources/ActionButtonCatalog.asset" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Resources/ActionButtonCatalog.asset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Core/GameBootstrap.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Core/GameBootstrap.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Core/Persistence/GamePersistenceRuntime.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Core/Persistence/GamePersistenceRuntime.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Core/Persistence/WorldSaveCodec.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Core/Persistence/WorldSaveCodec.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Core/Time/GameTimeRuntime.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Core/Time/GameTimeRuntime.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Core/Time/SimulationScheduler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Core/Time/SimulationScheduler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/World/GameWorld.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/World/GameWorld.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Common/Buttons/ActionButtonId.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Common/Buttons/ActionButtonId.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Presentation/Common/Time/GameTimeUIHost.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Presentation/Common/Time/GameTimeUIHost.cs" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -127,6 +138,7 @@
       <workItem from="1793152761042" duration="9288000" />
       <workItem from="1793216170673" duration="14211000" />
       <workItem from="1793308929636" duration="8540000" />
+      <workItem from="1793446247877" duration="636000" />
     </task>
     <servers />
   </component>

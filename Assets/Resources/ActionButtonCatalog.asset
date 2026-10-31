@@ -431,3 +431,47 @@ MonoBehaviour:
     useLayoutSlot: 0
     gridSpacing: {x: 8, y: 8}
     gridColumns: 6
+  - id: 19
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 0}
+    iconRotation: 0
+    size: {x: 160, y: 48}
+    offset: {x: 100, y: -34}
+    placement: 0
+    anchor: {x: 0, y: 1}
+    followGap: 16
+    followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 1
+    label: "날씨"
+    lidLabel:
+    stackLabel:
+    occupiedLabel:
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 20
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 0}
+    iconRotation: 0
+    size: {x: 84, y: 36}
+    offset: {x: -58, y: -34}
+    placement: 2
+    anchor: {x: 1, y: 1}
+    followGap: 16
+    followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 1
+    label: "닫기"
+    lidLabel:
+    stackLabel:
+    occupiedLabel:
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6

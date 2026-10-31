@@ -2,6 +2,14 @@ using System;
 
 public class GameWorld
 {
+    public WeatherSimulator Weather { get; private set; }
+    public void AttachWeather(WeatherSimulator weather)
+    {
+        if (Weather != null || weather == null || weather.Minute != CurrentGameMinute)
+            throw new InvalidOperationException("Weather must match the world clock and may only be attached once.");
+        Weather = weather;
+    }
+
     public GameClock Clock { get; } = new GameClock();
     public long CurrentGameMinute => Clock.CurrentGameMinute;
     public long Year => Clock.Year;
@@ -20,8 +28,9 @@ public class GameWorld
         Clock = clock; Apiary = apiary; Inventory = inventory; Hand = hand;
     }
 
-    public GameWorld()
+    public GameWorld(WeatherSimulator weather = null)
     {
+        if (weather != null) AttachWeather(weather);
         // 양봉장 초기화
         Apiary = new ApiaryData("양봉장", 8, 5);
 

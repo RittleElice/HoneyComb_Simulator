@@ -45,6 +45,12 @@ public sealed class GameTimeUIHost : MonoBehaviour
                     saveUI.transform.SetParent(canvas.transform, false);
                     var rect = (RectTransform)saveUI.transform; rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
                 }
+                if (uiScene == "SharedUI" && canvas.GetComponentInChildren<GameWeatherUI>() == null)
+                {
+                    var weatherUI = new GameObject("GameWeatherUI", typeof(RectTransform), typeof(GameWeatherUI));
+                    weatherUI.transform.SetParent(canvas.transform, false);
+                    var rect = (RectTransform)weatherUI.transform; rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
+                }
                 placedScene = null; break;
             }
         }

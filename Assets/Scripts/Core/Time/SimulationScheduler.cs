@@ -18,6 +18,8 @@ public sealed class SimulationScheduler
     private int running;
     public bool IsInTick { get; private set; }
     public int ParticipantCount => participants.Count;
+    public bool ContainsOnly(IGameMinuteParticipant participant)
+        => participant != null && participants.Count == 1 && ReferenceEquals(participants[0], participant);
     public Func<Task> CheckpointAsync { get; set; }
     public bool IsRunning => Volatile.Read(ref running) != 0;
     public Exception Fault { get; private set; }

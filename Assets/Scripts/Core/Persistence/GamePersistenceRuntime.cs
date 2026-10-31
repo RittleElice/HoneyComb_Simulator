@@ -22,7 +22,7 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
         {
             var b=GameBootstrap.Instance; var time=b?.TimeSystem;
             return !IsLoading && b != null && ReferenceEquals(b.SaveSystem, this) && b.GameWorld != null && time != null && time.HasWorld && ReferenceEquals(b.GameWorld.Clock, time.Clock) && time.Failure == null && time.Scheduler.Fault == null &&
-                !time.Scheduler.IsInTick && time.Scheduler.ParticipantCount == 0;
+                time.CanCaptureWorld(b.GameWorld);
         }
     }
     private void Awake()
@@ -39,7 +39,7 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
     public void RequestSave()
     {
         requested=true;
-        if(GameBootstrap.Instance?.TimeSystem?.Scheduler.ParticipantCount > 0)
+        if(GameBootstrap.Instance?.GameWorld != null && !GameBootstrap.Instance.TimeSystem.CanCaptureWorld(GameBootstrap.Instance.GameWorld))
             Status="저장 불가: 등록된 시뮬레이션의 상태 저장 구현이 필요합니다.";
     }
     private void Update()
@@ -106,6 +106,7 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
         try
         {
             bool recovered=false; var snapshot=await Task.Run(()=>store.Load(out recovered));
+            await WeatherAssetLoader.PrepareLoadedWorldAsync(snapshot.World);
             Status=recovered?"이전 정상 저장본으로 복구했습니다.":"저장을 불러왔습니다.";
             return snapshot;
         }

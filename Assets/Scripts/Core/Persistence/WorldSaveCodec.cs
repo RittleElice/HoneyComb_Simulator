@@ -17,7 +17,7 @@ internal static class SaveBinary
     public static string Text(BinaryReader r)
     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
 }
-/// <summary>Schema 1 covers every authoritative field in the current GameWorld model.
+/// <summary>Schema 2 adds complete weather/random state. Schema 1 is retained for migration.
 /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
 public sealed class WorldSaveCodec
 {
@@ -31,7 +31,7 @@ public sealed class WorldSaveCodec
         using (var stream = new MemoryStream())
         using (var w = new BinaryWriter(stream,Encoding.UTF8,true))
         {
-            w.Write(1); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
+            w.Write(2); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
             var world = snapshot.World; w.Write(world.CurrentGameMinute);
             var codec = new WorldSaveCodec { hives = world.Apiary.Hives };
             SaveBinary.Text(w,world.Apiary.Name); w.Write(world.Apiary.Grid.UnlockedWidth); w.Write(world.Apiary.Grid.Width); w.Write(world.Apiary.Grid.Height);
@@ -43,6 +43,8 @@ public sealed class WorldSaveCodec
             w.Write(world.Inventory.Capacity);
             for(int i=0;i<world.Inventory.Capacity;i++) codec.WriteItem(w,world.Inventory.GetSlot(i).Value,0);
             codec.WriteItem(w,world.Hand.Value,0);
+            w.Write(world.Weather != null);
+            if (world.Weather != null) world.Weather.WriteSnapshot(w);
             return stream.ToArray();
         }
     }
@@ -51,7 +53,8 @@ public sealed class WorldSaveCodec
         using(var stream=new MemoryStream(bytes,false))
         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
         {
-            if(r.ReadInt32()!=1) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
+            int schema=r.ReadInt32();
+            if(schema!=1 && schema!=2) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);
@@ -64,13 +67,17 @@ public sealed class WorldSaveCodec
             int capacity=SaveBinary.Count(r,100000); if(capacity<1) throw new InvalidDataException("Invalid inventory.");
             var inventory=new InventoryData(capacity); for(int i=0;i<capacity;i++) Insert(inventory.GetSlot(i),codec.ReadItem(r,0));
             var hand=new HandData(); Insert(hand.Slot,codec.ReadItem(r,0));
-            snapshot.World=new GameWorld(clock,apiary,inventory,hand); ValidateTime(snapshot);
+            snapshot.World=new GameWorld(clock,apiary,inventory,hand);
+            if(schema>=2 && r.ReadBoolean()) snapshot.World.AttachWeather(WeatherSimulator.ReadSnapshot(r,clock.CurrentGameMinute));
+            ValidateTime(snapshot);
             if(stream.Position!=stream.Length) throw new InvalidDataException("Unexpected trailing save data.");
             return snapshot;
         }
     }
     private static void ValidateTime(WorldSaveSnapshot s)
     {
+        if(s.World!=null && s.World.Weather!=null && s.World.Weather.Minute!=s.World.CurrentGameMinute)
+            throw new InvalidDataException("날씨와 게임 시간의 저장 시점이 다릅니다.");
         if(s.World==null || s.UtcTicks<DateTime.MinValue.Ticks || s.UtcTicks>DateTime.MaxValue.Ticks || s.HighWaterUtcTicks<0 || s.HighWaterUtcTicks>DateTime.MaxValue.Ticks ||
             s.RemainderTicks<0 || s.RemainderTicks>=5*TimeSpan.TicksPerSecond || s.TargetMinute<s.World.CurrentGameMinute)
             throw new InvalidDataException("Invalid saved timeline.");

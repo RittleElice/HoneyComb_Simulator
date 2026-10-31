@@ -29,10 +29,16 @@ public sealed class GameTimeRuntime : MonoBehaviour
     private readonly Dictionary<EventSystem, bool> lockedEvents = new Dictionary<EventSystem, bool>();
 
     private void Awake() { Scheduler = new SimulationScheduler(Clock); nextTick = Time.realtimeSinceStartupAsDouble + 5; }
-    public void BeginWorld(GameClock clock)
+    public bool CanCaptureWorld(GameWorld world)
+        => world != null && ReferenceEquals(world.Clock, Clock) && !Scheduler.IsInTick && Scheduler.Fault == null && failure == null &&
+           (world.Weather == null ? Scheduler.ParticipantCount == 0 : Scheduler.ContainsOnly(world.Weather) && world.Weather.Minute == Clock.CurrentGameMinute);
+
+    public void BeginWorld(GameWorld world)
     {
         if (Blocked || Scheduler.IsRunning) throw new InvalidOperationException("Cannot replace a calculating world.");
-        Clock = clock; Scheduler = new SimulationScheduler(clock); offline = new OfflineTimeManager();
+        if (world == null || world.Weather == null || world.Weather.Minute != world.CurrentGameMinute)
+            throw new InvalidOperationException("Weather must be initialized before beginning a world.");
+        Clock = world.Clock; Scheduler = new SimulationScheduler(Clock); Scheduler.Register(world.Weather); offline = new OfflineTimeManager();
         Scheduler.CheckpointAsync = () => GameBootstrap.Instance?.SaveSystem?.SaveBoundaryAsync(false) ?? Task.CompletedTask;
         pendingMinutes = 0; operationTarget = 0; HasWorld = true; nextTick = Time.realtimeSinceStartupAsDouble + 5 / speed;
     }
@@ -124,7 +130,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     }
     internal WorldSaveSnapshot CaptureTimeline(GameWorld world)
     {
-        if (!ReferenceEquals(world.Clock, Clock) || Scheduler.IsInTick || Scheduler.Fault != null || failure != null || Scheduler.ParticipantCount != 0)
+        if (!CanCaptureWorld(world))
             throw new InvalidOperationException("전체 상태 저장을 지원하지 않는 시뮬레이션이 있거나 계산 중입니다.");
         return new WorldSaveSnapshot {
             World = world,

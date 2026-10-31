@@ -17,7 +17,7 @@ public sealed class DeveloperTimeWindow : EditorWindow
     {
         var runtime = GameBootstrap.Instance?.TimeSystem;
         EditorGUILayout.LabelField(runtime != null ? runtime.Clock.ToString() : "Bootstrap에서 Play를 시작하세요.");
-        EditorGUILayout.HelpBox("날씨·벌 시뮬레이션은 아직 등록되지 않았습니다. 시간 점프 중에도 전체 월드 체크포인트를 저장합니다.", MessageType.Info);
+        EditorGUILayout.HelpBox("날씨는 게임 시간 1분마다 생성됩니다. 시간 점프 중에도 날씨 상태를 포함한 전체 월드 체크포인트를 저장합니다.", MessageType.Info);
         using (new EditorGUI.DisabledScope(!Application.isPlaying || runtime == null || !runtime.HasWorld || runtime.Blocked))
         {
             speed = EditorGUILayout.FloatField("배속 (1~1000)", speed);

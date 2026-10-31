@@ -47,7 +47,7 @@ public class GameBootstrap : MonoBehaviour
             var resume = GameTimeRuntime.PrepareResume(snapshot);
             // Validate elapsed time before replacing the visible world.
             GameWorld = snapshot.World;
-            TimeSystem.BeginWorld(GameWorld.Clock);
+            TimeSystem.BeginWorld(GameWorld);
             GameFlow.ResetApiaryCamera();
             GameFlow.OpenApiary();
             TimeSystem.ApplyResume(resume.offline, resume.minutes);
@@ -61,8 +61,8 @@ public class GameBootstrap : MonoBehaviour
         if (GameFlow.IsTransitioning || GameTimeRuntime.InputBlocked || SaveSystem.IsSaving)
             return;
 
-        GameWorld = new GameWorld();
-        TimeSystem.BeginWorld(GameWorld.Clock);
+        GameWorld = new GameWorld(WeatherAssetLoader.Create(WeatherSimulator.DefaultSeed));
+        TimeSystem.BeginWorld(GameWorld);
         GameFlow.ResetApiaryCamera();
 
         ApiaryData apiary = GameWorld.Apiary;
