@@ -9,6 +9,9 @@ public sealed class EquipmentSpatialCell
     public HiveMaterial Material { get; }
     public double VolumeMm3 { get; }
     public FrameData Frame => Equipment.GetContent<FrameData>();
+    public CombRegionThermalMass ContentThermalMass => Equipment.EquipmentGrid.GetContentThermalMass(Index);
+    public double ContentHeatCapacityJPerK => ContentThermalMass.HeatCapacityJPerK;
+    public double HeatCapacityJPerK => CombBalance.MaterialHeatCapacityJPerK(Material, VolumeMm3) + ContentHeatCapacityJPerK;
     internal EquipmentSpatialCell(ItemData equipment, int index, HiveMaterial material, double volume)
     { Equipment = equipment; Index = index; Material = material; VolumeMm3 = volume; }
 }
@@ -94,6 +97,19 @@ public sealed class EquipmentSpatialGrid
                 CellCount++;
             }
         }
+    }
+
+    // Front/back are stable data sides, not the current display FacingSide.
+    // Logical 7x5 groups: front -> local Y=0; back -> local Y=2; centre Y=1 has no contents.
+    public CombRegionThermalMass GetContentThermalMass(int index)
+    {
+        if (index < 0 || index >= cells.Length) throw new ArgumentOutOfRangeException(nameof(index));
+        if (Equipment.Kind != ItemKind.Frame || cells[index]?.Material != HiveMaterial.Comb) return default;
+        var frame = Equipment.GetContent<FrameData>();
+        if (frame == null) return default;
+        int x = index % SizeX, y = index / SizeX % SizeY, z = index / (SizeX * SizeY);
+        if (y == 1) return default;
+        return frame.GetSurface(y == 0 ? FrameSide.Front : FrameSide.Back).GetThermalRegion(x - 1, z - 1);
     }
 
     private static IReadOnlyList<double> Slice(IReadOnlyList<double> source, int start, int count)

@@ -58,7 +58,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             var rect = new Rect(area.x + (float)horizontal[h] * scale, area.y + (float)(vertical[vertical.Count - 1] - vertical[v + 1]) * scale,
                 (float)(horizontal[h + 1] - horizontal[h]) * scale - 1, (float)(vertical[v + 1] - vertical[v]) * scale - 1);
             EditorGUI.DrawRect(rect, color);
-            GUI.Label(rect, new GUIContent("", $"({x},{y},{z}) {cell.Material}\n{grid.Layout.VolumeMm3(grid.Layout.Index(x,y,z))} mm3\n{cell.Equipment?.Name}"));
+            GUI.Label(rect, new GUIContent("", $"({x},{y},{z}) {cell.Material}\n{grid.Layout.VolumeMm3(grid.Layout.Index(x,y,z))} mm3\n{cell.Equipment?.Name}\n열용량: {grid.GetHeatCapacityJPerK(x,y,z):F4} J/K\n질량 미지정 소방: {cell.SourceCell?.ContentThermalMass.UnquantifiedCellCount ?? 0}"));
         }
         if (axis != 2 && grid.TopBoundaryEquipment != null && slice > 0 && slice < (axis == 0 ? 17 : 51))
         {

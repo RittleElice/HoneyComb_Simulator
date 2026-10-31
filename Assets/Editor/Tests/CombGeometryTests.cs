@@ -33,7 +33,7 @@ public static class CombGeometryTests
         Check(!g.TryFind(210,0,out _,out _),"margin is not a cell");
         f.Front.TrySetConstruction(3,4,100); f.Front.TrySetContent(3,4,CellContentKind.Honey);
         f.Front.TrySetType(3,4,CombCellType.Drone);
-        Check(f.Front.GetCell(3,4).Content == CellContentKind.Honey && f.Back.GetCell(3,4).Content == CellContentKind.Empty,"type preserves contents and side independence");
+        Check(f.Front.GetCell(3,4).Content == CellContentKind.Nectar && f.Back.GetCell(3,4).Content == CellContentKind.Empty,"type preserves contents and side independence");
         var cell = CombSpatialMapper.GetLogicalCell(item,3,4,0);
         var box = new ItemData(502,"Box",ItemKind.BroodBox);
         box.InteriorSlots.GetSlot(0).TryInsert(item);

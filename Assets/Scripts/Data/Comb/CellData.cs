@@ -1,109 +1,74 @@
 using System;
 
-public enum CellContentKind
-{
-    Empty,
-    Egg,
-    Larva,
-    Pupa,
-    Honey,
-    Pollen,
-    Nectar
-}
-
+// Numeric values retained for old callers/data. Egg/Larva/Pupa require explicit
+// migration to a BeeId; no developmental state is stored in the new cell model.
+public enum CellContentKind { Empty = 0, Egg = 1, Larva = 2, Pupa = 3, Honey = 4, Pollen = 5, Nectar = 6, Brood = 7 }
 public enum CombCellType { Worker, Drone }
 
+// Eight managed bytes. Completion is historical, not derivable from Construction.
 public struct CellData
 {
-    public CombCellType Type { get; private set; }
+    private byte flags; // bit 0: drone; bit 1: complete
+    private byte content;
     public byte Construction { get; private set; }
-    public CellContentKind Content { get; private set; }
-    // Fraction of storage capacity (0..1), not brood growth or bee occupancy.
-    // Empty and brood cells always have zero storage fill.
-    public float FillRatio { get; private set; }
-    public bool IsCapped { get; private set; }
-    public bool IsComplete => Construction == 100;
+    public byte CappingProgress { get; private set; }
+    public float FillRatio { get; private set; } // legacy display hint, NOT a mass
+    public CombCellType Type => (CombCellType)(flags & 1);
+    public CellContentKind Content => (CellContentKind)content;
+    public bool IsComplete => (flags & 2) != 0;
+    public bool IsCapped => CappingProgress == 100;
     public bool HasStoredMaterial => IsStorageContent(Content);
-
-    public static bool IsStorageContent(CellContentKind content) =>
-        content == CellContentKind.Honey || content == CellContentKind.Pollen ||
-        content == CellContentKind.Nectar;
-
-    private static bool IsValidContent(CellContentKind content) =>
-        content >= CellContentKind.Empty && content <= CellContentKind.Nectar;
-
-    public CellData(byte construction, CellContentKind content)
+    public static bool IsStorageContent(CellContentKind kind) => kind == CellContentKind.Honey || kind == CellContentKind.Nectar || kind == CellContentKind.Pollen;
+    internal static CellContentKind Normalize(CellContentKind kind) => kind == CellContentKind.Honey ? CellContentKind.Nectar : kind;
+    private static bool IsLegacyInput(CellContentKind kind) => kind == CellContentKind.Empty || IsStorageContent(kind);
+    public CellData(byte construction, CellContentKind content) : this()
     {
-        if (!IsValidContent(content)) throw new ArgumentOutOfRangeException(nameof(content));
-        Type = CombCellType.Worker;
-        Construction = (byte)Math.Min(100, (int)construction);
-        Content = Construction == 100 ? content : CellContentKind.Empty;
-        // Legacy calls specified a kind without an amount: interpret stored material as full.
-        FillRatio = IsStorageContent(Content) ? 1f : 0f;
-        IsCapped = false;
+        if (!IsLegacyInput(content)) throw new ArgumentOutOfRangeException(nameof(content), "Brood requires a BeeId; legacy stages cannot be inferred.");
+        SetConstruction(construction);
+        if (IsComplete) TrySetContent(content);
     }
-
     public void SetType(CombCellType type)
     {
-        if (type != CombCellType.Worker && type != CombCellType.Drone)
-            throw new ArgumentOutOfRangeException(nameof(type));
-        Type = type;
+        if (type != CombCellType.Worker && type != CombCellType.Drone) throw new ArgumentOutOfRangeException(nameof(type));
+        flags = (byte)((flags & 2) | (byte)type);
     }
-
     public void SetConstruction(byte value)
     {
         Construction = (byte)Math.Min(100, (int)value);
-        if (!IsComplete) ClearContent();
+        if (!IsComplete && Construction >= 80) flags |= 2;
+        else if (IsComplete && Construction <= 50) { flags &= 1; ClearContent(); }
     }
-
-    private void ClearContent()
+    private void ClearContent() { content = 0; FillRatio = 0; CappingProgress = 0; }
+    public bool TrySetContent(CellContentKind kind)
     {
-        Content = CellContentKind.Empty;
-        FillRatio = 0f;
-        IsCapped = false;
-    }
-
-    // Reassigning the same kind preserves quantity and capping.
-    // Changing kind is a replacement: reset quantity and remove the cap.
-    public bool TrySetContent(CellContentKind content)
-    {
-        if (!IsValidContent(content) || (!IsComplete && content != CellContentKind.Empty)) return false;
-        if (Content == content) return true;
-        Content = content;
-        FillRatio = IsStorageContent(content) ? 1f : 0f;
-        IsCapped = false;
+        if (!IsLegacyInput(kind) || (!IsComplete && kind != CellContentKind.Empty)) return false;
+        kind = Normalize(kind);
+        if (Content == kind) return true;
+        content = (byte)kind; FillRatio = IsStorageContent(kind) ? 1 : 0; CappingProgress = 0;
         return true;
     }
-
-    // Atomic assignment for callers that know the actual stored amount.
-    // A failed operation never partially changes the cell.
-    public bool TrySetStoredContent(CellContentKind content, float fillRatio)
+    public bool TrySetStoredContent(CellContentKind kind, float fillRatio)
     {
-        if (!IsComplete || !IsStorageContent(content) || !IsValidRatio(fillRatio)) return false;
-        bool replaced = Content != content;
-        Content = content;
-        FillRatio = fillRatio;
-        if (replaced) IsCapped = false;
-        if (fillRatio == 0f) ClearContent();
+        if (!IsComplete || !IsStorageContent(kind) || !ValidRatio(fillRatio)) return false;
+        TrySetContent(kind); FillRatio = fillRatio;
+        if (fillRatio == 0) ClearContent();
         return true;
     }
-
     public bool TrySetFillRatio(float value)
     {
-        if (!IsComplete || !HasStoredMaterial || !IsValidRatio(value)) return false;
-        FillRatio = value;
-        if (value == 0f) ClearContent();
-        return true;
+        if (!IsComplete || !HasStoredMaterial || !ValidRatio(value)) return false;
+        FillRatio = value; if (value == 0) ClearContent(); return true;
     }
-
-    private static bool IsValidRatio(float value) =>
-        !float.IsNaN(value) && !float.IsInfinity(value) && value >= 0f && value <= 1f;
-
-    // This stores a state; the bee/simulation rules decide when capping occurs.
-    public bool TrySetCapped(bool value)
+    private static bool ValidRatio(float value) => !float.IsNaN(value) && value >= 0 && value <= 1;
+    public bool TrySetCapped(bool value) => TrySetCappingProgress((byte)(value ? 100 : 0));
+    public bool TrySetCappingProgress(byte value)
     {
-        if (value && (!IsComplete || Content == CellContentKind.Empty)) return false;
-        IsCapped = value;
-        return true;
+        if (value > 100 || (value > 0 && (!IsComplete || Content == CellContentKind.Empty))) return false;
+        CappingProgress = value; return true;
+    }
+    internal void SetQuantifiedContent(CellContentKind kind)
+    {
+        if (Content != kind) CappingProgress = 0;
+        content = (byte)kind; FillRatio = 0; // capacity/density conversion is deliberately unspecified
     }
 }

@@ -86,6 +86,7 @@ public class FrameCellMesh : MaskableGraphic
             case CellContentKind.Honey: cellColor = new Color(1f, 0.65f, 0.05f, 0.7f); break;
             case CellContentKind.Pollen: cellColor = new Color(0.9f, 0.35f, 0.08f, 0.7f); break;
             case CellContentKind.Nectar: cellColor = new Color(0.4f, 0.8f, 1f, 0.6f); break;
+            case CellContentKind.Brood:
             case CellContentKind.Egg: cellColor = new Color(1f, 1f, 1f, 0.8f); break;
             case CellContentKind.Larva: cellColor = new Color(1f, 0.9f, 0.65f, 0.8f); break;
             default: cellColor = new Color(0.65f, 0.45f, 0.25f, 0.8f); break;

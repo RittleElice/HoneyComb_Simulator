@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae32d246b35b4157b44c3669316acef1, type: 3}
+  m_Name: CombBalanceSettings
+  m_EditorClassIdentifier: 
+  values:
+    CellLiquidCapacityMl: 0.30
+    CellPollenCapacityMg: 200
+    WaterSpecificHeatJPerKgK: 4180
+    SugarSpecificHeatJPerKgK: 1250
+    PollenSpecificHeatJPerKgK: 1800
+    BroodHeatCapacityJPerK: 0.30
+    AirDensityKgPerM3: 1.2
+    AirSpecificHeatJPerKgK: 1005
+    WoodDensityKgPerM3: 500
+    WoodSpecificHeatJPerKgK: 1600
+    CombEffectiveDensityKgPerM3: 80
+    CombSpecificHeatJPerKgK: 2100
+    InsulationDensityKgPerM3: 30
+    InsulationSpecificHeatJPerKgK: 1400
+    WaterDensityGPerMl: 1
+    SugarEffectiveDensityGPerMl: 1.6

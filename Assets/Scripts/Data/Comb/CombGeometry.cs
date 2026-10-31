@@ -60,6 +60,12 @@ public readonly struct CombCellId
 
 public static class CombSpatialMapper
 {
+    public static EquipmentSpatialCell GetContentCell(ItemData item, FrameSide side, int column, int row)
+    {
+        if (side != FrameSide.Front && side != FrameSide.Back) throw new ArgumentOutOfRangeException(nameof(side));
+        return GetLogicalCell(item, column, row, side == FrameSide.Front ? 0 : 2);
+    }
+
     // Logical 7 x 5 blocks, NOT geometric containment or area-weighted overlap.
     // Hexagons cross physical 35 x 25 mm boundaries; their centres can also
     // belong to a different physical block. Y is the chosen depth layer (0..2).

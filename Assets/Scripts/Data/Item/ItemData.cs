@@ -1,5 +1,15 @@
 public class ItemData : MovableItem
 {
+    // Dimensionless 0..1. No time stepping or degradation coefficients yet.
+    public float Aging { get; private set; }
+    public bool AgingAffectsInsulation => Kind == ItemKind.BroodBox || Kind == ItemKind.Super || Kind == ItemKind.Lid;
+    public bool AgingAffectsCombDecay => Kind == ItemKind.Frame;
+    public bool TrySetAging(float value)
+    {
+        if (float.IsNaN(value) || value < 0 || value > 1) return false;
+        Aging = value; return true;
+    }
+
     public int Id { get; }
     public override string Name { get; }
     public object Content { get; }

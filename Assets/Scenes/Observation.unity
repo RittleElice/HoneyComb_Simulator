@@ -843,6 +843,7 @@ MonoBehaviour:
   panSensitivity: 1
   dragThreshold: 15
   verticalPanMargin: 1000
+  minimumVisibleHeight: 80
 --- !u!114 &1141028983
 MonoBehaviour:
   m_ObjectHideFlags: 0

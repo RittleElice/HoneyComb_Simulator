@@ -28,20 +28,20 @@ public static class CellStateTests
             {
                 Check(!s.TrySetFillRatio(0,0,invalid),"invalid ratio rejected");
                 Check(!s.TrySetStoredContent(0,0,CellContentKind.Nectar,invalid),"atomic invalid assignment rejected");
-                Check(s.Revision == revision && s.GetCell(0,0).Content == kind && s.GetCell(0,0).FillRatio == 0.35f && s.GetCell(0,0).IsCapped,"no partial write");
+                Check(s.Revision == revision && s.GetCell(0,0).Content == (kind == CellContentKind.Honey ? CellContentKind.Nectar : kind) && s.GetCell(0,0).FillRatio == 0.35f && s.GetCell(0,0).IsCapped,"no partial write");
             }
             s.TrySetFillRatio(0,0,0);
             Check(s.GetCell(0,0).Content == CellContentKind.Empty && !s.GetCell(0,0).IsCapped,"drained cell clears cap");
         }
         foreach (var kind in new[] {CellContentKind.Egg,CellContentKind.Larva,CellContentKind.Pupa})
         {
-            Check(s.TrySetContent(0,0,kind),"legacy brood accepted");
+            Check(!s.TrySetContent(0,0,kind),"legacy brood requires explicit BeeId migration");
             Check(s.GetCell(0,0).FillRatio == 0 && !s.TrySetFillRatio(0,0,0.5f),"brood does not store fill or development");
         }
         s.TrySetStoredContent(0,0,CellContentKind.Honey,0.7f); s.TrySetCapped(0,0,true);
         s.TrySetType(0,0,CombCellType.Drone);
         Check(s.GetCell(0,0).FillRatio == 0.7f && s.GetCell(0,0).IsCapped,"type preserves stored state");
-        s.TrySetContent(0,0,CellContentKind.Nectar);
+        s.TrySetContent(0,0,CellContentKind.Pollen);
         Check(s.GetCell(0,0).FillRatio == 1 && !s.GetCell(0,0).IsCapped,"legacy replacement defaults full uncapped");
         s.TrySetCapped(0,0,true); s.SetAllConstruction(50);
         Check(s.GetCell(0,0).Content == CellContentKind.Empty && s.GetCell(0,0).FillRatio == 0 && !s.GetCell(0,0).IsCapped,"construction clears all content state");
@@ -50,7 +50,7 @@ public static class CellStateTests
         Check(!s.TrySetContent(0,0,(CellContentKind)999),"invalid enum rejected");
         Check(!s.TrySetFillRatio(-1,0,0.5f) && !s.TrySetCapped(84,0,true) && !s.TrySetStoredContent(0,40,CellContentKind.Honey,0.5f),"bounds rejected");
         Check(new CellData(100,CellContentKind.Honey).FillRatio == 1,"legacy constructor defaults full");
-        Check(new CellData(99,CellContentKind.Honey).FillRatio == 0,"unfinished constructor empty");
+        Check(new CellData(79,CellContentKind.Honey).FillRatio == 0,"unfinished constructor empty");
         var f = new FrameData(); var item = new ItemData(987,"Frame",ItemKind.Frame,f);
         f.Front.TrySetConstruction(4,9,100); f.Front.TrySetStoredContent(4,9,CellContentKind.Honey,0.6f); f.Front.TrySetCapped(4,9,true);
         var box = new ItemData(988,"Box",ItemKind.BroodBox);

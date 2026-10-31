@@ -68,6 +68,15 @@ public sealed class HiveSpatialGrid
         return cells[index];
     }
 
+    // Read current contents/settings. Placement Revision alone is NOT a thermal cache key.
+    public double GetHeatCapacityJPerK(int x, int y, int z) => GetHeatCapacityJPerK(Layout.Index(x,y,z));
+    public double GetHeatCapacityJPerK(int index)
+    {
+        var source = GetCell(index).SourceCell;
+        return source != null ? source.HeatCapacityJPerK :
+            CombBalance.MaterialHeatCapacityJPerK(HiveMaterial.Air, Layout.VolumeMm3(index));
+    }
+
     private void OnSlotChanged(ItemSlot slot)
     {
         for (int i = 0; i < 10; i++)
