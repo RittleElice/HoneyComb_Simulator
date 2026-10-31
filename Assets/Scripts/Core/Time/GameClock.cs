@@ -38,5 +38,13 @@ public sealed class GameClock
             throw new ArgumentOutOfRangeException("Date must be year >= 1, day 1..365, hour 0..23, minute 0..59.");
         return checked((year - 1) * MinutesPerYear + (dayOfYear - 1) * MinutesPerDay + hour * 60 + minute);
     }
+    public static long AddDuration(long currentMinute, long years, long days, long hours, long minutes)
+    {
+        if (currentMinute < 0 || years < 0 || days < 0 || hours < 0 || minutes < 0)
+            throw new ArgumentOutOfRangeException(nameof(minutes), "기간은 음수로 입력할 수 없습니다.");
+        long duration = checked(years * MinutesPerYear + days * MinutesPerDay + hours * 60 + minutes);
+        if (duration == 0) throw new ArgumentException("이동할 기간을 1분 이상 입력하세요.");
+        return checked(currentMinute + duration);
+    }
     public override string ToString() => $"{Year}년차 {Month:00}월 {Day:00}일 {Hour:00}:{Minute:00}";
 }

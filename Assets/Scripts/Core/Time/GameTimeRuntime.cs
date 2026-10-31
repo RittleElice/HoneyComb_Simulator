@@ -179,15 +179,14 @@ public sealed class GameTimeRuntime : MonoBehaviour
         speed = value; nextTick = Time.realtimeSinceStartupAsDouble + 5 / speed;
     }
     public void JumpTo(long year, int month, int day, int hour, int minute)
-    {
-        long target = GameClock.ToMinute(year, month, day, hour, minute);
-        int dayOfYear = (int)(target / GameClock.MinutesPerDay % 365) + 1;
-        JumpTo(year, dayOfYear, hour, minute);
-    }
+        => JumpToMinute(GameClock.ToMinute(year, month, day, hour, minute));
     public void JumpTo(long year, int day, int hour, int minute)
+        => JumpToMinute(GameClock.ToMinute(year, day, hour, minute));
+    public void JumpBy(long years, long days, long hours, long minutes)
+        => JumpToMinute(GameClock.AddDuration(Clock.CurrentGameMinute, years, days, hours, minutes));
+    private void JumpToMinute(long target)
     {
         if (!HasWorld || Blocked || pendingMinutes > 0) throw new InvalidOperationException("Time system is busy or no game is active.");
-        long target = GameClock.ToMinute(year, day, hour, minute);
         if (target < Clock.CurrentGameMinute) throw new ArgumentException("과거로 이동하려면 전체 상태 복원이 필요합니다.");
         StartOperation(target, true);
     }
