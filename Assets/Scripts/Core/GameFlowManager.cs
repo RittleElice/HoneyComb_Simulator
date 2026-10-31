@@ -1,4 +1,3 @@
-
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -25,7 +24,7 @@ public class GameFlowManager
 
     public void OpenMainMenu()
     {
-        if (isTransitioning)
+        if (isTransitioning || GameTimeRuntime.InputBlocked)
             return;
 
         runner.StartCoroutine(OpenMainMenuRoutine());
@@ -33,7 +32,7 @@ public class GameFlowManager
 
     public void OpenApiary()
     {
-        if (isTransitioning)
+        if (isTransitioning || GameTimeRuntime.InputBlocked)
             return;
 
         runner.StartCoroutine(OpenApiaryRoutine());
@@ -41,7 +40,7 @@ public class GameFlowManager
 
     public void OpenObservation(int gridX, int gridY)
     {
-        if (isTransitioning)
+        if (isTransitioning || GameTimeRuntime.InputBlocked)
             return;
 
         runner.StartCoroutine(

@@ -45,7 +45,7 @@ public static class UnifiedButtonTests
         try
         {
             var root = canvasObject.transform;
-            Check(catalog.entries.Count == 15, "15 distinct button settings");
+            Check(catalog.entries.Count == Enum.GetValues(typeof(ActionButtonId)).Length, "one distinct setting per button ID");
             var originalLift = catalog.Find(ActionButtonId.Lift);
             var observationLift = catalog.Find(ActionButtonId.ObservationLift);
             originalLift.label = "양봉장 설정";

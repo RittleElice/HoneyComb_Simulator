@@ -43,7 +43,7 @@ public class HandGestureController : MonoBehaviour
 
     private void Update()
     {
-        if (!CanInteract) { CancelDrag(); return; }
+        if (GameTimeRuntime.InputBlocked || !CanInteract) { CancelDrag(); return; }
         if (captured)
         {
             if (!ReferenceEquals(item, presenter.CurrentItem) || visual != presenter.InspectionVisual ||

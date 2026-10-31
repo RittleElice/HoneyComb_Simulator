@@ -1,7 +1,6 @@
-
 using System;
 
-public sealed class FrameSurface
+public sealed partial class FrameSurface
 {
     private readonly CellData[] cells;
     private CellMaterialStore materials;

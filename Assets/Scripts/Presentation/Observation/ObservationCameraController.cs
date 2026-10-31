@@ -89,6 +89,7 @@ public class ObservationCameraController : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (GameTimeRuntime.InputBlocked) { ResetPointer(); return; }
         CheckContentChanges();
         HandleZoom();
         HandlePan();

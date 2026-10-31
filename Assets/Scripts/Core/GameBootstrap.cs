@@ -6,6 +6,8 @@ public class GameBootstrap : MonoBehaviour
 
     public GameWorld GameWorld { get; private set; }
     public GameFlowManager GameFlow { get; private set; }
+    public GameTimeRuntime TimeSystem { get; private set; }
+    public GamePersistenceRuntime SaveSystem { get; private set; }
 
     private void Awake()
     {
@@ -25,6 +27,9 @@ public class GameBootstrap : MonoBehaviour
     {
         Debug.Log("[GameBootstrap] 시스템 초기화 시작");
 
+        TimeSystem = gameObject.AddComponent<GameTimeRuntime>();
+        SaveSystem = gameObject.AddComponent<GamePersistenceRuntime>();
+        gameObject.AddComponent<GameTimeUIHost>();
         GameFlow = new GameFlowManager(this);
 
         Debug.Log("[GameBootstrap] 시스템 초기화 완료");
@@ -32,12 +37,32 @@ public class GameBootstrap : MonoBehaviour
         GameFlow.OpenMainMenu();
     }
 
+    public async void ContinueGame()
+    {
+        if (GameFlow.IsTransitioning || GameTimeRuntime.InputBlocked || SaveSystem.IsSaving || GameWorld != null) return;
+        try
+        {
+            var snapshot = await SaveSystem.LoadAsync();
+            await TimeSystem.WaitForResumeAsync();
+            var resume = GameTimeRuntime.PrepareResume(snapshot);
+            // Validate elapsed time before replacing the visible world.
+            GameWorld = snapshot.World;
+            TimeSystem.BeginWorld(GameWorld.Clock);
+            GameFlow.ResetApiaryCamera();
+            GameFlow.OpenApiary();
+            TimeSystem.ApplyResume(resume.offline, resume.minutes);
+            SaveSystem.RequestSave();
+        }
+        catch (System.Exception e) { Debug.LogWarning("[Continue] " + e.Message); }
+    }
+
     public void StartNewGame()
     {
-        if (GameFlow.IsTransitioning)
+        if (GameFlow.IsTransitioning || GameTimeRuntime.InputBlocked || SaveSystem.IsSaving)
             return;
 
         GameWorld = new GameWorld();
+        TimeSystem.BeginWorld(GameWorld.Clock);
         GameFlow.ResetApiaryCamera();
 
         ApiaryData apiary = GameWorld.Apiary;
@@ -53,5 +78,6 @@ public class GameBootstrap : MonoBehaviour
             $"{GameWorld.Day}일");
 
         GameFlow.OpenApiary();
+        SaveSystem.RequestSave();
     }
 }

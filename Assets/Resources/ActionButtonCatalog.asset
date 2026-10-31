@@ -343,3 +343,91 @@ MonoBehaviour:
     useLayoutSlot: 0
     gridSpacing: {x: 8, y: 8}
     gridColumns: 6
+  - id: 15
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 0}
+    iconRotation: 0
+    size: {x: 180, y: 42}
+    offset: {x: 0, y: 60}
+    placement: 0
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 1
+    label: "이어하기"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 16
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 0}
+    iconRotation: 0
+    size: {x: 180, y: 42}
+    offset: {x: -100, y: -30}
+    placement: 0
+    anchor: {x: 1, y: 1}
+    followGap: 16
+    followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 1
+    label: "저장"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 17
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 0}
+    iconRotation: 0
+    size: {x: 180, y: 42}
+    offset: {x: -100, y: -60}
+    placement: 0
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 1
+    label: "새 게임 시작"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6
+  - id: 18
+    prefab: {fileID: 1009566345781981867, guid: cafe947ec5157dc438fe2433c2af7ef8, type: 3}
+    icon: {fileID: 0}
+    iconRotation: 0
+    size: {x: 180, y: 42}
+    offset: {x: 100, y: -60}
+    placement: 0
+    anchor: {x: 0.5, y: 0.5}
+    followGap: 16
+    followAnchor: 0
+    overrideLidFollowAnchor: 0
+    lidFollowAnchor: 1
+    clampToScreen: 0
+    padding: 16
+    showLabel: 1
+    label: "취소"
+    lidLabel: 
+    stackLabel: 
+    occupiedLabel: 
+    useLayoutSlot: 0
+    gridSpacing: {x: 8, y: 8}
+    gridColumns: 6

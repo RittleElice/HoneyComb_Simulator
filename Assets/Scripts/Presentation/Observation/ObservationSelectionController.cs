@@ -1,4 +1,3 @@
-
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -348,6 +347,7 @@ public class ObservationSelectionController : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (GameTimeRuntime.InputBlocked) { ResetPointer(); return; }
         Synchronize();
         HandlePointer();
     }

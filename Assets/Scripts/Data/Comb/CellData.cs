@@ -6,7 +6,7 @@ public enum CellContentKind { Empty = 0, Egg = 1, Larva = 2, Pupa = 3, Honey = 4
 public enum CombCellType { Worker, Drone }
 
 // Eight managed bytes. Completion is historical, not derivable from Construction.
-public struct CellData
+public partial struct CellData
 {
     private byte flags; // bit 0: drone; bit 1: complete
     private byte content;

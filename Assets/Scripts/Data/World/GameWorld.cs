@@ -2,26 +2,26 @@ using System;
 
 public class GameWorld
 {
-    public int Year { get; private set; }
-    public int Month { get; private set; }
-    public int Day { get; private set; }
-    public int Hour { get; private set; }
-    public int Minute { get; private set; }
+    public GameClock Clock { get; } = new GameClock();
+    public long CurrentGameMinute => Clock.CurrentGameMinute;
+    public long Year => Clock.Year;
+    public int Month => Clock.Month;
+    public int Day => Clock.Day;
+    public int Hour => Clock.Hour;
+    public int Minute => Clock.Minute;
 
     public ApiaryData Apiary { get; private set; }
 
     public InventoryData Inventory { get; }
     public HandData Hand { get; }
 
+    internal GameWorld(GameClock clock, ApiaryData apiary, InventoryData inventory, HandData hand)
+    {
+        Clock = clock; Apiary = apiary; Inventory = inventory; Hand = hand;
+    }
+
     public GameWorld()
     {
-        // 게임 시간 초기화
-        Year = 1;
-        Month = 2;
-        Day = 1;
-        Hour = 0;
-        Minute = 0;
-
         // 양봉장 초기화
         Apiary = new ApiaryData("양봉장", 8, 5);
 

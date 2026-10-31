@@ -1,4 +1,3 @@
-
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -42,6 +41,7 @@ public class ApiaryCameraController : MonoBehaviour
 
     private void Update()
     {
+        if (GameTimeRuntime.InputBlocked) { isDragging = false; dragStartedOverUI = false; return; }
         if (targetCamera == null)
             return;
 

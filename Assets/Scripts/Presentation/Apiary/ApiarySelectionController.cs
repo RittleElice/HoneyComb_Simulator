@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -56,6 +55,7 @@ public class ApiarySelectionController : MonoBehaviour
 
     private void Update()
     {
+        if (GameTimeRuntime.InputBlocked) { isPressed = false; pressStartedOverUI = false; return; }
         Vector2 pointerPosition;
         bool pressed;
         bool released;
