@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Unity.Collections;
+using Unity.Burst;
 using Unity.Jobs;
 
 // Orthogonal volumes with optional fixed-temperature exterior reservoirs; no advection.
@@ -255,6 +256,7 @@ public sealed class ThermalExchange : IDisposable
         if (!Positive(seconds)) throw new ArgumentOutOfRangeException(nameof(seconds));
         if (seconds > MinimumStepSeconds) throw new InvalidOperationException(Detail(LimitingCell,"Explicit step rejected: dt="+seconds+" s"));
     }
+    [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard, CompileSynchronously = true)]
     private struct Gather : IJobParallelFor
     {
         [ReadOnly] public NativeArray<int> Offsets, Neighbours;

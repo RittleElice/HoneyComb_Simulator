@@ -31,8 +31,17 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
     private static readonly Color SelectedLine=new Color(1,.65f,.15f),OutsideLine=new Color(.2f,.8f,.95f);
 
     [MenuItem("Tools/HoneyComb/Hive Spatial Grid")]
-    public static void Open() => GetWindow<HiveSpatialGridDebugWindow>("Hive Spatial Grid");
-    private void OnEnable() { minSize=new Vector2(500,420); }
+    public static void Open()
+    {
+        var window=CreateInstance<HiveSpatialGridDebugWindow>();
+        window.Show();
+    }
+    private void RefreshTitle()
+    {
+        string title=live?$"Hive Grid ({apiaryX}, {apiaryY})":"Hive Grid 샘플";
+        if(titleContent.text!=title) titleContent=new GUIContent(title);
+    }
+    private void OnEnable() { minSize=new Vector2(500,420);RefreshTitle(); }
     private void OnInspectorUpdate() { if(live) Repaint(); }
     // All root parts in placement order. Inserted equipment is already projected into each box grid.
     public static List<HiveSpatialGrid> PlacementGrids(MovableItem value)
@@ -65,6 +74,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
     }
     private void OnGUI()
     {
+        if(GUILayout.Button("새 격자 창 열기")) Open();
         EditorGUI.BeginChangeCheck();
         live=EditorGUILayout.Toggle("실행 중인 양봉장 보기",live);
         List<HiveSpatialGrid> grids;
@@ -85,7 +95,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             if(GUILayout.Button("조립 샘플"))CreateAssemblyPreview();
             EditorGUILayout.EndHorizontal();grids=previewAssembly ?? (preview==null?new List<HiveSpatialGrid>():new List<HiveSpatialGrid>{preview});
         }
-        if(EditorGUI.EndChangeCheck()) panes.Clear();
+        if(EditorGUI.EndChangeCheck()) {panes.Clear();RefreshTitle();}
         foreach(var stale in panes.Keys.Where(g=>!grids.Contains(g)).ToArray()) panes.Remove(stale);
         if(grids.Count==0) {EditorGUILayout.HelpBox("선택한 양봉장 칸에 벌통 상자나 뚜껑이 없습니다. Play 중인 양봉장 또는 샘플을 선택하세요.",MessageType.Info);return;}
         displayMode=GUILayout.Toolbar(displayMode,new[]{"재질","온도"});
