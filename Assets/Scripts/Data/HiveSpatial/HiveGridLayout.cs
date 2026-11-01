@@ -4,7 +4,7 @@ using System.Collections.Generic;
 // Coordinates are millimetres; Z increases from the bottom towards the open top.
 public sealed class HiveGridLayout
 {
-    public const int SizeX = 18, SizeY = 52, SlotCount = 10;
+    public const int SizeX = 18, SizeY = 42, SlotCount = 10, SlotDepthCells = 4;
     public static readonly HiveGridLayout Brood = new HiveGridLayout(true);
     public static readonly HiveGridLayout Super = new HiveGridLayout(false);
     public static readonly HiveGridLayout Lid = new HiveGridLayout();
@@ -16,7 +16,7 @@ public sealed class HiveGridLayout
     public int SizeZ => Z.Count - 1;
     public int CellCount => SizeX * SizeY * SizeZ;
     public int SlotBottom => IsLid ? -1 : HasFloor ? 3 : 1;
-    public int EdgeCount => 17 * 52 * SizeZ + 18 * 51 * SizeZ + 18 * 52 * (SizeZ - 1);
+    public int EdgeCount => (SizeX - 1) * SizeY * SizeZ + SizeX * (SizeY - 1) * SizeZ + SizeX * SizeY * (SizeZ - 1);
 
     // A single 20 mm layer with exactly the same XY partition as the boxes.
     private HiveGridLayout()
@@ -33,7 +33,7 @@ public sealed class HiveGridLayout
         for (int i = 0; i < 12; i++) x.Add(35);
         x.AddRange(new double[] { 10, 8, 20 });
         var y = new List<double> { 20 };
-        for (int i = 0; i < SlotCount; i++) y.AddRange(new double[] { 5, 10, 5, 10, 5 });
+        for (int i = 0; i < SlotCount; i++) y.AddRange(new double[] { 5, 12.5, 12.5, 5 });
         y.Add(20);
         var z = new List<double>();
         if (brood) z.AddRange(new double[] { 15, 10 });
@@ -41,7 +41,7 @@ public sealed class HiveGridLayout
         for (int i = 0; i < 8; i++) z.Add(25);
         z.AddRange(new double[] { 10, 5, 5 });
         X = Boundaries(x); Y = Boundaries(y); Z = Boundaries(z);
-        if (X[18] != 496 || Y[52] != 390 || Z[SizeZ] != (brood ? 263 : 238))
+        if (X[18] != 496 || Y[SizeY] != 390 || Z[SizeZ] != (brood ? 263 : 238))
             throw new InvalidOperationException("Hive dimension totals disagree with the specification.");
     }
 

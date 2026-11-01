@@ -17,8 +17,7 @@ internal static class SaveBinary
     public static string Text(BinaryReader r)
     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
 }
-/// <summary>Schema 2 adds complete weather/random state. Schema 1 is retained for migration.
-/// Schema 3 adds optional equipment-owned float thermal energy; schemas 1/2 remain readable.
+/// <summary>Schema 4 uses two-layer frames and 42-cell box depth. Older play data is not migrated.
 /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
 public sealed class WorldSaveCodec
 {
@@ -26,7 +25,7 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
-    private int schema = 2;
+    private int schema = 4;
     public static byte[] Encode(WorldSaveSnapshot snapshot)
     {
         ValidateTime(snapshot);
@@ -35,8 +34,7 @@ public sealed class WorldSaveCodec
         using (var stream = new MemoryStream())
         using (var w = new BinaryWriter(stream,Encoding.UTF8,true))
         {
-            int version = 2;
-            foreach (var item in ThermalWorld.Items(snapshot.World)) if (item.ExistingThermalState != null) { version = 3; break; }
+            int version = 4;
             w.Write(version); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
             var world = snapshot.World; w.Write(world.CurrentGameMinute);
             var codec = new WorldSaveCodec { hives = world.Apiary.Hives, schema = version };
@@ -60,7 +58,7 @@ public sealed class WorldSaveCodec
         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
         {
             int schema=r.ReadInt32();
-            if(schema!=1 && schema!=2 && schema!=3) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
+            if(schema!=4) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);

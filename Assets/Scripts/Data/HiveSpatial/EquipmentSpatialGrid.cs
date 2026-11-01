@@ -29,7 +29,7 @@ public sealed class EquipmentSpatialFace
 }
 
 // Local geometry only. Empty box volume is null, not equipment-owned air.
-// Queen excluders own a zero-thickness 16 x 50 face grid, not artificial solid cells.
+// Queen excluders own a zero-thickness 16 x 40 face grid, not artificial solid cells.
 public sealed class EquipmentSpatialGrid
 {
     private readonly EquipmentSpatialCell[] cells;
@@ -43,7 +43,7 @@ public sealed class EquipmentSpatialGrid
     public int SizeZ => Z.Count - 1;
     public int CellCount { get; private set; }
     public int FaceCount => faces.Length;
-    // Offset within a slot's five Y subdivisions, for panel placement.
+    // Offset within a slot's four Y subdivisions, for panel placement.
     public int SlotFirstY { get; }
 
     public static bool Supports(ItemKind kind) => kind == ItemKind.Frame || kind == ItemKind.DividerBoard ||
@@ -62,15 +62,15 @@ public sealed class EquipmentSpatialGrid
         {
             profile = panel ? item.GetContent<HiveOccupancyProfile>() ??
                 (item.Kind == ItemKind.DividerBoard ? HiveOccupancyProfile.Divider : HiveOccupancyProfile.Insulation) : null;
-            SlotFirstY = frame ? 1 : profile.FirstY;
+            SlotFirstY = 1;
             X = Slice(HiveGridLayout.Brood.X, 2, 14);
-            Y = Slice(HiveGridLayout.Brood.Y, 1 + SlotFirstY, frame ? 3 : profile.CountY);
+            Y = Slice(HiveGridLayout.Brood.Y, 1 + SlotFirstY, 2);
             Z = Slice(HiveGridLayout.Brood.Z, 3, 10);
         }
         else if (boundary)
         {
             X = Slice(HiveGridLayout.Brood.X, 1, 16);
-            Y = Slice(HiveGridLayout.Brood.Y, 1, 50);
+            Y = Slice(HiveGridLayout.Brood.Y, 1, HiveGridLayout.SizeY - 2);
             Z = Array.AsReadOnly(new double[] { 0 });
         }
         else
@@ -92,6 +92,7 @@ public sealed class EquipmentSpatialGrid
                     y == 0 || y == SizeY - 1 || (layout.HasFloor && z == 0);
                 if (!occupied) continue;
                 HiveMaterial material = panel ? profile.Material : frame && x > 0 && x < SizeX - 1 && z > 0 && z < SizeZ - 1 ? HiveMaterial.Comb : HiveMaterial.Wood;
+                if (panel && SolidFraction(y) == 0) material = HiveMaterial.Air;
                 int index = Index(x,y,z);
                 cells[index] = new EquipmentSpatialCell(item, index, material, area * (Z[z + 1] - Z[z]));
                 CellCount++;
@@ -100,7 +101,7 @@ public sealed class EquipmentSpatialGrid
     }
 
     // Front/back are stable data sides, not the current display FacingSide.
-    // Logical 7x5 groups: front -> local Y=0; back -> local Y=2; centre Y=1 has no contents.
+    // Logical 7x5 groups: front -> local Y=0; back -> local Y=1; foundation is shared by both layers.
     public CombRegionThermalMass GetContentThermalMass(int index)
     {
         if (index < 0 || index >= cells.Length) throw new ArgumentOutOfRangeException(nameof(index));
@@ -108,8 +109,16 @@ public sealed class EquipmentSpatialGrid
         var frame = Equipment.GetContent<FrameData>();
         if (frame == null) return default;
         int x = index % SizeX, y = index / SizeX % SizeY, z = index / (SizeX * SizeY);
-        if (y == 1) return default;
         return frame.GetSurface(y == 0 ? FrameSide.Front : FrameSide.Back).GetThermalRegion(x - 1, z - 1);
+    }
+
+    public double SolidFraction(int y)
+    {
+        if (Equipment.Kind != ItemKind.DividerBoard && Equipment.Kind != ItemKind.InsulationBoard) return 1;
+        var p = Equipment.GetContent<HiveOccupancyProfile>() ?? (Equipment.Kind == ItemKind.DividerBoard ? HiveOccupancyProfile.Divider : HiveOccupancyProfile.Insulation);
+        double[] old = { -5, 0, 10, 15, 25 };
+        double overlap = Math.Max(0, Math.Min(Y[y+1], old[p.FirstY+p.CountY]) - Math.Max(Y[y], old[p.FirstY]));
+        return overlap / (Y[y+1]-Y[y]);
     }
 
     private static IReadOnlyList<double> Slice(IReadOnlyList<double> source, int start, int count)

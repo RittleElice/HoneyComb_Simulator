@@ -32,7 +32,7 @@ public static class EffectiveThermalTests
         Check(state.EnergyJ[indices[7]]==isolated,"disconnected cell unchanged");
         Check(Math.Abs(indices.Sum(i=>(double)state.EnergyJ[i])-initial)<=rounding+1e-6,"closed energy bounded by rounding");
         int builds=equal.CoefficientBuilds; state.MarkDirty(small);state.Refresh(materials,20);equal.Step();
-        Check(equal.CoefficientBuilds==builds+1,"capacity revision rebuilds effective budget");
+        Check(equal.CoefficientBuilds==builds,"unchanged capacity revision preserves effective budget");
         foreach(double bad in new[]{0d,-1d,.50001,double.NaN,double.PositiveInfinity})
         {
             bool rejected=false;try {new ThermalExchange(cells,faces,bad);}catch(ArgumentOutOfRangeException){rejected=true;}

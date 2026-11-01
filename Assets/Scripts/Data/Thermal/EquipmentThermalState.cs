@@ -14,7 +14,11 @@ public sealed class EquipmentThermalState
     private readonly float[] capacity, conductivity, airVolume, waxMass;
     private readonly float[] logicalWax = new float[420];
     private int frontRevision = -1, backRevision = -1, balanceRevision = -1;
+    private readonly int[] cellCacheRevision;
+    internal int CellCacheRevision(int index) => cellCacheRevision[index];
     private readonly float[] contentCapacity;
+    private readonly float[] depthConductivity;
+    public float Conductivity(int index, int axis) => axis == 1 ? depthConductivity[index] : conductivity[index];
     public IReadOnlyList<float> ContentHeatCapacityJPerK => contentCapacity;
     private ThermalMaterials lastMaterials;
     public int Count => energy.Length;
@@ -39,7 +43,7 @@ public sealed class EquipmentThermalState
         item = owner; var g = owner.EquipmentGrid;
         int count = g.SizeX * g.SizeY * g.SizeZ;
         energy = new float[count]; initialized = new bool[count]; dirty = new bool[count];
-        contentCapacity = new float[count];
+        cellCacheRevision = new int[count]; contentCapacity = new float[count]; depthConductivity = new float[count];
         capacity = new float[count]; conductivity = new float[count]; airVolume = new float[count]; waxMass = new float[count];
         MarkAllDirty();
     }
@@ -65,7 +69,7 @@ public sealed class EquipmentThermalState
     public void Refresh(ThermalMaterials materials, float outsideC)
     {
         if (materials == null || !ThermalMath.Finite(outsideC) || outsideC < -273.15f) throw new ArgumentOutOfRangeException(nameof(outsideC));
-        if (!ReferenceEquals(lastMaterials, materials)) { MarkAllDirty(); lastMaterials = materials; }
+        if (!ReferenceEquals(lastMaterials, materials)) { MarkAllDirty(); lastMaterials = materials; frontRevision = -1; }
         var frame = item.GetContent<FrameData>();
         if (item.Kind == ItemKind.Frame && frame != null && (frame.Front.Revision != frontRevision || frame.Back.Revision != backRevision || balanceRevision != CombBalance.Revision))
         {
@@ -81,7 +85,10 @@ public sealed class EquipmentThermalState
             foreach (int i in dirtyIndices)
             {
                 computingIndex = i;
+                float oldDepth = depthConductivity[i];
                 Compute(i, materials, out float a, out float c, out float k);
+                if (!initialized[i] || capacity[i] != c || conductivity[i] != k || oldDepth != depthConductivity[i])
+                    cellCacheRevision[i] = CacheRevision + 1;
                 float e = initialized[i] ? energy[i] : c * outsideC;
                 if (!ThermalMath.Finite(e)) throw new InvalidOperationException("Non-finite initial thermal energy");
                 // Dirty remains set until the entire refresh is successful.
@@ -112,14 +119,14 @@ public sealed class EquipmentThermalState
         var g = item.EquipmentGrid;
         // Logical 14x10 groups uniformly cover the actual 420x200 opening.
         // Conservatively project onto the existing 12x8 interior; no mass is assigned to wood.
-        for (int z = 1; z < 9; z++) for (int y = 0; y < 3; y += 2) for (int x = 1; x < 13; x++)
+        for (int z = 1; z < 9; z++) for (int y = 0; y < 2; y++) for (int x = 1; x < 13; x++)
         {
-            float mass = 0;
+            float mass = (float)((g.X[x+1]-g.X[x]) * (g.Z[z+1]-g.Z[z]) * .25e-9 * lastMaterials[ThermalMaterialKind.Wax].Density);
             for (int lz = 0; lz < 10; lz++) for (int lx = 0; lx < 14; lx++)
             {
                 float area = ThermalMath.Overlap(g.X[x], g.X[x+1], 10 + lx * 30, 10 + (lx+1) * 30) *
                     ThermalMath.Overlap(g.Z[z], g.Z[z+1], 10 + lz * 20, 10 + (lz+1) * 20);
-                mass += logicalWax[lx + 14 * (y + 3 * lz)] * (area / 600f);
+                mass += logicalWax[lx + 14 * (y * 2 + 3 * lz)] * (area / 600f);
             }
             int index = g.Index(x, y, z);
             if (waxMass[index] != mass) { waxMass[index] = mass; MarkDirty(index); }
@@ -134,13 +141,26 @@ public sealed class EquipmentThermalState
         var kind = cell?.Material ?? HiveMaterial.Air;
         var solid = m[kind == HiveMaterial.Insulation ? ThermalMaterialKind.Insulation : ThermalMaterialKind.Wood];
         float solidVolume = kind == HiveMaterial.Wood || kind == HiveMaterial.Insulation ? volume : 0;
-        if (item.Kind == ItemKind.Frame && kind == HiveMaterial.Comb && y == 1)
-        {
-            // Nominal 440x200 centred on the opening, clipped against the actual wood border.
-            float area = ThermalMath.Overlap(g.X[x],g.X[x+1],10,430) * ThermalMath.Overlap(g.Z[z],g.Z[z+1],10,210);
-            waxMass[index] = area * .5f * 1e-9f * m[ThermalMaterialKind.Wax].Density;
-        }
+        if (item.Kind == ItemKind.Frame && kind == HiveMaterial.Comb && item.GetContent<FrameData>() == null)
+            waxMass[index] = volume * .02f * m[ThermalMaterialKind.Wax].Density;
+        solidVolume *= (float)g.SolidFraction(y);
         ThermalMath.Mix(volume, solidVolume, solid, waxMass[index], m, out air, out c, out k);
+        depthConductivity[index] = k;
+        if (item.Kind == ItemKind.Frame && kind == HiveMaterial.Comb)
+        {
+            // Lump 10 mm face + half of the old 5 mm centre. Preserve the
+            // old plane-to-plane resistance, rather than using parallel k in Y.
+            float faceVolume = volume * .8f, centreVolume = volume * .2f;
+            float foundation = centreVolume * .1f * m[ThermalMaterialKind.Wax].Density;
+            ThermalMath.Mix(faceVolume, 0, solid, Math.Max(0, waxMass[index]-foundation), m, out _, out _, out float faceK);
+            ThermalMath.Mix(centreVolume, 0, solid, foundation, m, out _, out _, out float centreK);
+            depthConductivity[index] = 1f / (.8f / faceK + .2f / centreK);
+        }
+        else if (item.Kind == ItemKind.DividerBoard || item.Kind == ItemKind.InsulationBoard)
+        {
+            float f = (float)g.SolidFraction(y);
+            depthConductivity[index] = 1f / (f / solid.Conductivity + (1-f) / m[ThermalMaterialKind.Air].Conductivity);
+        }
         // Existing 7x5 content regions map once to each face of the 12x8 interior.
         // Heat-capacity-only coupling: no invented content volume/conductivity or transported enthalpy.
         double contents = cell?.ContentHeatCapacityJPerK ?? 0;

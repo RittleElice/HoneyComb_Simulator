@@ -17,10 +17,10 @@ public sealed class ThermalExchange : IDisposable
     }
     public readonly struct Face
     {
-        public readonly int A, B;
+        public readonly int A, B, Axis;
         public readonly double AreaM2, HalfAM, HalfBM;
-        public Face(int a, int b, double area, double halfA, double halfB)
-        { A = a; B = b; AreaM2 = area; HalfAM = halfA; HalfBM = halfB; }
+        public Face(int a, int b, double area, double halfA, double halfB, int axis = 0)
+        { A = a; B = b; AreaM2 = area; HalfAM = halfA; HalfBM = halfB; Axis = axis; }
     }
     public readonly struct Boundary
     {
@@ -52,6 +52,15 @@ public sealed class ThermalExchange : IDisposable
     private readonly double? maximumFractionPerMinute;
     private NativeArray<int> nativeOffsets, nativeNeighbours;
     private NativeArray<double> nativeG, nativeExterior, nativeT, nativeEnergy, nativeNext;
+    internal ThermalTopology.Binding TopologyBinding;
+    private readonly Dictionary<EquipmentThermalState,int[]> ownerIndices = new Dictionary<EquipmentThermalState,int[]>();
+    private readonly int[] rowFaces, faceSlotA, faceSlotB, boundaryOffsets, rowBoundaries;
+    private readonly double[] rawFaces, rawBoundaries, rawTotals, scales;
+    private readonly WorkSet changedCells, rawWork, scaleWork, effectiveWork, finalWork;
+    private readonly MinimumTree rawLimits, effectiveLimits;
+    public int LastChangedCells { get; private set; }
+    public int LastRawFacesUpdated { get; private set; }
+    public int LastEffectiveFacesUpdated { get; private set; }
     private int uploadedBuild = -1;
     private static readonly HashSet<ThermalExchange> activeBuffers = new HashSet<ThermalExchange>();
     public int BufferAllocations { get; private set; }
@@ -163,6 +172,25 @@ public sealed class ThermalExchange : IDisposable
         for (int i = 1; i < offsets.Length; i++) offsets[i] += offsets[i-1];
         for (int i = 0; i < cells.Length; i++) MaximumDegree = Math.Max(MaximumDegree, offsets[i+1]-offsets[i]);
         neighbours = new int[2*faces.Length]; coefficients = new double[neighbours.Length]; sums = new double[cells.Length];
+        rowFaces = new int[neighbours.Length]; faceSlotA = new int[faces.Length]; faceSlotB = new int[faces.Length];
+        rawFaces = new double[faces.Length]; rawBoundaries = new double[boundaries.Length];
+        rawTotals = new double[cells.Length]; scales = new double[cells.Length];
+        changedCells = new WorkSet(cells.Length); rawWork = new WorkSet(faces.Length); scaleWork = new WorkSet(cells.Length);
+        effectiveWork = new WorkSet(faces.Length); finalWork = new WorkSet(cells.Length);
+        rawLimits = new MinimumTree(cells.Length); effectiveLimits = new MinimumTree(cells.Length);
+        var cursor = (int[])offsets.Clone();
+        for (int f=0;f<faces.Length;f++) {
+            var edge=faces[f]; int a=cursor[edge.A]++, b=cursor[edge.B]++;
+            faceSlotA[f]=a; faceSlotB[f]=b; rowFaces[a]=rowFaces[b]=f;
+            neighbours[a]=edge.B; neighbours[b]=edge.A;
+        }
+        boundaryOffsets=new int[cells.Length+1];
+        foreach(var b in boundaries) boundaryOffsets[b.Cell+1]++;
+        for(int i=1;i<boundaryOffsets.Length;i++)boundaryOffsets[i]+=boundaryOffsets[i-1];
+        rowBoundaries=new int[boundaries.Length];cursor=(int[])boundaryOffsets.Clone();
+        for(int b=0;b<boundaries.Length;b++)rowBoundaries[cursor[boundaries[b].Cell]++]=b;
+        foreach(var owner in owners) {var indices=new int[owner.Count];for(int j=0;j<indices.Length;j++)indices[j]=-1;ownerIndices.Add(owner,indices);}
+        for(int i=0;i<cells.Length;i++)ownerIndices[cells[i].Owner][cells[i].Index]=i;
     }
     public static bool Finite(double v) => !double.IsNaN(v) && !double.IsInfinity(v);
     private static bool Positive(double v) => Finite(v) && v > 0;
@@ -179,76 +207,141 @@ public sealed class ThermalExchange : IDisposable
         return reason + "; " + c.Label + "; C=" + capacity.ToString("R") + " J/K; sumG=" + sums[i].ToString("R") +
             " W/K; dtMax=" + (sums[i] > 0 ? capacity/sums[i] : double.PositiveInfinity).ToString("R") + " s";
     }
+    private sealed class WorkSet
+    {
+        private readonly bool[] marked;
+        public readonly List<int> Values = new List<int>();
+        public WorkSet(int count) { marked=new bool[count]; }
+        public void Add(int i) {if(!marked[i]){marked[i]=true;Values.Add(i);}}
+        public void Clear() {foreach(int i in Values)marked[i]=false;Values.Clear();}
+    }
+    // Preserve exact minimum/tie behaviour without a whole-world scan after each local edit.
+    private sealed class MinimumTree
+    {
+        private readonly double[] values;
+        private readonly int start;
+        public MinimumTree(int count) {start=1;while(start<count)start*=2;values=new double[start*2];for(int i=0;i<values.Length;i++)values[i]=double.PositiveInfinity;}
+        public void Set(int index,double value) {int p=start+index;values[p]=value;while((p/=2)>0)values[p]=Math.Min(values[p*2],values[p*2+1]);}
+        public void SetInitial(int index,double value) => values[start+index]=value;
+        public void Build() {for(int p=start-1;p>0;p--)values[p]=Math.Min(values[p*2],values[p*2+1]);}
+        public double Value => values[1];
+        public int Index { get {if(double.IsPositiveInfinity(Value))return -1;int p=1;while(p<start)p=values[p*2]<=values[p*2+1]?p*2:p*2+1;return p-start;} }
+    }
+    internal bool CanRebind(EquipmentThermalState owner) => ownerIndices.ContainsKey(owner);
+    internal void RebindCells(List<KeyValuePair<int,Cell>> replacements)
+    {
+        // Clear all old mappings before assigning: a move may exchange two owners.
+        foreach(var pair in replacements){var old=cells[pair.Key];ownerIndices[old.Owner][old.Index]=-1;}
+        foreach(var pair in replacements){cells[pair.Key]=pair.Value;ownerIndices[pair.Value.Owner][pair.Value.Index]=pair.Key;changedCells.Add(pair.Key);}
+    }
+    private void InitializeCoefficients()
+    {
+        Array.Clear(sums,0,sums.Length);Array.Clear(rawExterior,0,rawExterior.Length);
+        // Initial construction is a linear full pass, not an all-cell dirty queue.
+        // This avoids retaining world-sized work lists just for later small edits.
+        for(int id=0;id<faces.Length;id++) {
+            var f=faces[id];var a=cells[f.A];var b=cells[f.B];
+            double g=Conductance(f.AreaM2,f.HalfAM,a.Owner.Conductivity(a.Index,f.Axis),f.HalfBM,b.Owner.Conductivity(b.Index,f.Axis));
+            rawFaces[id]=g;sums[f.A]+=g;sums[f.B]+=g;
+        }
+        for(int id=0;id<boundaries.Length;id++) {
+            var b=boundaries[id];var c=cells[b.Cell];double k=c.Owner.Conductivity(c.Index,b.Direction/2);
+            double g=exteriorFilmCoefficient==0?0:b.AreaM2/(b.HalfM/k+1/exteriorFilmCoefficient);
+            if(!Finite(g)||g<0)throw new InvalidOperationException("Invalid exterior conductance");
+            rawBoundaries[id]=g;rawExterior[b.Cell]+=g;sums[b.Cell]+=g;
+        }
+        for(int i=0;i<cells.Length;i++) {
+            var c=cells[i];double capacity=c.Owner.HeatCapacityBuffer[c.Index];cachedCapacities[i]=c.Owner.HeatCapacityBuffer[c.Index];rawTotals[i]=sums[i];
+            if(!Positive(capacity)||!Finite(sums[i]))throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
+            double limit=sums[i]>0?capacity/sums[i]:double.PositiveInfinity;rawLimits.SetInitial(i,limit);
+            scales[i]=maximumFractionPerMinute.HasValue?Math.Min(1,maximumFractionPerMinute.Value*(limit/60d)):1;
+        }
+        if(maximumFractionPerMinute.HasValue)Array.Clear(sums,0,sums.Length);
+        for(int id=0;id<faces.Length;id++) {
+            var f=faces[id];double g=rawFaces[id];if(maximumFractionPerMinute.HasValue){g*=Math.Min(scales[f.A],scales[f.B]);sums[f.A]+=g;sums[f.B]+=g;}
+            coefficients[faceSlotA[id]]=coefficients[faceSlotB[id]]=g;
+        }
+        for(int i=0;i<cells.Length;i++) {
+            exterior[i]=rawExterior[i]*scales[i];if(maximumFractionPerMinute.HasValue)sums[i]+=exterior[i];
+            double capacity=cachedCapacities[i];if(!Positive(capacity)||!Finite(sums[i]))throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
+            effectiveLimits.SetInitial(i,sums[i]>0?capacity/sums[i]:double.PositiveInfinity);
+        }
+        rawLimits.Build();effectiveLimits.Build();RawMinimumStepSeconds=rawLimits.Value;MinimumStepSeconds=effectiveLimits.Value;LimitingCell=effectiveLimits.Index;
+        for(int k=0;k<owners.Length;k++)revisions[k]=owners[k].CacheRevision;
+        LastChangedCells=cells.Length;LastRawFacesUpdated=LastEffectiveFacesUpdated=faces.Length;CoefficientBuilds++;
+    }
     public void RefreshCoefficients()
     {
-        bool changed = CoefficientBuilds == 0;
-        for(int i=0;i<owners.Length;i++) changed |= revisions[i] != owners[i].CacheRevision;
-        if(DiagnosticsEnabled)
-            for(int i=0;i<cells.Length;i++)
-            {
-                var c=cells[i];
-                if(c.Owner.Diagnostic!=null || c.Owner.IsDirty(c.Index) || !c.Owner.IsInitialized(c.Index))
-                    throw new InvalidOperationException(Detail(i,"Cache not ready"));
-            }
-        if (!changed) return;
-        Array.Clear(sums,0,sums.Length); var cursor = (int[])offsets.Clone();
-        foreach (var f in faces)
-        {
-            var a = cells[f.A]; var b = cells[f.B];
-            double g = Conductance(f.AreaM2,f.HalfAM,a.Owner.EffectiveConductivityWPerMK[a.Index],f.HalfBM,b.Owner.EffectiveConductivityWPerMK[b.Index]);
-            int ia = cursor[f.A]++, ib = cursor[f.B]++;
-            neighbours[ia] = f.B; neighbours[ib] = f.A;
-            coefficients[ia] = coefficients[ib] = g; // One calculation, identical bits in both directions.
-            sums[f.A] += g; sums[f.B] += g;
+        if(CoefficientBuilds==0) {
+            if(DiagnosticsEnabled)for(int i=0;i<cells.Length;i++){var c=cells[i];if(c.Owner.Diagnostic!=null||c.Owner.IsDirty(c.Index)||!c.Owner.IsInitialized(c.Index))throw new InvalidOperationException(Detail(i,"Cache is not ready"));}
+            InitializeCoefficients(); return;
         }
-        Array.Clear(rawExterior,0,rawExterior.Length);
-        foreach (var b in boundaries)
-        {
-            var c=cells[b.Cell]; double k=c.Owner.EffectiveConductivityWPerMK[c.Index];
-            double g=exteriorFilmCoefficient == 0 ? 0 : b.AreaM2/(b.HalfM/k+1/exteriorFilmCoefficient);
-            if (!Finite(g) || g < 0) throw new InvalidOperationException("Invalid exterior conductance");
-            rawExterior[b.Cell]+=g; sums[b.Cell]+=g;
+        LastChangedCells=LastRawFacesUpdated=LastEffectiveFacesUpdated=0;
+        for(int k=0;k<owners.Length;k++) {
+            var owner=owners[k];
+            if(revisions[k]==owner.CacheRevision)continue;
+            var indices=ownerIndices[owner];
+            for(int j=0;j<indices.Length;j++)if(indices[j]>=0 && owner.CellCacheRevision(j)>revisions[k])changedCells.Add(indices[j]);
         }
-        // Budget internal AND external exchange together for a stable minute update.
-        // Budget every cell over all its neighbours, not independently per face.
-        // A face uses the smaller endpoint scale in BOTH directions, conserving energy.
-        RawMinimumStepSeconds = double.PositiveInfinity;
-        var scales = new double[cells.Length];
-        for (int i = 0; i < cells.Length; i++)
-        {
-            var c = cells[i]; double capacity = c.Owner.HeatCapacityBuffer[c.Index];
-            if (!Positive(capacity) || !Finite(sums[i])) throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
-            double limit = sums[i] > 0 ? capacity / sums[i] : double.PositiveInfinity;
-            RawMinimumStepSeconds = Math.Min(RawMinimumStepSeconds, limit);
-            scales[i] = maximumFractionPerMinute.HasValue ? Math.Min(1, maximumFractionPerMinute.Value * (limit / 60d)) : 1;
+        if(DiagnosticsEnabled)for(int i=0;i<cells.Length;i++) {
+            var c=cells[i];if(c.Owner.Diagnostic!=null || c.Owner.IsDirty(c.Index) || !c.Owner.IsInitialized(c.Index))throw new InvalidOperationException(Detail(i,"Cache is not ready"));
         }
-        if (maximumFractionPerMinute.HasValue)
-        {
-            Array.Clear(sums, 0, sums.Length); cursor = (int[])offsets.Clone();
-            foreach (var f in faces)
-            {
-                int ia = cursor[f.A]++, ib = cursor[f.B]++;
-                double g = coefficients[ia] * Math.Min(scales[f.A], scales[f.B]);
-                coefficients[ia] = coefficients[ib] = g;
-                sums[f.A] += g; sums[f.B] += g;
+        for(int k=0;k<owners.Length;k++)revisions[k]=owners[k].CacheRevision;
+        if(changedCells.Values.Count==0)return;
+        LastChangedCells=changedCells.Values.Count;
+        bool bulk=LastChangedCells>cells.Length/3;
+        foreach(int i in changedCells.Values) {
+            scaleWork.Add(i);
+            for(int p=offsets[i];p<offsets[i+1];p++)rawWork.Add(rowFaces[p]);
+            for(int p=boundaryOffsets[i];p<boundaryOffsets[i+1];p++) {
+                int id=rowBoundaries[p];var boundary=boundaries[id];var cell=cells[i];
+                double k=cell.Owner.Conductivity(cell.Index,boundary.Direction/2);
+                double g=exteriorFilmCoefficient==0?0:boundary.AreaM2/(boundary.HalfM/k+1/exteriorFilmCoefficient);
+                if(!Finite(g)||g<0)throw new InvalidOperationException("Invalid exterior conductance");rawBoundaries[id]=g;
             }
         }
-        for (int i=0;i<cells.Length;i++)
-        {
-            exterior[i]=rawExterior[i]*scales[i];
-            if (maximumFractionPerMinute.HasValue) sums[i]+=exterior[i];
+        foreach(int id in rawWork.Values) {
+            var f=faces[id];var a=cells[f.A];var b=cells[f.B];
+            rawFaces[id]=Conductance(f.AreaM2,f.HalfAM,a.Owner.Conductivity(a.Index,f.Axis),f.HalfBM,b.Owner.Conductivity(b.Index,f.Axis));
+            scaleWork.Add(f.A);scaleWork.Add(f.B);effectiveWork.Add(id);
         }
-        MinimumStepSeconds = double.PositiveInfinity; LimitingCell = -1;
-        for (int i = 0; i < cells.Length; i++)
-        {
-            var c = cells[i]; double capacity = c.Owner.HeatCapacityBuffer[c.Index];
-            cachedCapacities[i] = c.Owner.HeatCapacityBuffer[c.Index];
-            if (!Positive(capacity) || !Finite(sums[i])) throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
-            double limit = sums[i] > 0 ? capacity/sums[i] : double.PositiveInfinity;
-            if (limit < MinimumStepSeconds) { MinimumStepSeconds = limit; LimitingCell = i; }
+        LastRawFacesUpdated=rawWork.Values.Count;
+        // Re-sum, never subtract deltas: same face order and rounding as the full rebuild.
+        foreach(int i in scaleWork.Values) {
+            double sum=0,ext=0;
+            for(int p=offsets[i];p<offsets[i+1];p++)sum+=rawFaces[rowFaces[p]];
+            for(int p=boundaryOffsets[i];p<boundaryOffsets[i+1];p++){double g=rawBoundaries[rowBoundaries[p]];ext+=g;sum+=g;}
+            rawExterior[i]=ext;rawTotals[i]=sum;var c=cells[i];double capacity=c.Owner.HeatCapacityBuffer[c.Index];
+            cachedCapacities[i]=c.Owner.HeatCapacityBuffer[c.Index];
+            if(!Positive(capacity)||!Finite(sum))throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
+            double limit=sum>0?capacity/sum:double.PositiveInfinity;if(bulk)rawLimits.SetInitial(i,limit);else rawLimits.Set(i,limit);
+            double scale=maximumFractionPerMinute.HasValue?Math.Min(1,maximumFractionPerMinute.Value*(limit/60d)):1;
+            if(scale!=scales[i])for(int p=offsets[i];p<offsets[i+1];p++)effectiveWork.Add(rowFaces[p]);
+            scales[i]=scale;exterior[i]=ext*scale;finalWork.Add(i);
         }
-        for(int i=0;i<owners.Length;i++) revisions[i]=owners[i].CacheRevision;
+        foreach(int id in effectiveWork.Values) {
+            var f=faces[id];double g=rawFaces[id];if(maximumFractionPerMinute.HasValue)g*=Math.Min(scales[f.A],scales[f.B]);
+            coefficients[faceSlotA[id]]=coefficients[faceSlotB[id]]=g;finalWork.Add(f.A);finalWork.Add(f.B);
+        }
+        LastEffectiveFacesUpdated=effectiveWork.Values.Count;
+        foreach(int i in finalWork.Values) {
+            double sum=0;for(int p=offsets[i];p<offsets[i+1];p++)sum+=coefficients[p];
+            sum=maximumFractionPerMinute.HasValue?sum+exterior[i]:rawTotals[i];sums[i]=sum;
+            double capacity=cachedCapacities[i];if(!Positive(capacity)||!Finite(sum))throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
+            double limit=sum>0?capacity/sum:double.PositiveInfinity;
+            if(bulk)effectiveLimits.SetInitial(i,limit);else effectiveLimits.Set(i,limit);
+        }
+        if(bulk){rawLimits.Build();effectiveLimits.Build();}
+        RawMinimumStepSeconds=rawLimits.Value;MinimumStepSeconds=effectiveLimits.Value;LimitingCell=effectiveLimits.Index;
+        // Keep existing Native storage; only touched connections and exterior rows are uploaded.
+        bool canPatch=HasBuffers && uploadedBuild==CoefficientBuilds;
         CoefficientBuilds++;
+        if(canPatch) {
+            foreach(int id in effectiveWork.Values){nativeG[faceSlotA[id]]=coefficients[faceSlotA[id]];nativeG[faceSlotB[id]]=coefficients[faceSlotB[id]];}
+            foreach(int i in scaleWork.Values)nativeExterior[i]=exterior[i];
+            uploadedBuild=CoefficientBuilds;CoefficientUploads++;
+        }
+        changedCells.Clear();rawWork.Clear();scaleWork.Clear();effectiveWork.Clear();finalWork.Clear();
     }
     public void ValidateStep(double seconds)
     {

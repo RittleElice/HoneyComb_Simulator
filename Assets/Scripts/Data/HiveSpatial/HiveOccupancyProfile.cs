@@ -2,7 +2,8 @@ using System;
 
 public enum HiveMaterial { Air, Wood, Comb, Insulation }
 
-// Immutable grid-aligned profile. Only the central three Y cells may be occupied.
+// Physical panel profile in legacy 10/5/10 mm bands.
+// These bands are integrated into the two new 12.5 mm control volumes.
 // Defaults are modelling presets, not measured product specifications.
 public sealed class HiveOccupancyProfile
 {

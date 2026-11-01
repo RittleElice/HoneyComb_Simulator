@@ -47,7 +47,7 @@ public sealed class HiveSpatialGrid
             box.Kind == ItemKind.BroodBox ? HiveGridLayout.Brood : HiveGridLayout.Super;
         cells = new HiveGridCell[Layout.CellCount];
         for (int z = 0; z < Layout.SizeZ; z++)
-        for (int y = 0; y < 52; y++)
+        for (int y = 0; y < HiveGridLayout.SizeY; y++)
         for (int x = 0; x < 18; x++)
         {
             cells[Layout.Index(x, y, z)] = new HiveGridCell(box.EquipmentGrid.GetCell(x,y,z));
@@ -91,13 +91,13 @@ public sealed class HiveSpatialGrid
         ItemData item = Box.InteriorSlots.GetSlot(slot).Item;
         EquipmentSpatialGrid local = item?.EquipmentGrid;
         for (int z = 0; z < 10; z++)
-        for (int y = 0; y < 5; y++)
+        for (int y = 0; y < HiveGridLayout.SlotDepthCells; y++)
         for (int x = 0; x < 16; x++)
         {
             EquipmentSpatialCell source = local != null && x >= 1 && x < 1 + local.SizeX &&
                 y >= local.SlotFirstY && y < local.SlotFirstY + local.SizeY ?
                 local.GetCell(x - 1, y - local.SlotFirstY, z) : null;
-            cells[Layout.Index(x + 1, 1 + slot * 5 + y, Layout.SlotBottom + z)] =
+            cells[Layout.Index(x + 1, 1 + slot * HiveGridLayout.SlotDepthCells + y, Layout.SlotBottom + z)] =
                 new HiveGridCell(source);
         }
     }
@@ -113,7 +113,7 @@ public sealed class HiveSpatialGrid
             case 4: z--; break; case 5: z++; break;
             default: throw new ArgumentOutOfRangeException(nameof(direction));
         }
-        return x < 0 || x >= 18 || y < 0 || y >= 52 || z < 0 || z >= Layout.SizeZ ? -1 : Layout.Index(x, y, z);
+        return x < 0 || x >= 18 || y < 0 || y >= HiveGridLayout.SizeY || z < 0 || z >= Layout.SizeZ ? -1 : Layout.Index(x, y, z);
     }
 
     // Enumerates each geometric face once. Solid faces remain neighbours, not air-flow paths.
@@ -130,7 +130,7 @@ public sealed class HiveSpatialGrid
                 double width = axis == 0 ? dx : axis == 1 ? dy : dz;
                 double next = axis == 0 ? Layout.X[x + 2] - Layout.X[x + 1] :
                     axis == 1 ? Layout.Y[y + 2] - Layout.Y[y + 1] : Layout.Z[z + 2] - Layout.Z[z + 1];
-                EquipmentSpatialFace boundary = axis == 2 && z == Layout.SizeZ - 2 && x > 0 && x < 17 && y > 0 && y < 51 ?
+                EquipmentSpatialFace boundary = axis == 2 && z == Layout.SizeZ - 2 && x > 0 && x < 17 && y > 0 && y < HiveGridLayout.SizeY - 1 ?
                     TopBoundaryEquipment?.EquipmentGrid.GetFace(x - 1,y - 1) : null;
                 yield return new HiveGridEdge(i, n, axis == 0 ? dy * dz : axis == 1 ? dx * dz : dx * dy, (width + next) * 0.5, boundary,
                     cells[i].Material == HiveMaterial.Air && cells[n].Material == HiveMaterial.Air);

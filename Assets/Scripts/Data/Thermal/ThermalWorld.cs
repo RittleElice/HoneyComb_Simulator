@@ -10,14 +10,21 @@ public sealed class ThermalWorld : IGameMinuteParticipant
     public ThermalExchange Exchange { get; private set; }
     public string Failure { get; private set; }
     public int TopologyBuilds { get; private set; }
+    public int LocalTopologyUpdates { get; private set; }
     public void PrepareExchange()
     {
         var stamp = ThermalTopology.Signature(world);
         if (Exchange == null || !stamp.SequenceEqual(topologyStamp))
         {
-            var replacement = ThermalTopology.Build(world, materials.MaximumExchangeFractionPerMinute, materials.ExteriorFilmCoefficientWPerM2K);
-            Exchange?.Dispose();
-            Exchange = replacement; topologyStamp = stamp; TopologyBuilds++;
+            if(Exchange != null && Exchange.TopologyBinding != null && Exchange.TopologyBinding.TryUpdate(world,Exchange))
+                LocalTopologyUpdates++;
+            else
+            {
+                var replacement = ThermalTopology.Build(world, materials.MaximumExchangeFractionPerMinute, materials.ExteriorFilmCoefficientWPerM2K);
+                Exchange?.Dispose();
+                Exchange = replacement; TopologyBuilds++;
+            }
+            topologyStamp = stamp;
         }
         Exchange.RefreshCoefficients();
     }

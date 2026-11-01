@@ -48,7 +48,7 @@ public static class ThermalTopology
                 int axis = edge.B-edge.A==1?0:edge.B-edge.A==18?1:2;
                 var coords = axis==0?l.X:axis==1?l.Y:l.Z; int p=axis==0?x:axis==1?y:z;
                 // Queen excluder is a zero-thickness permeable face; no calibrated thermal resistance exists.
-                faces.Add(new ThermalExchange.Face(map[edge.A],map[edge.B],edge.AreaMm2*1e-6,(coords[p+1]-coords[p])*.0005,(coords[p+2]-coords[p+1])*.0005));
+                faces.Add(new ThermalExchange.Face(map[edge.A],map[edge.B],edge.AreaMm2*1e-6,(coords[p+1]-coords[p])*.0005,(coords[p+2]-coords[p+1])*.0005,axis));
             }
         }
         // Unplaced equipment has its own network exposed to ambient; hidden box air is excluded.
@@ -70,7 +70,7 @@ public static class ThermalTopology
                     int p=axis==0?x:axis==1?y:z, size=axis==0?g.SizeX:axis==1?g.SizeY:g.SizeZ;
                     if(p+1==size) continue; var a=axis==0?g.X:axis==1?g.Y:g.Z;
                     int j=g.Index(x+(axis==0?1:0),y+(axis==1?1:0),z+(axis==2?1:0));
-                    faces.Add(new ThermalExchange.Face(map[i],map[j],(axis==0?dy*dz:axis==1?dx*dz:dx*dy)*1e-6,(a[p+1]-a[p])*.0005,(a[p+2]-a[p+1])*.0005));
+                    faces.Add(new ThermalExchange.Face(map[i],map[j],(axis==0?dy*dz:axis==1?dx*dz:dx*dy)*1e-6,(a[p+1]-a[p])*.0005,(a[p+2]-a[p+1])*.0005,axis));
                 }
             }
         }
@@ -81,7 +81,66 @@ public static class ThermalTopology
         roots.Add(world.Hand.Value);
         var seen=new HashSet<MovableItem>();
         foreach(var root in roots) AddStacks(root,seen,grids,faces,boundaries);
-        return new ThermalExchange(cells.ToArray(),faces.ToArray(),maximumFractionPerMinute,boundaries.Values.OrderBy(b=>b.Cell).ThenBy(b=>b.Direction).ToArray(),exteriorFilmCoefficientWPerM2K);
+        var exchange = new ThermalExchange(cells.ToArray(),faces.ToArray(),maximumFractionPerMinute,boundaries.Values.OrderBy(b=>b.Cell).ThenBy(b=>b.Direction).ToArray(),exteriorFilmCoefficientWPerM2K);
+        exchange.TopologyBinding = new Binding(world,grids);
+        return exchange;
+    }
+    // Fixed geometric lattice: slot moves only change the equipment that owns a cell.
+    // Membership/stack changes retain the full builder as an explicit structural fallback.
+    internal sealed class Binding
+    {
+        private readonly HiveSpatialGrid[] grids;
+        private readonly int[] starts, revisions;
+        private readonly ItemData[] detached;
+        private readonly List<(HiveSpatialGrid,HiveSpatialGrid)> pairs;
+        private readonly List<KeyValuePair<int,ThermalExchange.Cell>> replacements = new List<KeyValuePair<int,ThermalExchange.Cell>>();
+        public Binding(GameWorld world,Dictionary<HiveSpatialGrid,int[]> maps)
+        {
+            var items=ThermalWorld.Items(world).ToArray();grids=items.Where(i=>i.SpatialGrid!=null).Select(i=>i.SpatialGrid).ToArray();
+            starts=grids.Select(g=>maps[g][0]).ToArray();revisions=grids.Select(g=>g.Revision).ToArray();
+            detached=Detached(items);pairs=Pairs(world);
+        }
+        private static ItemData[] Detached(ItemData[] items)
+        {
+            var placed=new HashSet<ItemData>();
+            foreach(var item in items)if(item.InteriorSlots!=null)for(int j=0;j<item.InteriorSlots.Capacity;j++)if(item.InteriorSlots.GetSlot(j).Item!=null)placed.Add(item.InteriorSlots.GetSlot(j).Item);
+            return items.Where(i=>i.SpatialGrid==null && i.EquipmentGrid!=null && i.EquipmentGrid.SizeZ>0 && !placed.Contains(i)).ToArray();
+        }
+        private static List<(HiveSpatialGrid,HiveSpatialGrid)> Pairs(GameWorld world)
+        {
+            var result=new List<(HiveSpatialGrid,HiveSpatialGrid)>();var seen=new HashSet<MovableItem>();
+            Action<MovableItem> visit=null;
+            visit=value=>{
+                if(value==null || !seen.Add(value))return;
+                if(value is ItemAssemblyData assembly){HiveSpatialGrid lower=null;foreach(var part in assembly.Parts){var upper=part.SpatialGrid;if(upper!=null){if(lower!=null)result.Add((lower,upper));lower=upper;}visit(part);}}
+                else if(value is ItemData item){if(item.TopSlot!=null)visit(item.TopSlot.Value);if(item.InteriorSlots!=null)for(int j=0;j<item.InteriorSlots.Capacity;j++)visit(item.InteriorSlots.GetSlot(j).Value);}
+            };
+            foreach(var h in world.Apiary.Hives)visit(h.Slot.Value);
+            for(int y=0;y<world.Apiary.Grid.Height;y++)for(int x=0;x<world.Apiary.Grid.UnlockedWidth;x++)visit(world.Apiary.GetItemSlot(x,y).Value);
+            for(int i=0;i<world.Inventory.Capacity;i++)visit(world.Inventory.GetSlot(i).Value);visit(world.Hand.Value);
+            return result;
+        }
+        public bool TryUpdate(GameWorld world,ThermalExchange exchange)
+        {
+            var items=ThermalWorld.Items(world).ToArray();
+            if(!grids.SequenceEqual(items.Where(i=>i.SpatialGrid!=null).Select(i=>i.SpatialGrid)) || !detached.SequenceEqual(Detached(items)) || !pairs.SequenceEqual(Pairs(world)))return false;
+            replacements.Clear();
+            for(int g=0;g<grids.Length;g++){
+                var grid=grids[g];if(revisions[g]==grid.Revision)continue;var l=grid.Layout;
+                for(int i=0;i<grid.CellCount;i++){
+                    var source=grid.GetCell(i).SourceCell;var owner=source?.Equipment.ThermalState??grid.Box.ThermalState;int local=source?.Index??i;
+                    var old=exchange.GetCell(starts[g]+i);if(ReferenceEquals(old.Owner,owner)&&old.Index==local)continue;
+                    if(!exchange.CanRebind(owner))return false;
+                    l.Coordinates(i,out int x,out int y,out int z);
+                    if(source!=null){var eg=source.Equipment.EquipmentGrid;int sx=local%eg.SizeX,sy=local/eg.SizeX%eg.SizeY,sz=local/(eg.SizeX*eg.SizeY);
+                        if(!Same(l.X[x+1]-l.X[x],eg.X[sx+1]-eg.X[sx])||!Same(l.Y[y+1]-l.Y[y],eg.Y[sy+1]-eg.Y[sy])||!Same(l.Z[z+1]-l.Z[z],eg.Z[sz+1]-eg.Z[sz]))throw new InvalidOperationException("Nonconforming moved equipment");}
+                    replacements.Add(new KeyValuePair<int,ThermalExchange.Cell>(starts[g]+i,new ThermalExchange.Cell(owner,local,"box "+grid.Box.Id+" cell "+i+" ("+x+","+y+","+z+") owner "+(source?.Equipment.Id??grid.Box.Id)+":"+local)));
+                }
+            }
+            exchange.RebindCells(replacements);
+            for(int g=0;g<grids.Length;g++)revisions[g]=grids[g].Revision;
+            return true;
+        }
     }
     private static void AddExterior(int[] map,IReadOnlyList<double> xs,IReadOnlyList<double> ys,IReadOnlyList<double> zs,Dictionary<(int,int),ThermalExchange.Boundary> boundaries)
     {
@@ -131,11 +190,11 @@ public static class ThermalTopology
     {
         var a=lower.Layout; var b=upper.Layout;
         if(!a.X.SequenceEqual(b.X)||!a.Y.SequenceEqual(b.Y)) throw new InvalidOperationException("Nonconforming stack interface "+lower.Box.Id+" / "+upper.Box.Id+"; six-direction index invalid. Overlap-face construction required; no partial graph accepted.");
-        for(int y=0;y<52;y++) for(int x=0;x<18;x++)
+        for(int y=0;y<HiveGridLayout.SizeY;y++) for(int x=0;x<18;x++)
         {
             int lo=grids[lower][a.Index(x,y,a.SizeZ-1)], hi=grids[upper][b.Index(x,y,0)];
             if (!boundaries.Remove((lo,5)) || !boundaries.Remove((hi,4))) throw new InvalidOperationException("Stack face already occluded");
-            faces.Add(new ThermalExchange.Face(grids[lower][a.Index(x,y,a.SizeZ-1)],grids[upper][b.Index(x,y,0)],(a.X[x+1]-a.X[x])*(a.Y[y+1]-a.Y[y])*1e-6,(a.Z[a.SizeZ]-a.Z[a.SizeZ-1])*.0005,(b.Z[1]-b.Z[0])*.0005));
+            faces.Add(new ThermalExchange.Face(grids[lower][a.Index(x,y,a.SizeZ-1)],grids[upper][b.Index(x,y,0)],(a.X[x+1]-a.X[x])*(a.Y[y+1]-a.Y[y])*1e-6,(a.Z[a.SizeZ]-a.Z[a.SizeZ-1])*.0005,(b.Z[1]-b.Z[0])*.0005,2));
         }
     }
 }

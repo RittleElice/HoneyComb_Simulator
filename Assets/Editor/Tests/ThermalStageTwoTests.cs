@@ -54,7 +54,7 @@ public static class ThermalStageTwoTests
             Near(solver.MinimumStepSeconds,120,1e-10,"dt limit");
             report.Add("PASS analytical pair transfer with direct result commit");
             int builds=solver.CoefficientBuilds; solver.Step(); Check(builds==solver.CoefficientBuilds,"coefficient cache reused");
-            state.MarkDirty(0); state.Refresh(m,20); solver.Step(); Check(solver.CoefficientBuilds==builds+1,"dirty invalidates coefficient cache");
+            state.MarkDirty(0); state.Refresh(m,20); solver.Step(); Check(solver.CoefficientBuilds==builds,"unchanged dirty input retains coefficient cache");
             var prior=Energies(solver); Reject(()=>solver.Step(120.00001),"unstable dt rejected"); Check(prior.SequenceEqual(Energies(solver)),"rejection atomic");
             solver.Step(120); Check(Energies(solver).All(v=>ThermalMath.Finite(v)),"exact monotonic limit accepted");
             Reject(()=>solver.Step(double.NaN),"NaN timestep rejected");
@@ -92,13 +92,13 @@ public static class ThermalStageTwoTests
             Check(recovered.Apiary.GetItemSlot(0,0).TryCombineFrom(temporary),"stack super");
             temporary.TryInsert(new ItemData(9104,"lid",ItemKind.Lid)); Check(recovered.Apiary.GetItemSlot(0,0).TryCombineFrom(temporary),"stack lid");
             recovered.Thermal.Refresh(20); recovered.Thermal.PrepareExchange(); actual=recovered.Thermal.Exchange;
-            int expected=ThermalWorld.Items(recovered).Where(i=>i.SpatialGrid!=null).Sum(i=>i.SpatialGrid.Layout.EdgeCount)+2*18*52;
+            int expected=ThermalWorld.Items(recovered).Where(i=>i.SpatialGrid!=null).Sum(i=>i.SpatialGrid.Layout.EdgeCount)+2*HiveGridLayout.SizeX*HiveGridLayout.SizeY;
             var placed=new HashSet<ItemData>();
             foreach(var it in ThermalWorld.Items(recovered)) if(it.SpatialGrid!=null)
                 for(int i=0;i<it.SpatialGrid.CellCount;i++) {var source=it.SpatialGrid.GetCell(i).SourceCell;if(source!=null)placed.Add(source.Equipment);}
             foreach(var it in ThermalWorld.Items(recovered)) if(it.SpatialGrid==null && it.EquipmentGrid!=null && !placed.Contains(it))
             {var gg=it.EquipmentGrid; if(gg.SizeZ>0) expected+=(gg.SizeX-1)*gg.SizeY*gg.SizeZ+gg.SizeX*(gg.SizeY-1)*gg.SizeZ+gg.SizeX*gg.SizeY*(gg.SizeZ-1);}
-            Check(actual.FaceCount==expected,"exact internal, detached and 1872 stack face count");
+            Check(actual.FaceCount==expected,"exact internal, detached and stack face count");
             Check(actual.MaximumDegree==6,"actual conforming topology fits six directions without dropped faces");
             int topologyBuilds=recovered.Thermal.TopologyBuilds; recovered.Thermal.PrepareExchange(); Check(topologyBuilds==recovered.Thermal.TopologyBuilds,"topology cache reused");
             var cache=actual; frame.GetContent<FrameData>().Front.SetAllConstruction(100); recovered.Thermal.Refresh(); recovered.Thermal.PrepareExchange();
@@ -122,7 +122,7 @@ public static class ThermalStageTwoTests
             for(int f=0;f<actual.FaceCount;f++)
             {
                 var edge=actual.GetFace(f);var a=actual.GetCell(edge.A);var b=actual.GetCell(edge.B);
-                rawG[f]=ThermalExchange.Conductance(edge.AreaM2,edge.HalfAM,a.Owner.EffectiveConductivityWPerMK[a.Index],edge.HalfBM,b.Owner.EffectiveConductivityWPerMK[b.Index]);
+                rawG[f]=ThermalExchange.Conductance(edge.AreaM2,edge.HalfAM,a.Owner.Conductivity(a.Index,edge.Axis),edge.HalfBM,b.Owner.Conductivity(b.Index,edge.Axis));
                 rawSums[edge.A]+=rawG[f];rawSums[edge.B]+=rawG[f];
             }
             for(int i=0;i<actual.CellCount;i++) rawSums[i]+=actual.RawExteriorConductance(i);
@@ -165,9 +165,9 @@ public static class ThermalStageTwoTests
             for(int i=1;i<syntheticCells.Length;i++) syntheticFaces.Add(new ThermalExchange.Face(i-1,i,1e-10,.01,.01));
             var stable60=new ThermalExchange(syntheticCells,syntheticFaces.ToArray()); stable60.MeasurePerformance=true; stable60.Step();
             report.Add("Synthetic weak-contact 60s full-size Job: "+stable60.LastTickMilliseconds+" ms (not actual hive conductance)");
-            var bytes=WorldSaveCodec.Encode(Snapshot(recovered)); var loaded=WorldSaveCodec.Decode(bytes); Check(bytes.SequenceEqual(WorldSaveCodec.Encode(loaded)),"V3 exact thermal roundtrip");
-            var legacy=WorldSaveCodec.Encode(Snapshot(new GameWorld())); Check(BitConverter.ToInt32(legacy,0)==2,"V2 unchanged"); Check(WorldSaveCodec.Decode(legacy).World.Thermal==null,"V2 no derived graph");
-            legacy[0]=1;Array.Resize(ref legacy,legacy.Length-1);Check(WorldSaveCodec.Decode(legacy).World.Weather==null,"V1 unchanged");
+            var bytes=WorldSaveCodec.Encode(Snapshot(recovered)); var loaded=WorldSaveCodec.Decode(bytes); Check(bytes.SequenceEqual(WorldSaveCodec.Encode(loaded)),"V4 exact thermal roundtrip");
+            var fresh=WorldSaveCodec.Encode(Snapshot(new GameWorld())); Check(BitConverter.ToInt32(fresh,0)==4,"V4 without thermal state"); Check(WorldSaveCodec.Decode(fresh).World.Thermal==null,"derived graph not saved");
+            for(byte version=1;version<4;version++){var oldSave=(byte[])fresh.Clone();oldSave[0]=version;bool rejected=false;try{WorldSaveCodec.Decode(oldSave);}catch(InvalidDataException){rejected=true;}Check(rejected,"old geometry saves rejected");}
 
             // Weather's own long regression remains independent of the thermal tick.
             var weatherWorld=new GameWorld(new WeatherSimulator(77,WeatherAssetLoader.LoadBaseline()));
@@ -196,3 +196,5 @@ public static class ThermalStageTwoTests
         if(Application.isBatchMode) EditorApplication.Exit(result.summary.result==BuildResult.Succeeded?0:1);
     }
 }
+
+

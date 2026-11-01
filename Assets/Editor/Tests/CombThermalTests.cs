@@ -24,11 +24,11 @@ public static class CombThermalTests
             var f = new FrameData(); var frame = new ItemData(1,"frame",ItemKind.Frame,f);
             var front = CombSpatialMapper.GetContentCell(frame,FrameSide.Front,0,0);
             var back = CombSpatialMapper.GetContentCell(frame,FrameSide.Back,0,0);
-            var centre = frame.EquipmentGrid.GetCell(1,1,1);
+            var centre = back;
             var s = f.Front;
             double baseHeat = front.HeatCapacityJPerK;
-            Near(baseHeat, 1.47, "empty comb effective density and mm3 to m3");
-            Near(centre.ContentHeatCapacityJPerK,0,"centre has no duplicate contents");
+            Near(baseHeat, 1.8375, "empty comb effective density and mm3 to m3");
+            Near(centre.ContentHeatCapacityJPerK,0,"back initially empty");
             s.TrySetConstruction(0,0,80);
             Check(s.TryAddNectar(0,0,0,0,100),"store water");
             Near(front.ContentHeatCapacityJPerK,.418,"mg to kg conversion");

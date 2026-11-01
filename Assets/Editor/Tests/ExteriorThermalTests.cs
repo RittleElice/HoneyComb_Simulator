@@ -47,7 +47,7 @@ public static class ExteriorThermalTests
         Check(!has(graph,find(graph,box.ThermalState,topLocal),5),"covered box top excluded");
         int lidCell=find(graph,lid.ThermalState,lid.EquipmentGrid.Index(5,5,0));
         Check(!has(graph,lidCell,4)&&has(graph,lidCell,5),"lid bottom internal and top exterior");
-        Check(graph.BoundaryCount==beforeCount+2*(18+52),"stack interface removes both exposed faces");
+        Check(graph.BoundaryCount==beforeCount+2*(HiveGridLayout.SizeX+HiveGridLayout.SizeY),"stack interface removes both exposed faces");
         Check(slot.TrySplitTo(1,world.Hand.Slot),"detach lid");world.Thermal.Refresh();world.Thermal.PrepareExchange();graph=world.Thermal.Exchange;
         Check(has(graph,find(graph,box.ThermalState,topLocal),5)&&has(graph,find(graph,lid.ThermalState,lid.EquipmentGrid.Index(5,5,0)),4),"split reopens both surfaces");
         var frame=new ItemData(9952,"frame",ItemKind.Frame,new FrameData());Check(box.InteriorSlots.GetSlot(0).TryInsert(frame),"insert frame");world.Thermal.Refresh();world.Thermal.PrepareExchange();graph=world.Thermal.Exchange;
@@ -61,3 +61,4 @@ public static class ExteriorThermalTests
         UnityEngine.Debug.Log("EXTERIOR THERMAL TESTS PASS");
     }
 }
+
