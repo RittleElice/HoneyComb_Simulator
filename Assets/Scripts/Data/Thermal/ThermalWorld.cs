@@ -31,7 +31,7 @@ public sealed class ThermalWorld : IGameMinuteParticipant
                 throw new InvalidOperationException("Exterior forcing requires weather at the start of the minute");
             // Keep thermal before weather: T_air(n) forces [n,n+1), without advancing RNG on thermal failure.
             double outside=world.Weather.Current.TemperatureCelsius;
-            Refresh(); PrepareExchange(); Exchange.Step(60,outside);
+            Refresh(); PrepareExchange(); Exchange.StepPrepared(60,outside);
             return Task.CompletedTask;
         }
         catch (Exception e) { Failure = e.Message; throw; }

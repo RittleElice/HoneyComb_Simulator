@@ -188,6 +188,13 @@ public sealed class GameTimeRuntime : MonoBehaviour
     }
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
     public float DeveloperSpeed => speed;
+    // Read-only view of the same target used by CaptureTimeline. An in-flight minute
+    // remains outstanding until the clock commits it; queued offline time is additional.
+    public long DeveloperActiveRemainingMinutes => Math.Max(0, operationTarget - Clock.CurrentGameMinute);
+    public long DeveloperPendingMinutes => pendingMinutes;
+    public long DeveloperScheduledTargetMinute => checked(Math.Max(Clock.CurrentGameMinute, operationTarget) + pendingMinutes);
+    public long DeveloperRemainingMinutes => DeveloperScheduledTargetMinute - Clock.CurrentGameMinute;
+    public string DeveloperScheduledTargetTime => GameClock.Restore(DeveloperScheduledTargetMinute).ToString();
     public void SetDeveloperSpeed(float value)
     {
         if (float.IsNaN(value) || float.IsInfinity(value) || value < 1 || value > 1000) throw new ArgumentOutOfRangeException(nameof(value));

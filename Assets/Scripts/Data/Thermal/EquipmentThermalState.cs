@@ -19,6 +19,10 @@ public sealed class EquipmentThermalState
     private ThermalMaterials lastMaterials;
     public int Count => energy.Length;
     public IReadOnlyList<float> EnergyJ => energy;
+    // Solver-only direct views. These readonly array instances live for the owner's lifetime.
+    // Energy stays authoritative here; capacity changes are published via CacheRevision.
+    internal float[] EnergyBuffer => energy;
+    internal float[] HeatCapacityBuffer => capacity;
     public IReadOnlyList<float> HeatCapacityJPerK => capacity;
     public IReadOnlyList<float> EffectiveConductivityWPerMK => conductivity;
     public IReadOnlyList<float> AirVolumeM3 => airVolume;

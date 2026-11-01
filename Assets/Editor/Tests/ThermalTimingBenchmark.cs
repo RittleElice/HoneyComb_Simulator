@@ -16,7 +16,7 @@ public static class ThermalTimingBenchmark
     }
     public static void RunBatch()
     {
-        const string folder="outputs/thermal-timing-persistent";Directory.CreateDirectory(folder);var report=new List<string>();
+        const string folder="outputs/thermal-timing-calculation-only";Directory.CreateDirectory(folder);var report=new List<string>();
         try
         {
             report.Add("Unity "+Application.unityVersion+"; Editor Mono batchmode; "+SystemInfo.processorType+"; logical processors="+SystemInfo.processorCount);
@@ -40,6 +40,7 @@ public static class ThermalTimingBenchmark
                 var timer=Stopwatch.StartNew();world.PrepareThermal(materials);double initialState=timer.Elapsed.TotalMilliseconds;
                 timer.Restart();world.Thermal.PrepareExchange();double initialTopology=timer.Elapsed.TotalMilliseconds;
                 var exchange=world.Thermal.Exchange;
+                exchange.MeasurePerformance=true;
                 for(int i=0;i<exchange.CellCount;i++){var cell=exchange.GetCell(i);cell.Owner.RestoreEnergy(cell.Index,cell.Owner.HeatCapacityJPerK[cell.Index]*(5+(i%71)*.5f));}
                 report.Add((mixed?"MIXED":"DEFAULT")+": cells="+exchange.CellCount+"; internal faces="+exchange.FaceCount+"; exterior faces="+exchange.BoundaryCount+"; state init="+initialState.ToString("F3")+" ms; first topology/coefficients="+initialTopology.ToString("F3")+" ms (single cold measurements)");
                 var thermal=new List<double>();var step=new List<double>();var job=new List<double>();var weather=new List<double>();var overhead=new List<double>();var total=new List<double>();
@@ -52,7 +53,7 @@ public static class ThermalTimingBenchmark
                     thermal.Add(a);step.Add(exchange.LastTickMilliseconds);job.Add(exchange.LastJobMilliseconds);weather.Add(b);overhead.Add(a-exchange.LastTickMilliseconds);total.Add(a+b);
                 }
                 report.Add(Stats("Thermal minute: refresh + topology check + full step",thermal));
-                report.Add(Stats("Full step: buffers + Job + input validation + direct commit",step));
+                report.Add(Stats("Full step: input refresh + Job + direct commit; diagnostics disabled",step));
                 report.Add(Stats("Job Schedule+Complete",job));
                 report.Add(Stats("Thermal refresh/topology-check overhead",overhead));
                 report.Add(Stats("Weather Evaluate/Advance",weather));

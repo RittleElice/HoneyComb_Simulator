@@ -13,6 +13,7 @@ public static class ExteriorThermalTests
         var cells=new[]{new ThermalExchange.Cell(state,0,"surface"),new ThermalExchange.Cell(state,1,"interior")};
         var bounds=new[]{new ThermalExchange.Boundary(0,0,.02,.01)};
         var solver=new ThermalExchange(cells,Array.Empty<ThermalExchange.Face>(),.1,bounds,5);
+        solver.DiagnosticsEnabled=true;
         double c=state.HeatCapacityJPerK[0],k=state.EffectiveConductivityWPerMK[0];
         solver.RefreshCoefficients();double expectedG=Math.Min(.02/(.01/k+1d/5),.1*c/60);
         Near(solver.ExteriorConductance(0),expectedG,1e-12,"film and half-cell resistance with cap");
@@ -54,6 +55,7 @@ public static class ExteriorThermalTests
         for(int i=0;i<graph.CellCount;i++){var cell=graph.GetCell(i);cell.Owner.RestoreEnergy(cell.Index,cell.Owner.HeatCapacityJPerK[cell.Index]*20);}
         double outsideNow=world.Weather.Current.TemperatureCelsius;
         double expected=Enumerable.Range(0,graph.CellCount).Sum(i=>{var cell=graph.GetCell(i);return 60*graph.ExteriorConductance(i)*(outsideNow-(double)cell.Owner.EnergyJ[cell.Index]/cell.Owner.HeatCapacityJPerK[cell.Index]);});
+        graph.DiagnosticsEnabled=true;
         world.Thermal.CalculateMinuteAsync(1,CancellationToken.None).GetAwaiter().GetResult();
         Near(graph.ExternalEnergyJ,expected,1e-5,"minute-start weather drives boundary");Check(world.Weather.Minute==0,"thermal does not advance weather");
         UnityEngine.Debug.Log("EXTERIOR THERMAL TESTS PASS");

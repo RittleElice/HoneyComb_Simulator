@@ -20,6 +20,7 @@ public static class PersistentThermalTests
             var c=exchange.GetCell(i);c.Owner.RestoreEnergy(c.Index,c.Owner.HeatCapacityJPerK[c.Index]*(5+i%41));
         }
         exchange.Step(60,18);
+        Check(exchange.LastTickMilliseconds==0 && exchange.LastJobMilliseconds==0 && exchange.ExternalEnergyJ==0,"normal runtime skips timing and diagnostic aggregation");
         var before=Enumerable.Range(0,exchange.CellCount).Select(i=>exchange.GetCell(i).Owner.EnergyJ[exchange.GetCell(i).Index]).ToArray();
         exchange.Step(60,18);
         var expected=Enumerable.Range(0,exchange.CellCount).Select(i=>exchange.GetCell(i).Owner.EnergyJ[exchange.GetCell(i).Index]).ToArray();
@@ -27,8 +28,10 @@ public static class PersistentThermalTests
         long bytes=exchange.BufferBytes;Check(bytes>0,"memory accounted");
         exchange.Dispose();exchange.Dispose();Check(!exchange.HasBuffers && exchange.BufferBytes==0,"idempotent release");
         for(int i=0;i<exchange.CellCount;i++){var c=exchange.GetCell(i);c.Owner.RestoreEnergy(c.Index,before[i]);}
+        exchange.DiagnosticsEnabled=true;
         exchange.Step(60,18);
-        for(int i=0;i<exchange.CellCount;i++) Check(exchange.GetCell(i).Owner.EnergyJ[exchange.GetCell(i).Index]==expected[i],"reused vs freshly allocated bit exact");
+        for(int i=0;i<exchange.CellCount;i++) Check(exchange.GetCell(i).Owner.EnergyJ[exchange.GetCell(i).Index]==expected[i],"normal vs diagnostic and fresh vs reused bit exact");
+        exchange.DiagnosticsEnabled=false;
         Check(exchange.BufferAllocations==2 && exchange.BufferBytes==bytes,"recreate after release");
         int uploads=exchange.CoefficientUploads;
         Check(frame.GetContent<FrameData>().Front.TryAddNectar(0,0,1,100,100),"contents update");

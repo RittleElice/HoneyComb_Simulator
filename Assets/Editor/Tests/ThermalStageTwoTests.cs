@@ -28,7 +28,7 @@ public static class ThermalStageTwoTests
     static float[] Energies(ThermalExchange e) => Enumerable.Range(0,e.CellCount).Select(i=>e.GetCell(i).Owner.EnergyJ[e.GetCell(i).Index]).ToArray();
     public static async void RunBatch()
     {
-        Directory.CreateDirectory("outputs/persistent-thermal");
+        Directory.CreateDirectory("outputs/calculation-only-thermal");
         try
         {
             checks=0; report.Clear();
@@ -47,7 +47,7 @@ public static class ThermalStageTwoTests
             double ca=state.HeatCapacityJPerK[0],cb=state.HeatCapacityJPerK[1];
             double g=Math.Min(ca,cb)/120, k=state.EffectiveConductivityWPerMK[0];
             var face=new ThermalExchange.Face(0,1,g*.02/k,.01,.01);
-            var solver=new ThermalExchange(pair,new[]{face},null);
+            var solver=new ThermalExchange(pair,new[]{face},null); solver.DiagnosticsEnabled=true;
             state.RestoreEnergy(0,(float)(ca*10)); state.RestoreEnergy(1,(float)(cb*30));
             double ea=state.EnergyJ[0],eb=state.EnergyJ[1],delta=60*g*(eb/cb-ea/ca);
             solver.Step(); Near(state.EnergyJ[0],(float)(ea+delta),0,"analytic gather A"); Near(state.EnergyJ[1],(float)(eb-delta),0,"analytic gather B");
@@ -113,6 +113,7 @@ public static class ThermalStageTwoTests
             const double fixedExperimentSeconds=60;
             Check(actual.MinimumStepSeconds>fixedExperimentSeconds,"fixed experiment is stable");
             for(int i=0;i<actual.CellCount;i++) {var c=actual.GetCell(i); c.Owner.RestoreEnergy(c.Index,c.Owner.HeatCapacityJPerK[c.Index]*(5+(i%71)*.5f));}
+            actual.DiagnosticsEnabled=true;
             double initial=Energies(actual).Sum(v=>(double)v),maxBalance=0,totalRounding=0,totalExternal=0,previousTotal=0;
             var old=Energies(actual); var reference=old.Select(v=>(double)v).ToArray();
             // Independently limit each physical face using both endpoint total budgets.
@@ -162,7 +163,7 @@ public static class ThermalStageTwoTests
             var syntheticCells=Enumerable.Range(0,actual.CellCount).Select(actual.GetCell).ToArray();
             var syntheticFaces=new List<ThermalExchange.Face>();
             for(int i=1;i<syntheticCells.Length;i++) syntheticFaces.Add(new ThermalExchange.Face(i-1,i,1e-10,.01,.01));
-            var stable60=new ThermalExchange(syntheticCells,syntheticFaces.ToArray()); stable60.Step();
+            var stable60=new ThermalExchange(syntheticCells,syntheticFaces.ToArray()); stable60.MeasurePerformance=true; stable60.Step();
             report.Add("Synthetic weak-contact 60s full-size Job: "+stable60.LastTickMilliseconds+" ms (not actual hive conductance)");
             var bytes=WorldSaveCodec.Encode(Snapshot(recovered)); var loaded=WorldSaveCodec.Decode(bytes); Check(bytes.SequenceEqual(WorldSaveCodec.Encode(loaded)),"V3 exact thermal roundtrip");
             var legacy=WorldSaveCodec.Encode(Snapshot(new GameWorld())); Check(BitConverter.ToInt32(legacy,0)==2,"V2 unchanged"); Check(WorldSaveCodec.Decode(legacy).World.Thermal==null,"V2 no derived graph");
@@ -183,15 +184,15 @@ public static class ThermalStageTwoTests
             ItemAssemblyTests.RunAll(); HiveSpatialGridTests.RunAll(); CellStateTests.RunAll(); EquipmentCellDataTests.RunAll(); CombGeometryTests.RunAll(); CombThermalTests.RunAll(); WorldSaveTests.Run(); await GameTimeTests.RunAll();
             report.Add("PASS assembly/spatial/equipment/cell/comb/save/time regression suites; stage-two checks="+checks);
             ThermalExchange.ReleaseAllBuffers();
-            File.WriteAllLines("outputs/persistent-thermal/results.txt",report); Debug.Log("THERMAL STAGE TWO PASS "+checks); if(Application.isBatchMode) EditorApplication.Exit(0);
+            File.WriteAllLines("outputs/calculation-only-thermal/results.txt",report); Debug.Log("THERMAL STAGE TWO PASS "+checks); if(Application.isBatchMode) EditorApplication.Exit(0);
         }
-        catch(Exception e) { ThermalExchange.ReleaseAllBuffers(); report.Add(e.ToString()); File.WriteAllLines("outputs/persistent-thermal/failure.txt",report); Debug.LogException(e); if(Application.isBatchMode) EditorApplication.Exit(1); }
+        catch(Exception e) { ThermalExchange.ReleaseAllBuffers(); report.Add(e.ToString()); File.WriteAllLines("outputs/calculation-only-thermal/failure.txt",report); Debug.LogException(e); if(Application.isBatchMode) EditorApplication.Exit(1); }
     }
     public static void BuildAndroid()
     {
         var scenes=new[]{"Assets/Scenes/Bootstrap.unity","Assets/Scenes/MainMenu.unity","Assets/Scenes/Apiary.unity","Assets/Scenes/Observation.unity","Assets/Scenes/SharedUI.unity"};
-        var result=BuildPipeline.BuildPlayer(new BuildPlayerOptions {scenes=scenes,locationPathName="outputs/persistent-thermal/HoneyComb.apk",target=BuildTarget.Android,options=BuildOptions.Development});
-        File.WriteAllText("outputs/persistent-thermal/android.txt",result.summary.result+"; errors="+result.summary.totalErrors+"; time="+result.summary.totalTime);
+        var result=BuildPipeline.BuildPlayer(new BuildPlayerOptions {scenes=scenes,locationPathName="outputs/calculation-only-thermal/HoneyComb.apk",target=BuildTarget.Android,options=BuildOptions.Development});
+        File.WriteAllText("outputs/calculation-only-thermal/android.txt",result.summary.result+"; errors="+result.summary.totalErrors+"; time="+result.summary.totalTime);
         if(Application.isBatchMode) EditorApplication.Exit(result.summary.result==BuildResult.Succeeded?0:1);
     }
 }

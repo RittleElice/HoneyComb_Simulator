@@ -35,12 +35,19 @@ public sealed class ThermalExchange : IDisposable
     public Boundary GetBoundary(int i) => boundaries[i];
     public double ExteriorConductance(int i) => exterior[i];
     public double RawExteriorConductance(int i) => rawExterior[i];
-    public double ExternalEnergyJ { get; private set; } // positive: energy entering model
+    public double ExternalEnergyJ { get; private set; } // Diagnostic mode only; positive means energy entering the model. Zero when disabled.
     private readonly Cell[] cells;
     private readonly Face[] faces;
     private readonly int[] offsets, neighbours;
     private readonly double[] coefficients, sums;
+    // Exact float capacities in solver-cell order; refreshed with the coefficient revision.
+    private readonly float[] cachedCapacities;
+    public long CapacityCacheBytes => 4L * cachedCapacities.Length;
     private readonly int[] revisions;
+    private readonly EquipmentThermalState[] owners;
+    // Explicit tooling opt-ins. Normal minute updates perform neither audits nor timing.
+    public bool DiagnosticsEnabled { get; set; }
+    public bool MeasurePerformance { get; set; }
     private readonly double? maximumFractionPerMinute;
     private NativeArray<int> nativeOffsets, nativeNeighbours;
     private NativeArray<double> nativeG, nativeExterior, nativeT, nativeEnergy, nativeNext;
@@ -131,13 +138,18 @@ public sealed class ThermalExchange : IDisposable
             if (b.Cell < 0 || b.Cell >= cells.Length || b.Direction < 0 || b.Direction > 5 || !Positive(b.AreaM2) || !Positive(b.HalfM) || !boundaryKeys.Add((b.Cell,b.Direction)))
                 throw new ArgumentException("Invalid/duplicate exterior boundary");
         exterior = new double[cells.Length]; rawExterior = new double[cells.Length];
-        offsets = new int[cells.Length + 1]; revisions = new int[cells.Length];
+        cachedCapacities = new float[cells.Length];
+        offsets = new int[cells.Length + 1];
+        var ownerSet = new HashSet<EquipmentThermalState>();
+        var ownerList = new List<EquipmentThermalState>();
+        foreach(var cell in cells) if(ownerSet.Add(cell.Owner)) ownerList.Add(cell.Owner);
+        owners = ownerList.ToArray(); revisions = new int[owners.Length];
+        for(int i=0;i<revisions.Length;i++) revisions[i]=-1;
         var unique = new HashSet<(EquipmentThermalState, int)>();
         for (int i = 0; i < cells.Length; i++)
         {
             if (cells[i].Owner == null || cells[i].Index < 0 || cells[i].Index >= cells[i].Owner.Count || !unique.Add((cells[i].Owner, cells[i].Index)))
                 throw new InvalidOperationException("Duplicate or invalid thermal owner: " + cells[i].Label);
-            revisions[i] = -1;
         }
         var pairs = new HashSet<(int, int)>();
         foreach (var f in faces)
@@ -162,19 +174,21 @@ public sealed class ThermalExchange : IDisposable
     }
     private string Detail(int i, string reason)
     {
-        var c = cells[i]; double capacity = c.Owner.HeatCapacityJPerK[c.Index];
+        var c = cells[i]; double capacity = c.Owner.HeatCapacityBuffer[c.Index];
         return reason + "; " + c.Label + "; C=" + capacity.ToString("R") + " J/K; sumG=" + sums[i].ToString("R") +
             " W/K; dtMax=" + (sums[i] > 0 ? capacity/sums[i] : double.PositiveInfinity).ToString("R") + " s";
     }
     public void RefreshCoefficients()
     {
         bool changed = CoefficientBuilds == 0;
-        for (int i = 0; i < cells.Length; i++)
-        {
-            var c = cells[i];
-            if (c.Owner.Diagnostic != null || c.Owner.IsDirty(c.Index) || !c.Owner.IsInitialized(c.Index)) throw new InvalidOperationException(Detail(i,"Cache not ready"));
-            changed |= revisions[i] != c.Owner.CacheRevision;
-        }
+        for(int i=0;i<owners.Length;i++) changed |= revisions[i] != owners[i].CacheRevision;
+        if(DiagnosticsEnabled)
+            for(int i=0;i<cells.Length;i++)
+            {
+                var c=cells[i];
+                if(c.Owner.Diagnostic!=null || c.Owner.IsDirty(c.Index) || !c.Owner.IsInitialized(c.Index))
+                    throw new InvalidOperationException(Detail(i,"Cache not ready"));
+            }
         if (!changed) return;
         Array.Clear(sums,0,sums.Length); var cursor = (int[])offsets.Clone();
         foreach (var f in faces)
@@ -201,7 +215,7 @@ public sealed class ThermalExchange : IDisposable
         var scales = new double[cells.Length];
         for (int i = 0; i < cells.Length; i++)
         {
-            var c = cells[i]; double capacity = c.Owner.HeatCapacityJPerK[c.Index];
+            var c = cells[i]; double capacity = c.Owner.HeatCapacityBuffer[c.Index];
             if (!Positive(capacity) || !Finite(sums[i])) throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
             double limit = sums[i] > 0 ? capacity / sums[i] : double.PositiveInfinity;
             RawMinimumStepSeconds = Math.Min(RawMinimumStepSeconds, limit);
@@ -226,12 +240,13 @@ public sealed class ThermalExchange : IDisposable
         MinimumStepSeconds = double.PositiveInfinity; LimitingCell = -1;
         for (int i = 0; i < cells.Length; i++)
         {
-            var c = cells[i]; double capacity = c.Owner.HeatCapacityJPerK[c.Index];
+            var c = cells[i]; double capacity = c.Owner.HeatCapacityBuffer[c.Index];
+            cachedCapacities[i] = c.Owner.HeatCapacityBuffer[c.Index];
             if (!Positive(capacity) || !Finite(sums[i])) throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
             double limit = sums[i] > 0 ? capacity/sums[i] : double.PositiveInfinity;
             if (limit < MinimumStepSeconds) { MinimumStepSeconds = limit; LimitingCell = i; }
-            revisions[i] = c.Owner.CacheRevision;
         }
+        for(int i=0;i<owners.Length;i++) revisions[i]=owners[i].CacheRevision;
         CoefficientBuilds++;
     }
     public void ValidateStep(double seconds)
@@ -256,36 +271,55 @@ public sealed class ThermalExchange : IDisposable
     // Results are committed directly after the Job; result-range and energy-balance audits live in editor tests.
     public void Step(double seconds = 60, double? outsideC = null)
     {
-        var total = Stopwatch.StartNew(); Diagnostic = null;
+        RefreshCoefficients();
+        StepPrepared(seconds,outsideC);
+    }
+    // ThermalWorld has already refreshed state, topology and coefficients.
+    internal void StepPrepared(double seconds, double? outsideC)
+    {
+        bool measure=MeasurePerformance || DiagnosticsEnabled;
+        var total = measure ? Stopwatch.StartNew() : null; Diagnostic = null;
         try
         {
             ExternalEnergyJ = 0;
-            if (boundaries.Length > 0 && !outsideC.HasValue) throw new ArgumentException("Exterior temperature is required");
-            if (outsideC.HasValue && (!Finite(outsideC.Value) || outsideC.Value < -273.15)) throw new ArgumentOutOfRangeException(nameof(outsideC));
+            if(DiagnosticsEnabled)
+            {
+                if (boundaries.Length > 0 && !outsideC.HasValue) throw new ArgumentException("Exterior temperature is required");
+                if (outsideC.HasValue && (!Finite(outsideC.Value) || outsideC.Value < -273.15)) throw new ArgumentOutOfRangeException(nameof(outsideC));
+                ValidateStep(seconds);
+            }
             double ambient=outsideC ?? 0;
-            ValidateStep(seconds);
             PrepareBuffers();
             var o=nativeOffsets; var n=nativeNeighbours; var g=nativeG; var ext=nativeExterior;
             var t=nativeT; var e=nativeEnergy; var next=nativeNext;
             {
-                double externalEnergy = 0, externalCorrection = 0;
                 var energyBuffer = e; var temperatureBuffer = t;
                 for (int i = 0; i < cells.Length; i++)
                 {
-                    var c = cells[i]; energyBuffer[i] = c.Owner.EnergyJ[c.Index]; temperatureBuffer[i] = e[i] / c.Owner.HeatCapacityJPerK[c.Index];
-                    if (!Finite(t[i]) || t[i] < -273.15) throw new InvalidOperationException(Detail(i,"Invalid old temperature"));
-                    externalEnergy = Add(externalEnergy,seconds*exterior[i]*(ambient-t[i]),ref externalCorrection);
+                    var c = cells[i];
+                    double energy = c.Owner.EnergyBuffer[c.Index];
+                    energyBuffer[i] = energy;
+                    temperatureBuffer[i] = energy / cachedCapacities[i];
                 }
-                var jobTime = Stopwatch.StartNew();
+                if(DiagnosticsEnabled)
+                {
+                    double externalEnergy=0,externalCorrection=0;
+                    for(int i=0;i<cells.Length;i++)
+                    {
+                        if(!Finite(t[i]) || t[i]<-273.15) throw new InvalidOperationException(Detail(i,"Invalid old temperature"));
+                        externalEnergy=Add(externalEnergy,seconds*exterior[i]*(ambient-t[i]),ref externalCorrection);
+                    }
+                    ExternalEnergyJ=externalEnergy;
+                }
+                var jobTime = measure ? Stopwatch.StartNew() : null;
                 new Gather {Offsets=o,Neighbours=n,G=g,T=t,Energy=e,Next=next,Seconds=seconds,Exterior=ext,OutsideC=ambient}.Schedule(cells.Length,64).Complete();
-                LastJobMilliseconds = jobTime.Elapsed.TotalMilliseconds;
+                LastJobMilliseconds = jobTime?.Elapsed.TotalMilliseconds ?? 0;
                 for (int i = 0; i < cells.Length; i++)
                     cells[i].Owner.CommitExchangeEnergy(cells[i].Index,(float)next[i]);
-                ExternalEnergyJ = externalEnergy;
             }
         }
         catch (Exception ex) { Diagnostic = ex.Message; throw; }
-        finally { LastTickMilliseconds = total.Elapsed.TotalMilliseconds; }
+        finally { LastTickMilliseconds = total?.Elapsed.TotalMilliseconds ?? 0; }
     }
     private static double Add(double sum, double value, ref double correction)
     { double y=value-correction, result=sum+y; correction=(result-sum)-y; return result; }
