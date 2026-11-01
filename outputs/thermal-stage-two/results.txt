@@ -1,0 +1,9 @@
+Analytic 60s: double residual=0 J; float residual=0 J
+Default geometry: cells=90696 faces=257456 dtMax=0.27741967346622026 s
+Explicit step rejected: dt=60 s; box 1 cell 12187 (1,1,13) owner 1:12187; C=0.00024096001288853586 J/K; sumG=0.00086857579304978926 W/K; dtMax=0.27741967346622026 s
+Mixed stack/detached: cells=104220 faces=296836 dtMax=0.25279556595557756 s; conforming widths and XY partitions verified
+Fixed 0.01s experiment x105: max double residual=3.0680831139551223E-12 J; max float residual=0.0042228216771036386 J; cumulative drift=0.026992921018972993 J; abs rounding budget=3.2995841815233518 J
+Editor Mono, 100 measured ticks after 5 warmups: full step median=20.5625 ms p95=23.8488 ms; Schedule+Complete median=2.1612 ms p95=2.421 ms; includes TempJob allocation/copy/validation/commit in full step
+Synthetic weak-contact 60s full-size Job: 37.9719 ms; double residual=1.23190520284755E-13 J; float residual=0.000210894970223308 J (not actual hive conductance)
+PASS Weather 2.0 independent 6000-minute save/resume deterministic regression (thermal intentionally not registered in this weather-only test)
+PASS assembly/spatial/equipment/cell/comb/save/time regression suites; stage-two checks=104265

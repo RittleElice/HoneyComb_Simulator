@@ -1,0 +1,11 @@
+{
+  "ThermalStageTwoTests.cs": "Assets\\Editor\\Tests\\ThermalStageTwoTests.cs",
+  "SimulationScheduler.cs": "Assets\\Scripts\\Core\\Time\\SimulationScheduler.cs",
+  "WorldSaveCodec.cs": "Assets\\Scripts\\Core\\Persistence\\WorldSaveCodec.cs",
+  "ThermalExchange.cs": "Assets\\Scripts\\Data\\Thermal\\ThermalExchange.cs",
+  "ThermalTopology.cs": "Assets\\Scripts\\Data\\Thermal\\ThermalTopology.cs",
+  "GameTimeRuntime.cs": "Assets\\Scripts\\Core\\Time\\GameTimeRuntime.cs",
+  "ThermalWorld.cs": "Assets\\Scripts\\Data\\Thermal\\ThermalWorld.cs",
+  "ThermalStageTwoPlayTests.cs": "Assets\\Editor\\Tests\\ThermalStageTwoPlayTests.cs",
+  "EquipmentThermalState.cs": "Assets\\Scripts\\Data\\Thermal\\EquipmentThermalState.cs"
+}

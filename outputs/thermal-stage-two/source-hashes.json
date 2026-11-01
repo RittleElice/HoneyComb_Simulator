@@ -1,0 +1,38 @@
+[
+  {
+    "File": "Assets\\Editor\\Tests\\ThermalStageTwoTests.cs",
+    "SHA256": "085C3F6C9DD3FE4A7AD1319F26B29948BE5C13FAF004D88DC3BF2AEC397D3791"
+  },
+  {
+    "File": "Assets\\Scripts\\Core\\Time\\SimulationScheduler.cs",
+    "SHA256": "8F347455CD5C90F4FBD800DD12164B55C7AD0147E9187464D50716B86FA21ADA"
+  },
+  {
+    "File": "Assets\\Scripts\\Core\\Persistence\\WorldSaveCodec.cs",
+    "SHA256": "E86748ECC148C6C2D3B4FE7E564C4CA1192A86038A2E60E9BE7D21453EEF1BA9"
+  },
+  {
+    "File": "Assets\\Scripts\\Data\\Thermal\\ThermalExchange.cs",
+    "SHA256": "998BA08B0715575AE2CA9F927B6FA0B8EDA5C6F505B97B950458DADFC458C0A8"
+  },
+  {
+    "File": "Assets\\Scripts\\Data\\Thermal\\ThermalTopology.cs",
+    "SHA256": "15CA32E9577574EDC0646A693DC95B7A6E09241ACAAA9C352E6F44306D083A26"
+  },
+  {
+    "File": "Assets\\Scripts\\Core\\Time\\GameTimeRuntime.cs",
+    "SHA256": "4F4A3B4573E96E42A6FC8909A3B0F140A5999FF0FA3272EA5BB3D01EDF871D93"
+  },
+  {
+    "File": "Assets\\Scripts\\Data\\Thermal\\ThermalWorld.cs",
+    "SHA256": "7C09D8F0340CFB33BD1BDB1FF5469BC6419BB3B25547FBC7F10615400C6E4F7F"
+  },
+  {
+    "File": "Assets\\Editor\\Tests\\ThermalStageTwoPlayTests.cs",
+    "SHA256": "BB524A0D2B063FE4F2CE4D37D6EFFD0E8F4A56BF7276BB5EAC5067A5CA8FEF04"
+  },
+  {
+    "File": "Assets\\Scripts\\Data\\Thermal\\EquipmentThermalState.cs",
+    "SHA256": "B6473B6E5C167A485DFC4443670C9DBF20FCFFAF2F2E7884CDFA80AA01C4282B"
+  }
+]

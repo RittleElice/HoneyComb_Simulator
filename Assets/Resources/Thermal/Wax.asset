@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b49d5c786fc3448e9fdc83c49a719401, type: 3}
+  m_Name: Wax
+  m_EditorClassIdentifier: 
+  Kind: 2
+  ReferenceTemperatureC: 20
+  DensityKgPerM3: 950
+  SpecificHeatJPerKgK: 2321
+  ConductivityWPerMK: 0.25
+  Sources: "https://www.fao.org/4/W0076e/w0076e12.htm ; https://www.tainstruments.com/applications-notes/thermal-analysis-of-phase-change-materials-three-organic-waxes-using-tga-dsc-and-modulated-dsc/"
+  Assumptions: "Density 950 is user initial assumption (FAO gives 958-970 at 15 C); conductivity converted from 0.0025 J cm/(s C cm2). cp 2321 is measured yellow beeswax at 20 C in TA Instruments Table 1; white beeswax is 2901, so sample variation remains uncertain. No latent heat."
+  Uncertain: 1
+

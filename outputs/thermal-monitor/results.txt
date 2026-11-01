@@ -1,0 +1,1 @@
+PASS 29 monitor checks: read-only sampling, runtime capacity, minute deltas, jump gaps, bounded history, placement and target resets. Interactive layout/Play/device review not performed.

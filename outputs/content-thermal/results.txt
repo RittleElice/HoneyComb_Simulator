@@ -1,0 +1,9 @@
+Analytic 60s: double residual=0 J; float residual=0 J
+Default geometry: cells=90696 faces=257456 dtMax=599.99999999999977 s
+PASS actual 60s runtime ticks and coupled save/resume
+Mixed stack/detached: cells=104220 faces=296836 dtMax=599.99999999999977 s; conforming widths and XY partitions verified
+Actual effective 60s updates x105: max double residual=2.015138056421506E-12 J; max float residual=0.0013558302307501435 J; cumulative drift=0.0031902622431516647 J; abs rounding budget=3.2879306875891778 J
+Editor Mono, 100 measured ticks after 5 warmups: full step median=28.8258 ms p95=63.0316 ms; Schedule+Complete median=2.8559 ms p95=4.2192 ms; includes TempJob allocation/copy/validation/commit in full step
+Synthetic weak-contact 60s full-size Job: 28.5301 ms; double residual=-3.753603330936E-13 J; float residual=3.13948839902878E-06 J (not actual hive conductance)
+PASS Weather 2.0 independent 6000-minute save/resume deterministic regression (weather-only regression in addition to coupled runtime checks)
+PASS assembly/spatial/equipment/cell/comb/save/time regression suites; stage-two checks=208483

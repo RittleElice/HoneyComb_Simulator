@@ -229,7 +229,7 @@ public sealed partial class FrameSurface
 
     public CombRegionThermalMass GetThermalRegion(int regionX, int regionZ)
     {
-        if (Width != 84 || Height != 40) throw new InvalidOperationException("Thermal mapping requires an 84 x 40 surface.");
+        // Legacy frame dimensions use normalized regions; standard 84x40 remains exact 7x5.
         if (regionX < 0 || regionX >= 12 || regionZ < 0 || regionZ >= 8) throw new ArgumentOutOfRangeException();
         if (thermalRegions == null) thermalRegions = new CombRegionThermalMass[96];
         if (thermalDirty)
@@ -238,7 +238,7 @@ public sealed partial class FrameSurface
             for (int i = 0; i < cells.Length; i++)
             {
                 if (cells[i].Content == CellContentKind.Empty) continue;
-                int region = (i % Width) / 7 + 12 * ((i / Width) / 5);
+                int region = (i % Width) * 12 / Width + 12 * ((i / Width) * 8 / Height);
                 var mass = thermalRegions[region];
                 if (materials == null || !materials.Has(i)) mass.UnquantifiedCellCount++;
                 else switch (cells[i].Content)

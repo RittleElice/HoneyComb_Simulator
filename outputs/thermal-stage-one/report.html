@@ -1,0 +1,58 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><title>열환경 1단계 구현·검증 보고서</title>
+<style>body{font:16px/1.7 system-ui,sans-serif;color:#24322b;background:#f6f7f3;max-width:1100px;margin:48px auto;padding:0 28px}h1,h2{color:#254f3a}h2{margin-top:40px;border-bottom:1px solid #ccd6cc}table{border-collapse:collapse;width:100%;background:white}th,td{padding:10px;border:1px solid #d6ddd4;text-align:left}code{font-size:13px}.note{padding:18px;background:#e4efdf;border-left:4px solid #467945}.source{font-size:13px;overflow-wrap:anywhere}li{margin:7px 0}a{color:#186242}</style>
+<h1>양봉 시뮬레이터 — 열환경 1단계</h1><p>2026-11-01 KST · Unity 6000.5.1f1 · 원본 프로젝트 C:\UnityProject\HoneyComb_Simulator</p>
+<p class="note">물성·열용량·열에너지 원본 상태와 저장을 구현하고 원본 Unity 컴파일, 데이터 회귀 및 Play 경로를 검증했다. 60초 열교환 Solver는 구현하거나 등록하지 않았다.</p>
+<h2>조사와 재사용</h2><ul>
+<li>EquipmentSpatialGrid의 장비 소유 격자와 HiveSpatialGrid의 원본 셀 참조를 재사용했다. 분리·이동해도 장비 열에너지의 소유권이 바뀌지 않는다.</li>
+<li>FrameSurface의 소방 건설도·Worker/Drone 타입·Revision을 읽는다. 기존 소방 데이터·화밀 질량·저장 코드를 재작성하지 않았다.</li>
+<li>기존 CombBalance / GetContentThermalMass / GetHeatCapacityJPerK는 과거 내용물 진단 API이며 7×5 집계와 화밀·화분·봉충 열용량을 포함한다. 호환성과 회귀를 위해 유지했다. 새 열환경은 이 값들을 사용하지 않는다. 이후 Solver는 ThermalWorld.View 또는 EquipmentThermalState의 새 캐시를 사용해야 한다.</li>
+<li>SimulationScheduler는 그대로 사용하며 참가자는 날씨만 유지한다. 열환경은 시작·정상 Update·저장 직전에 구성을 갱신한다. 시간 경과로 에너지를 변경하지 않는다.</li>
+<li>날씨 Ver 2.0의 Current.TemperatureCelsius를 읽으며 baseline·난수·날씨 방정식은 수정하지 않았다.</li></ul>
+<h2>공간·질량 규칙</h2>
+<p>실제 소비장 외곽은 440×220mm, 장비 격자는 14×3×10이다. 목재 테두리를 제외한 공간은 420×200mm / 12×3×8이다. 사용자의 추가 확인에 따라 명목 440×200mm 밀랍판을 실제 개구부에 맞춰 잘랐다.</p>
+<table><tr><th>항목</th><th>계산 / 결과</th></tr>
+<tr><td>잘라내기 전 중앙판</td><td>0.440 × 0.200 × 0.0005 × 950 = 0.0418kg</td></tr>
+<tr><td>적용 중앙판</td><td>0.420 × 0.200 × 0.0005 × 950 = 0.0399kg (39.9g), Y=1 내부 셀에만 적용</td></tr>
+<tr><td>건설 밀랍</td><td>일벌방 15mg / 수벌방 20mg × 건설도/100. 완성 판정 이력·봉개 진행도는 질량에 별도 가산하지 않음.</td></tr>
+<tr><td>기본 규격의 논리 구역</td><td>각 면 84×40 → X 6개 / Z 4개 → 14×10, 앞 Y=0 / 중앙 Y=1 / 뒤 Y=2</td></tr>
+<tr><td>실제 공간 배분</td><td>14×10 논리 구역을 실제 420×200mm 내부의 30×20mm 구역으로 놓고, 기존 35×25mm 내부 격자와 겹치는 면적 비율로 질량 배분. 논리 구역과 실제 셀의 1:1 대응은 아님.</td></tr>
+<tr><td>양면 전부 일벌방 100%</td><td>6,720 × 15mg = 100.8g; 중앙판 포함 140.7g. 목재 셀 밀랍 0g.</td></tr>
+<tr><td>구형 임의 규격 소비장</td><td>원본 소방 수는 유지하고 14×10으로 정규화 배분. MappingNotice로 6×4가 아닌 호환 처리임을 명시.</td></tr></table>
+<h2>20°C 공통 재질 에셋</h2><p>단위: 밀도 kg/m³, 비열 J/(kg·K), 열전도율 W/(m·K). 각 에셋은 출처·가정·불확실성 표시를 가진다. 물성값은 월드 시작 시 불변 값으로 읽는다. Inspector 변경은 새 월드/재시작 시 반영되며 실행 중 자동 반영하지 않는다.</p>
+<table><tr><th>재질</th><th>밀도</th><th>비열</th><th>열전도율</th><th>근거 상태</th></tr><tr><td>Air</td><td>1.2</td><td>1004</td><td>0.0254</td><td>20°C 반올림 참고값</td></tr><tr><td>Wood</td><td>500</td><td>1600</td><td>0.12</td><td>가정·불확실성 있음</td></tr><tr><td>Wax</td><td>950</td><td>2321</td><td>0.25</td><td>가정·불확실성 있음</td></tr><tr><td>Insulation</td><td>14</td><td>1450</td><td>0.036</td><td>가정·불확실성 있음</td></tr><tr><td>Sugar</td><td>1592.8908</td><td>1585.674</td><td>0.2274255</td><td>가정·불확실성 있음</td></tr><tr><td>Water</td><td>998</td><td>4182</td><td>0.589</td><td>20°C 반올림 참고값</td></tr><tr><td>Pollen</td><td>1300</td><td>1800</td><td>0.2</td><td>가정·불확실성 있음</td></tr></table>
+<p>공기·목재·밀랍·단열재만 새 캐시에 연결했다. 당분·물·화분 에셋은 후속 단계용 정의이며 화밀·화분·벌·봉충의 질량과 열용량은 이번 계산에서 제외했다. 밀랍 비열은 TA Instruments의 20°C 황색 밀랍 측정값이며, 백색 밀랍의 2,901과 차이가 있다. 화분은 확인된 20°C 실측 세트가 없어 세 값 모두 임시 추정치이다.</p>
+<h3>Air</h3><p>Dry air; rounded cp at nominal 1 bar; isotropic molecular conductivity, no convection enhancement.</p><p class="source">https://shepherd.caltech.edu/Ae101/old/guide/guide.pdf p11 (PDF p15), nominal 20 C and 1 bar</p><h3>Wood</h3><p>Assumed softwood near 12 percent moisture, across grain. Rounded modelling preset, not a measured species or hive. Density/cp/k uncertain; anisotropy omitted.</p><p class="source">https://www.fpl.fs.usda.gov/documnts/fplgtr/fplgtr282/fpl_gtr282.pdf Chapter 4</p><h3>Wax</h3><p>Density 950 is user initial assumption (FAO gives 958-970 at 15 C); conductivity converted from 0.0025 J cm/(s C cm2). cp 2321 is measured yellow beeswax at 20 C in TA Instruments Table 1; white beeswax is 2901, so sample variation remains uncertain. No latent heat.</p><p class="source">https://www.fao.org/4/W0076e/w0076e12.htm ; https://www.tainstruments.com/applications-notes/thermal-analysis-of-phase-change-materials-three-organic-waxes-using-tga-dsc-and-modulated-dsc/</p><h3>Insulation</h3><p>EPS 14 kg/m3 manufacturer surrogate. 1450 reference cp; conductivity upper declared value used at 20 C without temperature correction. Actual hive insulation unspecified. Bulk density already includes pores; do not add internal pore air twice.</p><p class="source">https://insutech-eg.com/products/eps-14.html</p><h3>Sugar</h3><p>Dry carbohydrate surrogate, NOT dissolved nectar sugar partial volume or pure sucrose. Reserved, not connected in stage 1.</p><p class="source">https://handbook.ashrae.org/handbooks/R18/SI/R18_Ch19/r18_ch19_si.aspx Table 1 Choi and Okos equations evaluated at 20 C</p><h3>Water</h3><p>Liquid water at 20 C. Reserved; no phase change or nectar mixture model in stage 1.</p><p class="source">https://shepherd.caltech.edu/Ae101/old/guide/guide.pdf p11 (PDF p15), nominal 20 C and 1 bar</p><h3>Pollen</h3><p>All three numbers are provisional dry mixed-food surrogate assumptions, NOT measured pollen at 20 C. Botanical source, moisture and packing unknown; bulk vs skeletal density unresolved. Reserved, not connected.</p><p class="source">https://handbook.ashrae.org/handbooks/R18/SI/R18_Ch19/r18_ch19_si.aspx Table 1 Choi and Okos equations evaluated at 20 C (component-model context only)</p>
+<h2>상태·캐시와 진단</h2><ul>
+<li>원본: 장비 소유 float[] 에너지(J), 초기화 여부. E=C×T(°C), 0°C를 기준으로 하는 현열 모델이므로 음수 에너지도 정상이다. 절대 내부에너지나 잠열 모델은 아니다.</li>
+<li>파생 SoA: float[] 열용량(J/K), 유효 열전도율(W/mK), 공기 체적(m³), 밀랍 질량(kg). bool[] Dirty Flag와 중복 없는 인덱스 목록을 사용한다.</li>
+<li>Vair = Vcell − Vwood/insulation − mwax/ρwax. C = Σm·cp, keff = ΣV·k/Vcell. EPS는 내부 기공을 포함한 벌크 재질이므로 별도 기공 공기를 더하지 않는다.</li>
+<li>건설도/타입 변경은 FrameSurface.Revision을 감지해 밀랍을 재집계하고 실제 질량이 달라진 셀만 dirty 처리한다. 전체 소방 집계 자체는 아직 증분 변경 이벤트 방식이 아니다.</li>
+<li>캐시 재계산은 이미 초기화되거나 저장에서 복원된 에너지를 보존한다. 구성 변화에 따른 열에너지 수송은 미구현이므로 C 변화만으로 온도가 달라질 수 있다.</li>
+<li>새 장비의 첫 열환경 등록은 그 시점 외기온을 사용한다. 장비가 빠진 자리에 생긴 공기도 현재 외기온으로 초기화한다. HiveThermalView는 원본 장비 상태를 참조한다.</li>
+<li>상자 자체 배열은 장비가 덮고 있는 위치의 비활성 공기 저장 공간도 갖는다. 현재 배치의 물리적 합계/후속 Solver는 HiveThermalView로 순회해야 하며 원본 배열들을 단순 합산하면 안 된다.</li>
+<li>체적 초과·비정상 물성/질량/에너지는 예외 처리하고 장비 ID와 계산 중 셀 번호를 진단한다. 공기를 음수로 저장하거나 초과 밀랍을 몰래 버리지 않는다. 부동소수점 체적 오차 허용치는 셀 체적의 10⁻⁶이다.</li>
+<li>격왕판은 기존 0두께 face 모델을 유지한다. 임의의 체적·질량·열용량은 추가하지 않았다.</li></ul>
+<h2>저장 호환성과 미구현 상태</h2><ul>
+<li>스키마 1·2 읽기 지원 유지. 열환경 상태가 전혀 없는 월드는 기존 스키마 2로 저장된다.</li>
+<li>열환경 상태가 있으면 스키마 3: 장비별 상태 존재 여부, 배열 길이, 셀별 초기화 여부와 float 에너지를 저장한다. 비정상 에너지/길이는 복원 시 거부한다.</li>
+<li>열용량·열전도율·공기 체적·밀랍 질량·dirty 목록·배치 view는 저장하지 않고 복원 후 다시 계산한다. 저장 에너지는 새 외기온으로 덮어쓰지 않는다.</li>
+<li>열환경이 없는 구형 저장은 불러온 시점의 저장 날씨(스키마 1은 기존 날씨 마이그레이션 후)로 최초 초기화한다. 과거의 열이력을 추정하지 않는다.</li>
+<li>아직 존재하지 않는 열교환/대류/복사/잠열/내용물 수송 상태를 저장했다고 간주하지 않는다. 이후 상태를 가진 참가자를 등록하면 저장 지원도 추가해야 하며 기존 CanCaptureWorld의 미지원 참가자 차단은 유지했다.</li>
+<li>새 스키마 3 파일을 예전 게임 실행 파일에서 읽는 역방향 호환은 제공하지 않는다. 기존 저장 세대·체크섬·원자적 쓰기 구조는 그대로다.</li></ul>
+<h2>검증 결과</h2><table><tr><th>검증</th><th>결과</th></tr>
+<tr><td>Unity 원본 컴파일</td><td>6000.5.1f1 Editor의 runtime/editor 어셈블리 갱신 및 테스트 실행 성공</td></tr>
+<tr><td>열환경 단위·경계·통합</td><td>91,742 검사 통과. 재질/단위/질량/6×4 집계/목재 제외/체적 초과/dirty/음수 에너지/구형 규격/실제 날씨/스키마1·2·3/난수 보존</td></tr>
+<tr><td>기존 기능 회귀</td><td>장비 조립 3,363 / 공간 격자 409,567 / 소방 상태 81 / 장비·소방 1,105 / 소방 기하 16,821 / 기존 내용물 열용량 6,968 / 저장 23 / 시간 1,661,784 검사 통과</td></tr>
+<tr><td>원본 Play 경로</td><td>Bootstrap → StartNewGame → 열환경 초기화 → 실제 저장·LoadAsync → 1시간 시간 점프: 통과. 개인 저장과 별도 폴더 사용, 종료 후 편집 모드 복귀.</td></tr>
+<tr><td>60분 이상 경과</td><td>날씨만 진행하고 기존 열에너지 유지, Scheduler 참가자 1개 확인</td></tr>
+<tr><td>제한</td><td>Android 빌드·실기기·터치 및 온도맵 시각 검증은 수행하지 않음. Play 중 기존 MapoDPP SDF의 말줄임표 글리프 누락 경고 관찰.</td></tr></table>
+<p>배치 실행은 이미 열린 원본 프로젝트의 잠금 때문에 시작되지 않았으며, 대신 열린 원본 편집기의 데이터 테스트와 격리된 Play 테스트를 실행했다.</p>
+<p><a href="thermal-tests.txt">열환경 결과</a> · <a href="regression-tests.txt">회귀 결과</a> · <a href="play-tests.txt">Play 결과</a></p>
+<h2>변경 파일</h2><ul><li><code>Assets/Scripts/Data/Item/ItemData.cs</code></li><li><code>Assets/Scripts/Data/World/GameWorld.cs</code></li><li><code>Assets/Scripts/Core/Time/GameTimeRuntime.cs</code></li><li><code>Assets/Scripts/Core/Persistence/WorldSaveCodec.cs</code></li><li><code>Assets/Scripts/Data/Thermal/EquipmentThermalState.cs</code></li><li><code>Assets/Scripts/Data/Thermal/HiveThermalView.cs</code></li><li><code>Assets/Scripts/Data/Thermal/ThermalMaterialAsset.cs</code></li><li><code>Assets/Scripts/Data/Thermal/ThermalMath.cs</code></li><li><code>Assets/Scripts/Data/Thermal/ThermalWorld.cs</code></li><li><code>Assets/Resources/Thermal/Air.asset</code></li><li><code>Assets/Resources/Thermal/Insulation.asset</code></li><li><code>Assets/Resources/Thermal/Pollen.asset</code></li><li><code>Assets/Resources/Thermal/Sugar.asset</code></li><li><code>Assets/Resources/Thermal/Water.asset</code></li><li><code>Assets/Resources/Thermal/Wax.asset</code></li><li><code>Assets/Resources/Thermal/Wood.asset</code></li><li><code>Assets/Editor/Tests/ThermalStageOneTests.cs</code></li><li><code>Assets/Editor/Tests/ThermalStageOnePlayTests.cs</code></li></ul><p>신규 에셋·스크립트의 Unity .meta 파일 포함. 기존 .idea 사용자 작업 파일은 이 작업의 변경 대상이 아니다. 장비 형상·씬·날씨 데이터·소방 저장 내용은 수정하지 않았다.</p>
+<h2>다음 단계 준비사항</h2><ol>
+<li>Solver는 HiveThermalView의 실제 소유 셀을 사용하고 기존 CombBalance 열용량 API와 혼용하지 않는다.</li>
+<li>14×10 논리 구역 → 실제 12×8 내부 격자의 면적 보존 투영을 전제로 6방향 면 연결·열저항을 설계한다. 기존 공간 형상을 변경하려면 별도 설계 검토가 필요하다.</li>
+<li>60초 명시적 계산의 안정조건, 에너지 보존, 실패 시 원자적 중단과 저장 차단을 검증한다. 이번 통과 결과는 Solver 안정성을 증명하지 않는다.</li>
+<li>내용물·벌의 질량/열용량과 유입·유출 에너지, 풍속/대류·복사·증발잠열은 후속 단계다. 공기의 방향별 유효 전도율도 아직 추가하지 않은 등방성 전도 모델이다.</li>
+<li>목재 수종·함수율, 실제 단열재 제품, 화분 함수율/충전밀도, 당분의 용액 내 유효 체적을 정한 뒤 불확실한 재질을 보정한다.</li></ol>
+</html>

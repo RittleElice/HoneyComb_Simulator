@@ -1,0 +1,20 @@
+[
+  "Assets/Scripts/Data/Item/ItemData.cs",
+  "Assets/Scripts/Data/World/GameWorld.cs",
+  "Assets/Scripts/Core/Time/GameTimeRuntime.cs",
+  "Assets/Scripts/Core/Persistence/WorldSaveCodec.cs",
+  "Assets/Scripts/Data/Thermal/EquipmentThermalState.cs",
+  "Assets/Scripts/Data/Thermal/HiveThermalView.cs",
+  "Assets/Scripts/Data/Thermal/ThermalMaterialAsset.cs",
+  "Assets/Scripts/Data/Thermal/ThermalMath.cs",
+  "Assets/Scripts/Data/Thermal/ThermalWorld.cs",
+  "Assets/Resources/Thermal/Air.asset",
+  "Assets/Resources/Thermal/Insulation.asset",
+  "Assets/Resources/Thermal/Pollen.asset",
+  "Assets/Resources/Thermal/Sugar.asset",
+  "Assets/Resources/Thermal/Water.asset",
+  "Assets/Resources/Thermal/Wax.asset",
+  "Assets/Resources/Thermal/Wood.asset",
+  "Assets/Editor/Tests/ThermalStageOneTests.cs",
+  "Assets/Editor/Tests/ThermalStageOnePlayTests.cs"
+]

@@ -18,6 +18,7 @@ internal static class SaveBinary
     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
 }
 /// <summary>Schema 2 adds complete weather/random state. Schema 1 is retained for migration.
+/// Schema 3 adds optional equipment-owned float thermal energy; schemas 1/2 remain readable.
 /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
 public sealed class WorldSaveCodec
 {
@@ -25,15 +26,20 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
+    private int schema = 2;
     public static byte[] Encode(WorldSaveSnapshot snapshot)
     {
         ValidateTime(snapshot);
+        if (snapshot.World.Thermal?.Failure != null)
+            throw new InvalidDataException("Unsafe thermal tick cannot be saved: " + snapshot.World.Thermal.Failure);
         using (var stream = new MemoryStream())
         using (var w = new BinaryWriter(stream,Encoding.UTF8,true))
         {
-            w.Write(2); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
+            int version = 2;
+            foreach (var item in ThermalWorld.Items(snapshot.World)) if (item.ExistingThermalState != null) { version = 3; break; }
+            w.Write(version); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
             var world = snapshot.World; w.Write(world.CurrentGameMinute);
-            var codec = new WorldSaveCodec { hives = world.Apiary.Hives };
+            var codec = new WorldSaveCodec { hives = world.Apiary.Hives, schema = version };
             SaveBinary.Text(w,world.Apiary.Name); w.Write(world.Apiary.Grid.UnlockedWidth); w.Write(world.Apiary.Grid.Width); w.Write(world.Apiary.Grid.Height);
             w.Write(codec.hives.Count); var ids=new HashSet<int>();
             foreach (var hive in codec.hives)
@@ -54,13 +60,13 @@ public sealed class WorldSaveCodec
         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
         {
             int schema=r.ReadInt32();
-            if(schema!=1 && schema!=2) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
+            if(schema!=1 && schema!=2 && schema!=3) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);
             if(unlocked<1 || height<1 || width<=unlocked || (long)width*height>1000000) throw new InvalidDataException("Invalid apiary size.");
             var apiary=new ApiaryData(name,unlocked,height); if(width>apiary.Grid.Width) apiary.Grid.Expand(width,height);
-            var codec=new WorldSaveCodec { hives=apiary.Hives }; int count=SaveBinary.Count(r,100000); var ids=new HashSet<int>();
+            var codec=new WorldSaveCodec { hives=apiary.Hives, schema=schema }; int count=SaveBinary.Count(r,100000); var ids=new HashSet<int>();
             for(int i=0;i<count;i++) { int id=r.ReadInt32(), x=r.ReadInt32(), y=r.ReadInt32(); if(!ids.Add(id)) throw new InvalidDataException("Duplicate hive ID."); codec.hives.Add(new HiveData(id,x,y)); }
             foreach(var hive in codec.hives) Insert(hive.Slot,codec.ReadItem(r,0));
             for(int y=0;y<height;y++) for(int x=0;x<unlocked;x++) Insert(apiary.GetItemSlot(x,y),codec.ReadItem(r,0));
@@ -103,6 +109,7 @@ public sealed class WorldSaveCodec
         else throw new InvalidDataException("저장할 수 없는 장비 내용물: "+item.Content.GetType().Name);
         if(item.InteriorSlots!=null) for(int i=0;i<item.InteriorSlots.Capacity;i++) WriteItem(w,item.InteriorSlots.GetSlot(i).Value,depth+1);
         if(item.TopSlot!=null) WriteItem(w,item.TopSlot.Value,depth+1);
+        if(schema >= 3) { w.Write(item.ExistingThermalState != null); item.ExistingThermalState?.WriteSnapshot(w); }
     }
     private MovableItem ReadItem(BinaryReader r,int depth)
     {
@@ -132,6 +139,11 @@ public sealed class WorldSaveCodec
         var item=new ItemData(id,name,(ItemKind)kind,content); if(!item.TrySetAging(aging)) throw new InvalidDataException("Invalid item aging.");
         if(item.InteriorSlots!=null) for(int i=0;i<item.InteriorSlots.Capacity;i++) Insert(item.InteriorSlots.GetSlot(i),ReadItem(r,depth+1));
         if(item.TopSlot!=null) Insert(item.TopSlot,ReadItem(r,depth+1));
+        if(schema >= 3 && r.ReadBoolean())
+        {
+            if(item.ThermalState == null) throw new InvalidDataException("Thermal state on unsupported equipment");
+            item.ThermalState.ReadSnapshot(r);
+        }
         return item;
     }
     private static void Insert(ItemSlot slot,MovableItem value)

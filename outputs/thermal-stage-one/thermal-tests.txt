@@ -1,0 +1,1 @@
+PASS 91742 thermal checks

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b49d5c786fc3448e9fdc83c49a719401, type: 3}
+  m_Name: Pollen
+  m_EditorClassIdentifier: 
+  Kind: 6
+  ReferenceTemperatureC: 20
+  DensityKgPerM3: 1300
+  SpecificHeatJPerKgK: 1800
+  ConductivityWPerMK: 0.2
+  Sources: "https://handbook.ashrae.org/handbooks/R18/SI/R18_Ch19/r18_ch19_si.aspx Table 1 Choi and Okos equations evaluated at 20 C (component-model context only)"
+  Assumptions: "All three numbers are provisional dry mixed-food surrogate assumptions, NOT measured pollen at 20 C. Botanical source, moisture and packing unknown; bulk vs skeletal density unresolved. Reserved, not connected."
+  Uncertain: 1

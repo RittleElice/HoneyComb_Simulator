@@ -1,0 +1,10 @@
+PASS exterior analytic heating/cooling, combined budget, open/covered boundaries, weather forcing and geometry changes
+Analytic 60s: double residual=0 J; float residual=0 J
+Default geometry: cells=90696 faces=257456 dtMax=599.99999999999977 s
+PASS actual 60s runtime ticks and coupled save/resume
+Mixed stack/detached: cells=104220 faces=296836 dtMax=599.99999999999977 s; conforming widths and XY partitions verified
+Actual effective 60s updates x105: max double residual=2.0463630789890885E-12 J; max float residual=0.0010757395218661259 J; external energy=-81600.450641128089 J; cumulative balance error=-0.0001361571776214987 J; abs rounding budget=3.2781741427063658 J
+Editor Mono, 100 measured ticks after 5 warmups: full step median=27.1568 ms p95=30.4457 ms; Schedule+Complete median=2.9761 ms p95=3.455 ms; includes TempJob allocation/copy/validation/commit in full step
+Synthetic weak-contact 60s full-size Job: 43.846 ms; double residual=3.72010582061488E-13 J; float residual=-2.81292013823986E-05 J (not actual hive conductance)
+PASS Weather 2.0 independent 6000-minute save/resume deterministic regression (weather-only regression in addition to coupled runtime checks)
+PASS assembly/spatial/equipment/cell/comb/save/time regression suites; stage-two checks=208483

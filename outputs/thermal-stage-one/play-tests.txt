@@ -1,0 +1,1 @@
+PASS 50 checks: original Bootstrap/StartNewGame; runtime thermal initialization; isolated actual save/load; one hour jump; energy preserved; no solver.

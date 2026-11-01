@@ -20,6 +20,8 @@ public sealed class SimulationScheduler
     public int ParticipantCount => participants.Count;
     public bool ContainsOnly(IGameMinuteParticipant participant)
         => participant != null && participants.Count == 1 && ReferenceEquals(participants[0], participant);
+    public bool ContainsThermalAndWeather(IGameMinuteParticipant thermal, IGameMinuteParticipant weather)
+        => thermal != null && weather != null && participants.Count == 2 && ReferenceEquals(participants[0], thermal) && ReferenceEquals(participants[1], weather);
     public Func<Task> CheckpointAsync { get; set; }
     public bool IsRunning => Volatile.Read(ref running) != 0;
     public Exception Fault { get; private set; }

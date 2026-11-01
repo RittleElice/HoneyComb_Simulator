@@ -28,17 +28,22 @@ public sealed class GameTimeRuntime : MonoBehaviour
     private float speed = 1;
     private readonly Dictionary<EventSystem, bool> lockedEvents = new Dictionary<EventSystem, bool>();
 
+    private GameWorld thermalWorld;
     private void Awake() { Scheduler = new SimulationScheduler(Clock); nextTick = Time.realtimeSinceStartupAsDouble + 5; }
     public bool CanCaptureWorld(GameWorld world)
         => world != null && ReferenceEquals(world.Clock, Clock) && !Scheduler.IsInTick && Scheduler.Fault == null && failure == null &&
-           (world.Weather == null ? Scheduler.ParticipantCount == 0 : Scheduler.ContainsOnly(world.Weather) && world.Weather.Minute == Clock.CurrentGameMinute);
+           (world.Weather == null ? Scheduler.ParticipantCount == 0 : Scheduler.ContainsThermalAndWeather(world.Thermal, world.Weather) && world.Thermal.Failure == null && world.Weather.Minute == Clock.CurrentGameMinute);
 
     public void BeginWorld(GameWorld world)
     {
         if (Blocked || Scheduler.IsRunning) throw new InvalidOperationException("Cannot replace a calculating world.");
         if (world == null || world.Weather == null || world.Weather.Minute != world.CurrentGameMinute)
             throw new InvalidOperationException("Weather must be initialized before beginning a world.");
-        Clock = world.Clock; Scheduler = new SimulationScheduler(Clock); Scheduler.Register(world.Weather); offline = new OfflineTimeManager();
+        world.PrepareThermal(ThermalMaterials.Load());
+        thermalWorld = world;
+        Clock = world.Clock; Scheduler = new SimulationScheduler(Clock);
+        // Reject unsafe thermal steps before advancing weather or its random generator.
+        Scheduler.Register(world.Thermal); Scheduler.Register(world.Weather); offline = new OfflineTimeManager();
         Scheduler.CheckpointAsync = () => GameBootstrap.Instance?.SaveSystem?.SaveBoundaryAsync(false) ?? Task.CompletedTask;
         pendingMinutes = 0; operationTarget = 0; HasWorld = true; nextTick = Time.realtimeSinceStartupAsDouble + 5 / speed;
     }
@@ -46,6 +51,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     {
         RefreshInputLock();
         if (!HasWorld || suspended || operation || failure != null) return;
+        try { thermalWorld?.Thermal?.Refresh(); } catch (Exception e) { Fail(e); return; }
         if (pendingMinutes > 0)
         {
             long count = pendingMinutes; pendingMinutes = 0;
@@ -132,6 +138,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     {
         if (!CanCaptureWorld(world))
             throw new InvalidOperationException("전체 상태 저장을 지원하지 않는 시뮬레이션이 있거나 계산 중입니다.");
+        world.Thermal?.Refresh();
         return new WorldSaveSnapshot {
             World = world,
             UtcTicks = Math.Max(offline.SuspendedUtcTicks ?? DateTime.UtcNow.Ticks, offline.HighWaterUtcTicks),

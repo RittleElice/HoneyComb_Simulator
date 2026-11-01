@@ -28,6 +28,10 @@ public class ItemData : MovableItem
     // 단상·계상 상단의 범용 장비 슬롯 1개
     public ItemSlot TopSlot { get; }
 
+    private EquipmentThermalState thermalState;
+    public EquipmentThermalState ExistingThermalState => thermalState;
+    public EquipmentThermalState ThermalState => EquipmentGrid == null ? null :
+        thermalState ?? (thermalState = new EquipmentThermalState(this));
     private HiveSpatialGrid spatialGrid;
     private EquipmentSpatialGrid equipmentGrid;
     // The equipment owns its geometry even while detached or carried in a hand.

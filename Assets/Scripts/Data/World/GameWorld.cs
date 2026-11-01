@@ -2,6 +2,10 @@ using System;
 
 public class GameWorld
 {
+    public ThermalWorld Thermal { get; private set; }
+    public void PrepareThermal(ThermalMaterials materials)
+    { if (Thermal == null) Thermal = new ThermalWorld(this, materials); Thermal.Refresh(); }
+
     public WeatherSimulator Weather { get; private set; }
     public void AttachWeather(WeatherSimulator weather)
     {

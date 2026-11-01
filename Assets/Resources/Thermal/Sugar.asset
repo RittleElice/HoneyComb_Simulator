@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b49d5c786fc3448e9fdc83c49a719401, type: 3}
+  m_Name: Sugar
+  m_EditorClassIdentifier: 
+  Kind: 4
+  ReferenceTemperatureC: 20
+  DensityKgPerM3: 1592.8908
+  SpecificHeatJPerKgK: 1585.674
+  ConductivityWPerMK: 0.2274255
+  Sources: "https://handbook.ashrae.org/handbooks/R18/SI/R18_Ch19/r18_ch19_si.aspx Table 1 Choi and Okos equations evaluated at 20 C"
+  Assumptions: "Dry carbohydrate surrogate, NOT dissolved nectar sugar partial volume or pure sucrose. Reserved, not connected in stage 1."
+  Uncertain: 1

@@ -1,0 +1,1 @@
+PASS 37 checks: original Bootstrap/new game; isolated real save/async load and comb state; 60s rejection preserves energy/weather/clock; saving blocked and valid files unchanged.
