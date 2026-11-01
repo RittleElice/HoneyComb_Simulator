@@ -15,7 +15,9 @@ public sealed class ThermalWorld : IGameMinuteParticipant
         var stamp = ThermalTopology.Signature(world);
         if (Exchange == null || !stamp.SequenceEqual(topologyStamp))
         {
-            Exchange = ThermalTopology.Build(world, materials.MaximumExchangeFractionPerMinute, materials.ExteriorFilmCoefficientWPerM2K); topologyStamp = stamp; TopologyBuilds++;
+            var replacement = ThermalTopology.Build(world, materials.MaximumExchangeFractionPerMinute, materials.ExteriorFilmCoefficientWPerM2K);
+            Exchange?.Dispose();
+            Exchange = replacement; topologyStamp = stamp; TopologyBuilds++;
         }
         Exchange.RefreshCoefficients();
     }

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -7,56 +9,70 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
 {
     private HiveSpatialGrid preview;
     [SerializeField] private bool live=true;
-    [SerializeField] private int apiaryX,apiaryY,boxIndex,axis=1,slice=3,displayMode=1;
+    [SerializeField] private int apiaryX,apiaryY,axis=1,slice=3,displayMode=1;
     [SerializeField] private bool autoRange;
     [SerializeField] private float rangeLow=0,rangeHigh=40;
     private Vector2 scroll;
-    private readonly HiveTemperatureMonitor monitor=new HiveTemperatureMonitor();
+    private HiveTemperatureMonitor monitor;
+    private sealed class Pane
+    {
+        public readonly HiveTemperatureMonitor Monitor=new HiveTemperatureMonitor();
+        public bool Ready;
+        public string Status;
+        public double NextSample;
+    }
+    private readonly Dictionary<HiveSpatialGrid,Pane> panes=new Dictionary<HiveSpatialGrid,Pane>();
     private GameWorld sampledWorld;
     private string sampleStatus;
-    private bool sampleReady, lastCaptureReady;
-    private double nextSample;
+    private bool sampleReady;
     private static readonly Color Cold=new Color(.12f,.35f,.9f),Hot=new Color(.95f,.2f,.08f);
     private static readonly Color SelectedLine=new Color(1,.65f,.15f),OutsideLine=new Color(.2f,.8f,.95f);
 
     [MenuItem("Tools/HoneyComb/Hive Spatial Grid")]
     public static void Open() => GetWindow<HiveSpatialGridDebugWindow>("Hive Spatial Grid");
     private void OnEnable() { minSize=new Vector2(500,420); }
-    private void OnInspectorUpdate() { if(live) {Sample();Repaint();} }
-    private HiveSpatialGrid LiveGrid(GameWorld world)
+    private void OnInspectorUpdate() { if(live) Repaint(); }
+    // All root parts in placement order. Inserted equipment is already projected into each box grid.
+    public static List<HiveSpatialGrid> PlacementGrids(MovableItem value)
     {
-        var slot=world?.Apiary.Grid.GetItemSlot(apiaryX,apiaryY);ItemData box=slot?.Item;
-        if(slot?.Value is ItemAssemblyData assembly)
-            box=boxIndex>=0 && boxIndex<assembly.Parts.Count ? assembly.Parts[boxIndex] : null;
-        return box?.SpatialGrid;
+        var result=new List<HiveSpatialGrid>();
+        if(value is ItemAssemblyData assembly)
+        {
+            foreach(var part in assembly.Parts) if(part.SpatialGrid!=null) result.Add(part.SpatialGrid);
+        }
+        else if(value is ItemData item && item.SpatialGrid!=null) result.Add(item.SpatialGrid);
+        return result;
     }
-    private void Sample()
+    private void Sample(HiveSpatialGrid grid)
     {
+        if(!panes.TryGetValue(grid,out var pane)) {pane=new Pane();panes.Add(grid,pane);}
+        monitor=pane.Monitor;sampleReady=false;
         var bootstrap=GameBootstrap.Instance;var world=bootstrap?.GameWorld;
-        if(!ReferenceEquals(sampledWorld,world)) {monitor.Reset();sampledWorld=world;nextSample=0;}
-        sampleReady=false;
+        if(!live) {sampleStatus="샘플은 구조 미리보기입니다. 실제 온도는 Play 중인 양봉장에서 확인하세요.";return;}
         if(!EditorApplication.isPlaying || world?.Thermal==null) {sampleStatus="Bootstrap에서 Play를 시작하고 새 게임 또는 이어하기를 실행하세요.";return;}
-        var grid=LiveGrid(world);
-        if(grid==null) {monitor.Reset();sampleStatus="선택한 위치에 벌통 상자나 뚜껑이 없습니다.";return;}
         if(bootstrap.TimeSystem?.Scheduler?.IsInTick==true || world.Weather==null || world.Weather.Minute!=world.CurrentGameMinute)
         {sampleStatus="계산이 완료된 시점의 온도를 기다리는 중입니다.";return;}
         if(world.Thermal.Failure!=null || bootstrap.TimeSystem?.Failure!=null)
         {sampleStatus="시뮬레이션 오류: "+(world.Thermal.Failure ?? bootstrap.TimeSystem.Failure);return;}
-        if(EditorApplication.timeSinceStartup<nextSample && monitor.Matches(grid)) {sampleReady=lastCaptureReady;return;}
-        nextSample=EditorApplication.timeSinceStartup+.25;
-        sampleReady=lastCaptureReady=monitor.Capture(grid,world.CurrentGameMinute,world.Weather.Current.TemperatureCelsius,out sampleStatus);
+        if(EditorApplication.timeSinceStartup>=pane.NextSample || !monitor.Matches(grid))
+        {
+            pane.NextSample=EditorApplication.timeSinceStartup+.25;
+            pane.Ready=monitor.Capture(grid,world.CurrentGameMinute,world.Weather.Current.TemperatureCelsius,out pane.Status);
+        }
+        sampleReady=pane.Ready;sampleStatus=pane.Status;
     }
     private void OnGUI()
     {
         EditorGUI.BeginChangeCheck();
         live=EditorGUILayout.Toggle("실행 중인 양봉장 보기",live);
-        HiveSpatialGrid grid;
+        List<HiveSpatialGrid> grids;
         if(live)
         {
             apiaryX=EditorGUILayout.IntField("양봉장 X (0부터)",apiaryX);
             apiaryY=EditorGUILayout.IntField("양봉장 Y (0부터)",apiaryY);
-            boxIndex=EditorGUILayout.IntField("조립 부품 번호 (0부터)",boxIndex);
-            grid=LiveGrid(GameBootstrap.Instance?.GameWorld);
+            var world=GameBootstrap.Instance?.GameWorld;
+            if(!ReferenceEquals(sampledWorld,world)) {panes.Clear();sampledWorld=world;}
+            grids=PlacementGrids(world?.Apiary.Grid.GetItemSlot(apiaryX,apiaryY)?.Value);
         }
         else
         {
@@ -64,15 +80,26 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             if(GUILayout.Button("단상 샘플"))CreatePreview(ItemKind.BroodBox);
             if(GUILayout.Button("계상 샘플"))CreatePreview(ItemKind.Super);
             if(GUILayout.Button("뚜껑 샘플"))CreatePreview(ItemKind.Lid);
-            EditorGUILayout.EndHorizontal();grid=preview;
+            EditorGUILayout.EndHorizontal();grids=preview==null?new List<HiveSpatialGrid>():new List<HiveSpatialGrid>{preview};
         }
-        if(EditorGUI.EndChangeCheck()) {monitor.Reset();nextSample=0;}
-        if(live) Sample();
-        else {sampleReady=false;sampleStatus="샘플은 구조 미리보기입니다. 실제 온도는 Play 중인 양봉장에서 확인하세요.";}
-        if(grid==null) {EditorGUILayout.HelpBox(sampleStatus ?? "샘플 또는 양봉장 위치를 선택하세요.",MessageType.Info);return;}
+        if(EditorGUI.EndChangeCheck()) panes.Clear();
+        foreach(var stale in panes.Keys.Where(g=>!grids.Contains(g)).ToArray()) panes.Remove(stale);
+        if(grids.Count==0) {EditorGUILayout.HelpBox("선택한 양봉장 칸에 벌통 상자나 뚜껑이 없습니다. Play 중인 양봉장 또는 샘플을 선택하세요.",MessageType.Info);return;}
         displayMode=GUILayout.Toolbar(displayMode,new[]{"재질","온도"});
         axis=GUILayout.Toolbar(axis,new[]{"YZ (X 고정)","XZ (Y 고정)","XY (Z 고정)"});
-        slice=EditorGUILayout.IntSlider("단면 위치",slice,0,(axis==0?18:axis==1?52:grid.Layout.SizeZ)-1);
+        int largestZ=grids.Max(g=>g.Layout.SizeZ);
+        slice=EditorGUILayout.IntSlider("단면 위치 (각 부품 기준)",slice,0,(axis==0?18:axis==1?52:largestZ)-1);
+        EditorGUILayout.LabelField($"선택 칸 전체: 상자·뚜껑 {grids.Count}개 / {grids.Sum(g=>g.CellCount):N0} 격자");
+        EditorGUILayout.LabelField("위쪽 부품부터 모두 표시합니다. 내부 부품은 각 상자 단면에 표시됩니다. XY 단면은 각 부품의 높이 범위로 제한됩니다.",EditorStyles.wordWrappedLabel);
+        scroll=EditorGUILayout.BeginScrollView(scroll);
+        for(int p=grids.Count-1;p>=0;p--) DrawGrid(grids[p]);
+        EditorGUILayout.EndScrollView();
+    }
+    private void DrawGrid(HiveSpatialGrid grid)
+    {
+        Sample(grid);
+        int slice=Math.Min(this.slice,(axis==0?18:axis==1?52:grid.Layout.SizeZ)-1);
+        EditorGUILayout.Space(12);
         EditorGUILayout.LabelField($"{grid.Box.Name}   |   18 × 52 × {grid.Layout.SizeZ} = {grid.CellCount:N0} 격자");
         EditorGUILayout.LabelField($"496 × 390 × {grid.Layout.Z[grid.Layout.SizeZ]} mm   |   격왕판: {(grid.TopBoundaryEquipment!=null?"있음":"없음")}");
         bool thermal=sampleReady && monitor.Matches(grid);
@@ -92,7 +119,8 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             DrawLegend(low,high);
         }
         else EditorGUILayout.LabelField("공기: 파랑 / 목재: 갈색 / 소비: 노랑 / 단열재: 보라");
-        scroll=EditorGUILayout.BeginScrollView(scroll);
+        DrawEquipmentList(grid.Box);
+        EditorGUILayout.LabelField($"표시 단면: {(axis==0?"X":axis==1?"Y":"Z")} = {slice}");
         var horizontal=axis==0?grid.Layout.Y:grid.Layout.X;var vertical=axis==2?grid.Layout.Y:grid.Layout.Z;
         const float scale=1.25f;
         Rect area=GUILayoutUtility.GetRect((float)horizontal[horizontal.Count-1]*scale,(float)vertical[vertical.Count-1]*scale,GUILayout.ExpandWidth(false));
@@ -118,7 +146,19 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             EditorGUI.DrawRect(new Rect(area.x+20*scale,area.y+height-1,(float)(horizontal[horizontal.Count-1]-40)*scale,2),Color.magenta);
         }
         if(thermal) DrawSelection(grid);
-        EditorGUILayout.EndScrollView();
+    }
+    private static void DrawEquipmentList(ItemData box)
+    {
+        var names=new List<string>();
+        if(box.InteriorSlots!=null)
+            for(int i=0;i<box.InteriorSlots.Capacity;i++)
+            {
+                var item=box.InteriorSlots.GetSlot(i).Item;
+                if(item!=null) names.Add($"내부 {i+1}: {item.Name} ({item.Kind}, ID {item.Id})");
+            }
+        if(box.TopSlot?.Item!=null) names.Add($"상단: {box.TopSlot.Item.Name} ({box.TopSlot.Item.Kind}, ID {box.TopSlot.Item.Id})");
+        EditorGUILayout.LabelField($"본체: {box.Name} ({box.Kind}, ID {box.Id})",EditorStyles.boldLabel);
+        if(names.Count>0) EditorGUILayout.LabelField(string.Join(" / ",names),EditorStyles.wordWrappedLabel);
     }
     private static Color TemperatureColor(double t,double low,double high)
     {float f=Mathf.Clamp01((float)((t-low)/(high-low)));return f<.5f?Color.Lerp(Cold,new Color(.2f,.85f,.65f),2*f):Color.Lerp(new Color(.2f,.85f,.65f),Hot,2*f-1);}

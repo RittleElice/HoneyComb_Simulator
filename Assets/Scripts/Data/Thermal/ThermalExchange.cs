@@ -5,7 +5,7 @@ using Unity.Collections;
 using Unity.Jobs;
 
 // Orthogonal volumes with optional fixed-temperature exterior reservoirs; no advection.
-public sealed class ThermalExchange
+public sealed class ThermalExchange : IDisposable
 {
     public readonly struct Cell
     {
@@ -42,6 +42,65 @@ public sealed class ThermalExchange
     private readonly double[] coefficients, sums;
     private readonly int[] revisions;
     private readonly double? maximumFractionPerMinute;
+    private NativeArray<int> nativeOffsets, nativeNeighbours;
+    private NativeArray<double> nativeG, nativeExterior, nativeT, nativeEnergy, nativeNext;
+    private int uploadedBuild = -1;
+    private static readonly HashSet<ThermalExchange> activeBuffers = new HashSet<ThermalExchange>();
+    public int BufferAllocations { get; private set; }
+    public int CoefficientUploads { get; private set; }
+    public bool HasBuffers => nativeOffsets.IsCreated;
+    public long BufferBytes => HasBuffers ? 4L * (offsets.Length + neighbours.Length) + 8L * (coefficients.Length + 4L * cells.Length) : 0;
+    // Releases only derived working storage. Authoritative equipment energy is untouched.
+    // A subsequent Step may lazily recreate the buffers (e.g. returning to a loaded world).
+    public void Dispose()
+    {
+        if (nativeOffsets.IsCreated) nativeOffsets.Dispose();
+        if (nativeNeighbours.IsCreated) nativeNeighbours.Dispose();
+        if (nativeG.IsCreated) nativeG.Dispose();
+        if (nativeExterior.IsCreated) nativeExterior.Dispose();
+        if (nativeT.IsCreated) nativeT.Dispose();
+        if (nativeEnergy.IsCreated) nativeEnergy.Dispose();
+        if (nativeNext.IsCreated) nativeNext.Dispose();
+        uploadedBuild = -1;
+        activeBuffers.Remove(this);
+    }
+    public static void ReleaseAllBuffers()
+    {
+        foreach (var exchange in new List<ThermalExchange>(activeBuffers)) exchange.Dispose();
+    }
+    [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetBuffers()
+    {
+        ReleaseAllBuffers();
+        UnityEngine.Application.quitting -= ReleaseAllBuffers;
+        UnityEngine.Application.quitting += ReleaseAllBuffers;
+    }
+    private void PrepareBuffers()
+    {
+        if (!HasBuffers)
+        {
+            try
+            {
+                nativeOffsets = new NativeArray<int>(offsets, Allocator.Persistent);
+                nativeNeighbours = new NativeArray<int>(neighbours, Allocator.Persistent);
+                nativeG = new NativeArray<double>(coefficients.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeExterior = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeT = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeEnergy = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeNext = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                activeBuffers.Add(this);
+                BufferAllocations++;
+            }
+            catch { Dispose(); throw; }
+        }
+        if (uploadedBuild != CoefficientBuilds)
+        {
+            nativeG.CopyFrom(coefficients);
+            nativeExterior.CopyFrom(exterior);
+            uploadedBuild = CoefficientBuilds;
+            CoefficientUploads++;
+        }
+    }
     public double? MaximumFractionPerMinute => maximumFractionPerMinute;
     public double RawMinimumStepSeconds { get; private set; }
     public int CellCount => cells.Length;
@@ -205,13 +264,9 @@ public sealed class ThermalExchange
             if (outsideC.HasValue && (!Finite(outsideC.Value) || outsideC.Value < -273.15)) throw new ArgumentOutOfRangeException(nameof(outsideC));
             double ambient=outsideC ?? 0;
             ValidateStep(seconds);
-            using (var o = new NativeArray<int>(offsets,Allocator.TempJob))
-            using (var n = new NativeArray<int>(neighbours,Allocator.TempJob))
-            using (var g = new NativeArray<double>(coefficients,Allocator.TempJob))
-            using (var ext = new NativeArray<double>(exterior,Allocator.TempJob))
-            using (var t = new NativeArray<double>(cells.Length,Allocator.TempJob))
-            using (var e = new NativeArray<double>(cells.Length,Allocator.TempJob))
-            using (var next = new NativeArray<double>(cells.Length,Allocator.TempJob))
+            PrepareBuffers();
+            var o=nativeOffsets; var n=nativeNeighbours; var g=nativeG; var ext=nativeExterior;
+            var t=nativeT; var e=nativeEnergy; var next=nativeNext;
             {
                 double externalEnergy = 0, externalCorrection = 0;
                 var energyBuffer = e; var temperatureBuffer = t;

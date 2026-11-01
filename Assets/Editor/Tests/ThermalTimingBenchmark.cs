@@ -16,7 +16,7 @@ public static class ThermalTimingBenchmark
     }
     public static void RunBatch()
     {
-        const string folder="outputs/thermal-timing-unchecked";Directory.CreateDirectory(folder);var report=new List<string>();
+        const string folder="outputs/thermal-timing-persistent";Directory.CreateDirectory(folder);var report=new List<string>();
         try
         {
             report.Add("Unity "+Application.unityVersion+"; Editor Mono batchmode; "+SystemInfo.processorType+"; logical processors="+SystemInfo.processorCount);
@@ -58,6 +58,7 @@ public static class ThermalTimingBenchmark
                 report.Add(Stats("Weather Evaluate/Advance",weather));
                 report.Add(Stats("Thermal + weather",total));
                 report.Add("GC collections during warmup+measurement: gen0="+(GC.CollectionCount(0)-gc0)+", gen1="+(GC.CollectionCount(1)-gc1)+", gen2="+(GC.CollectionCount(2)-gc2));
+                report.Add("Persistent buffers: allocations="+exchange.BufferAllocations+"; coefficient uploads="+exchange.CoefficientUploads+"; bytes="+exchange.BufferBytes);
                 var monitor=new HiveTemperatureMonitor();var capture=new List<double>();
                 for(int n=0;n<110;n++){timer.Restart();bool ok=monitor.Capture(box.SpatialGrid,210,world.Weather.Current.TemperatureCelsius,out var why);double elapsed=timer.Elapsed.TotalMilliseconds;if(!ok)throw new Exception(why);if(n>=10)capture.Add(elapsed);}
                 report.Add(Stats("Monitor data capture for one box, excludes drawing",capture));
@@ -69,8 +70,9 @@ public static class ThermalTimingBenchmark
                     timer.Restart();world.Thermal.CalculateMinuteAsync(212,CancellationToken.None).GetAwaiter().GetResult();report.Add("One frame placement + next thermal minute (topology rebuild)="+timer.Elapsed.TotalMilliseconds.ToString("F3")+" ms");
                 }
             }
+            ThermalExchange.ReleaseAllBuffers();
             File.WriteAllLines(folder+"/results.txt",report);UnityEngine.Debug.Log("THERMAL TIMING COMPLETE");if(Application.isBatchMode)EditorApplication.Exit(0);
         }
-        catch(Exception e){report.Add(e.ToString());File.WriteAllLines(folder+"/failure.txt",report);UnityEngine.Debug.LogException(e);if(Application.isBatchMode)EditorApplication.Exit(1);}
+        catch(Exception e){ThermalExchange.ReleaseAllBuffers();report.Add(e.ToString());File.WriteAllLines(folder+"/failure.txt",report);UnityEngine.Debug.LogException(e);if(Application.isBatchMode)EditorApplication.Exit(1);}
     }
 }

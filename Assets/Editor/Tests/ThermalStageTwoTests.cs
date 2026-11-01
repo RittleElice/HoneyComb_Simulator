@@ -28,11 +28,13 @@ public static class ThermalStageTwoTests
     static float[] Energies(ThermalExchange e) => Enumerable.Range(0,e.CellCount).Select(i=>e.GetCell(i).Owner.EnergyJ[e.GetCell(i).Index]).ToArray();
     public static async void RunBatch()
     {
-        Directory.CreateDirectory("outputs/unchecked-thermal");
+        Directory.CreateDirectory("outputs/persistent-thermal");
         try
         {
             checks=0; report.Clear();
             var m=ThermalMaterials.Load();
+            PersistentThermalTests.Run(m);
+            report.Add("PASS persistent allocation reuse, changed coefficients, bit-exact fresh/reused results, disposal, topology replacement, unchanged save bytes, all placement parts and monitor capture");
             EffectiveThermalTests.Run(m);
             ContentThermalIntegrationTests.Run(m);
             ExteriorThermalTests.Run(m);
@@ -155,7 +157,7 @@ public static class ThermalStageTwoTests
             double drift=Energies(actual).Sum(v=>(double)v)-initial-totalExternal;
             Check(Math.Abs(drift)<=totalRounding+1e-5,"open-system energy minus external flux bounded by float rounding allowance");
             report.Add("Actual effective 60s updates x105: independent max balance error="+maxBalance.ToString("R")+" J; external energy="+totalExternal.ToString("R")+" J; cumulative balance error="+drift.ToString("R")+" J; conservative float rounding budget="+totalRounding.ToString("R")+" J");
-            tickTimes.Sort();jobTimes.Sort(); report.Add("Editor Mono, 100 measured ticks after 5 warmups: full step median="+tickTimes[50]+" ms p95="+tickTimes[94]+" ms; Schedule+Complete median="+jobTimes[50]+" ms p95="+jobTimes[94]+" ms; includes TempJob allocation/copy/input validation/direct commit; no runtime result audit");
+            tickTimes.Sort();jobTimes.Sort(); report.Add("Editor Mono, 100 measured ticks after 5 warmups: full step median="+tickTimes[50]+" ms p95="+tickTimes[94]+" ms; Schedule+Complete median="+jobTimes[50]+" ms p95="+jobTimes[94]+" ms; includes persistent buffer reuse/input refresh/validation/direct commit; no runtime result audit");
             // Supported 60s synthetic closed system, full-size owners and unchanged material values.
             var syntheticCells=Enumerable.Range(0,actual.CellCount).Select(actual.GetCell).ToArray();
             var syntheticFaces=new List<ThermalExchange.Face>();
@@ -180,15 +182,16 @@ public static class ThermalStageTwoTests
 
             ItemAssemblyTests.RunAll(); HiveSpatialGridTests.RunAll(); CellStateTests.RunAll(); EquipmentCellDataTests.RunAll(); CombGeometryTests.RunAll(); CombThermalTests.RunAll(); WorldSaveTests.Run(); await GameTimeTests.RunAll();
             report.Add("PASS assembly/spatial/equipment/cell/comb/save/time regression suites; stage-two checks="+checks);
-            File.WriteAllLines("outputs/unchecked-thermal/results.txt",report); Debug.Log("THERMAL STAGE TWO PASS "+checks); if(Application.isBatchMode) EditorApplication.Exit(0);
+            ThermalExchange.ReleaseAllBuffers();
+            File.WriteAllLines("outputs/persistent-thermal/results.txt",report); Debug.Log("THERMAL STAGE TWO PASS "+checks); if(Application.isBatchMode) EditorApplication.Exit(0);
         }
-        catch(Exception e) { report.Add(e.ToString()); File.WriteAllLines("outputs/unchecked-thermal/failure.txt",report); Debug.LogException(e); if(Application.isBatchMode) EditorApplication.Exit(1); }
+        catch(Exception e) { ThermalExchange.ReleaseAllBuffers(); report.Add(e.ToString()); File.WriteAllLines("outputs/persistent-thermal/failure.txt",report); Debug.LogException(e); if(Application.isBatchMode) EditorApplication.Exit(1); }
     }
     public static void BuildAndroid()
     {
         var scenes=new[]{"Assets/Scenes/Bootstrap.unity","Assets/Scenes/MainMenu.unity","Assets/Scenes/Apiary.unity","Assets/Scenes/Observation.unity","Assets/Scenes/SharedUI.unity"};
-        var result=BuildPipeline.BuildPlayer(new BuildPlayerOptions {scenes=scenes,locationPathName="outputs/unchecked-thermal/HoneyComb.apk",target=BuildTarget.Android,options=BuildOptions.Development});
-        File.WriteAllText("outputs/unchecked-thermal/android.txt",result.summary.result+"; errors="+result.summary.totalErrors+"; time="+result.summary.totalTime);
+        var result=BuildPipeline.BuildPlayer(new BuildPlayerOptions {scenes=scenes,locationPathName="outputs/persistent-thermal/HoneyComb.apk",target=BuildTarget.Android,options=BuildOptions.Development});
+        File.WriteAllText("outputs/persistent-thermal/android.txt",result.summary.result+"; errors="+result.summary.totalErrors+"; time="+result.summary.totalTime);
         if(Application.isBatchMode) EditorApplication.Exit(result.summary.result==BuildResult.Succeeded?0:1);
     }
 }
