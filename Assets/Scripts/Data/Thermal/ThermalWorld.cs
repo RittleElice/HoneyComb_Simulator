@@ -7,24 +7,28 @@ using System.Threading.Tasks;
 public sealed class ThermalWorld : IGameMinuteParticipant
 {
     private object[] topologyStamp;
+    private double appliedFraction = double.NaN, appliedExterior = double.NaN;
     public ThermalExchange Exchange { get; private set; }
     public string Failure { get; private set; }
     public int TopologyBuilds { get; private set; }
     public int LocalTopologyUpdates { get; private set; }
     public void PrepareExchange()
     {
+        double fraction=materials.MaximumExchangeFractionPerMinute, exterior=materials.ExteriorFilmCoefficientWPerM2K;
+        bool settingsChanged=fraction!=appliedFraction || exterior!=appliedExterior;
         var stamp = ThermalTopology.Signature(world);
-        if (Exchange == null || !stamp.SequenceEqual(topologyStamp))
+        if (Exchange == null || settingsChanged || !stamp.SequenceEqual(topologyStamp))
         {
-            if(Exchange != null && Exchange.TopologyBinding != null && Exchange.TopologyBinding.TryUpdate(world,Exchange))
+            if(!settingsChanged && Exchange != null && Exchange.TopologyBinding != null && Exchange.TopologyBinding.TryUpdate(world,Exchange))
                 LocalTopologyUpdates++;
             else
             {
-                var replacement = ThermalTopology.Build(world, materials.MaximumExchangeFractionPerMinute, materials.ExteriorFilmCoefficientWPerM2K);
+                var replacement = ThermalTopology.Build(world, fraction, exterior);
                 Exchange?.Dispose();
                 Exchange = replacement; TopologyBuilds++;
             }
             topologyStamp = stamp;
+            appliedFraction=fraction; appliedExterior=exterior;
         }
         Exchange.RefreshCoefficients();
     }

@@ -29,7 +29,7 @@ public sealed class EquipmentSpatialFace
 }
 
 // Local geometry only. Empty box volume is null, not equipment-owned air.
-// Queen excluders own a zero-thickness 16 x 40 face grid, not artificial solid cells.
+// Queen excluders own a zero-thickness 11 x 40 face grid, not artificial solid cells.
 public sealed class EquipmentSpatialGrid
 {
     private readonly EquipmentSpatialCell[] cells;
@@ -63,13 +63,13 @@ public sealed class EquipmentSpatialGrid
             profile = panel ? item.GetContent<HiveOccupancyProfile>() ??
                 (item.Kind == ItemKind.DividerBoard ? HiveOccupancyProfile.Divider : HiveOccupancyProfile.Insulation) : null;
             SlotFirstY = 1;
-            X = Slice(HiveGridLayout.Brood.X, 2, 14);
+            X = Slice(HiveGridLayout.Brood.X, 2, HiveGridLayout.FrameSizeX);
             Y = Slice(HiveGridLayout.Brood.Y, 1 + SlotFirstY, 2);
-            Z = Slice(HiveGridLayout.Brood.Z, 3, 10);
+            Z = Slice(HiveGridLayout.Brood.Z, 3, HiveGridLayout.FrameSizeZ);
         }
         else if (boundary)
         {
-            X = Slice(HiveGridLayout.Brood.X, 1, 16);
+            X = Slice(HiveGridLayout.Brood.X, 1, HiveGridLayout.SizeX - 2);
             Y = Slice(HiveGridLayout.Brood.Y, 1, HiveGridLayout.SizeY - 2);
             Z = Array.AsReadOnly(new double[] { 0 });
         }
@@ -90,7 +90,7 @@ public sealed class EquipmentSpatialGrid
             {
                 bool occupied = frame || panel || layout.IsLid || x == 0 || x == SizeX - 1 ||
                     y == 0 || y == SizeY - 1 || (layout.HasFloor && z == 0);
-                if (!occupied) continue;
+                if (!occupied || (layout != null && layout.IsEntranceCell(x,y,z))) continue;
                 HiveMaterial material = panel ? profile.Material : frame && x > 0 && x < SizeX - 1 && z > 0 && z < SizeZ - 1 ? HiveMaterial.Comb : HiveMaterial.Wood;
                 if (panel && SolidFraction(y) == 0) material = HiveMaterial.Air;
                 int index = Index(x,y,z);

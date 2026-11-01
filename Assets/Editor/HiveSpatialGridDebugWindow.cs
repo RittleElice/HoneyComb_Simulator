@@ -101,7 +101,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         displayMode=GUILayout.Toolbar(displayMode,new[]{"재질","온도"});
         axis=GUILayout.Toolbar(axis,new[]{"YZ (X 고정)","XZ (Y 고정)","XY (Z 고정)"});
         int largestZ=grids.Sum(g=>g.Layout.SizeZ);
-        slice=EditorGUILayout.IntSlider("단면 위치 (조립체 전체 기준)",slice,0,(axis==0?18:axis==1?HiveGridLayout.SizeY:largestZ)-1);
+        slice=EditorGUILayout.IntSlider("단면 위치 (조립체 전체 기준)",slice,0,(axis==0?HiveGridLayout.SizeX:axis==1?HiveGridLayout.SizeY:largestZ)-1);
         EditorGUILayout.LabelField($"선택 칸 전체: 상자·뚜껑 {grids.Count}개 / {grids.Sum(g=>g.CellCount):N0} 격자");
         double totalHeight=grids.Sum(g=>g.Layout.Z[g.Layout.SizeZ]);
         EditorGUILayout.LabelField($"조립체: 496 × 390 × {totalHeight} mm / 아래에서 위로 연결",EditorStyles.wordWrappedLabel);
@@ -187,7 +187,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             if(thermal && Event.current.type==EventType.MouseDown && Event.current.button==0 && rect.Contains(Event.current.mousePosition))
             {selectedGrid=grid;monitor.Select(index);Event.current.Use();Repaint();}
         }
-        if(axis!=2 && grid.TopBoundaryEquipment!=null && slice>0 && slice<(axis==0?17:HiveGridLayout.SizeY-1))
+        if(axis!=2 && grid.TopBoundaryEquipment!=null && slice>0 && slice<(axis==0?HiveGridLayout.SizeX-1:HiveGridLayout.SizeY-1))
         {
             float height=(float)(vertical[vertical.Count-1]-grid.Layout.Z[grid.Layout.SizeZ-1])*scale;
             EditorGUI.DrawRect(new Rect(area.x+20*scale,area.y+height-1,(float)(horizontal[horizontal.Count-1]-40)*scale,2),Color.magenta);

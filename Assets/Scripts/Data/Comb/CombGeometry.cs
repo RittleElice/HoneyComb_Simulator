@@ -66,8 +66,8 @@ public static class CombSpatialMapper
         return GetLogicalCell(item, column, row, side == FrameSide.Front ? 0 : 1);
     }
 
-    // Logical 7 x 5 blocks, NOT geometric containment or area-weighted overlap.
-    // Hexagons cross physical 35 x 25 mm boundaries; their centres can also
+    // Logical 12 x 8 comb-cell blocks, NOT geometric containment or area-weighted overlap.
+    // Hexagons cross physical 60 x 40 mm boundaries; their centres can also
     // belong to a different physical block. Y is the chosen depth layer (0..1).
     public static EquipmentSpatialCell GetLogicalCell(ItemData item, int column, int row, int depth)
     {
@@ -75,6 +75,6 @@ public static class CombSpatialMapper
         if (item == null || item.Kind != ItemKind.Frame || frame == null || frame.Width != 84 || frame.Height != 40)
             throw new ArgumentException("Logical mapping requires an 84 x 40 frame");
         frame.Front.GetIndex(column, row);
-        return item.EquipmentGrid.GetCell(1 + column / 7, depth, 1 + row / 5);
+        return item.EquipmentGrid.GetCell(1 + column / 12, depth, 1 + row / 8);
     }
 }

@@ -10,7 +10,7 @@ public sealed partial class FrameSurface
 
     public event Action<FrameSurface, CellContentLoss> ContentLost;
     // Array payload only; excludes small object headers and the existing spatial/UI grids.
-    public long AllocatedDataBytes => (long)cells.Length * 8 + (materials?.AllocatedDataBytes ?? 0) + (thermalRegions == null ? 0 : 96L * 32);
+    public long AllocatedDataBytes => (long)cells.Length * 8 + (materials?.AllocatedDataBytes ?? 0) + (thermalRegions == null ? 0 : (long)HiveGridLayout.CombColumns * HiveGridLayout.CombRows * 32);
     public bool HasQuantifiedContent(int x, int y) => materials != null && materials.Has(GetIndex(x, y));
 
 
@@ -229,16 +229,16 @@ public sealed partial class FrameSurface
 
     public CombRegionThermalMass GetThermalRegion(int regionX, int regionZ)
     {
-        // Legacy frame dimensions use normalized regions; standard 84x40 remains exact 7x5.
-        if (regionX < 0 || regionX >= 12 || regionZ < 0 || regionZ >= 8) throw new ArgumentOutOfRangeException();
-        if (thermalRegions == null) thermalRegions = new CombRegionThermalMass[96];
+        // Legacy frame dimensions use normalized regions; standard 84x40 maps 12x8 comb cells to each 7x5 thermal region.
+        if (regionX < 0 || regionX >= HiveGridLayout.CombColumns || regionZ < 0 || regionZ >= HiveGridLayout.CombRows) throw new ArgumentOutOfRangeException();
+        if (thermalRegions == null) thermalRegions = new CombRegionThermalMass[HiveGridLayout.CombColumns * HiveGridLayout.CombRows];
         if (thermalDirty)
         {
             Array.Clear(thermalRegions, 0, thermalRegions.Length);
             for (int i = 0; i < cells.Length; i++)
             {
                 if (cells[i].Content == CellContentKind.Empty) continue;
-                int region = (i % Width) * 12 / Width + 12 * ((i / Width) * 8 / Height);
+                int region = (i % Width) * HiveGridLayout.CombColumns / Width + HiveGridLayout.CombColumns * ((i / Width) * HiveGridLayout.CombRows / Height);
                 var mass = thermalRegions[region];
                 if (materials == null || !materials.Has(i)) mass.UnquantifiedCellCount++;
                 else switch (cells[i].Content)
@@ -251,7 +251,7 @@ public sealed partial class FrameSurface
             }
             thermalDirty = false;
         }
-        return thermalRegions[regionX + 12 * regionZ];
+        return thermalRegions[regionX + HiveGridLayout.CombColumns * regionZ];
     }
 
     public int CountCompletedCells()

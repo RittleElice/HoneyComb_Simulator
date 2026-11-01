@@ -1,0 +1,12 @@
+7x5 thermal frame grid (2026-11-01)
+Frame interior: 7 X by 5 Z, two 12.5mm Y layers. Opening 420x200mm; each interior cell is 60x40mm in-plane. Frame including wood border: 9x2x7=126 cells, outer dimensions 440x25x220mm unchanged.
+Comb data remains 84x40 per side. Each 12x8 logical comb group maps to one thermal cell, 96 comb cells per region. Legacy wax accounting retains its conservative 14x10 subregions; four subregions sum to one new interior region. Foundation/built wax, panel solid volume and overall heat capacity are conserved.
+Conforming box grid: X13,Y42; brood Z12=6552 cells, super Z10=5460, lid Z1=546. Queen excluder 11x40 zero-thickness faces. All physical dimensions unchanged.
+Default world: 41202 active thermal cells, 114923 internal connections before entrance changes.
+Solver is unchanged (parallel Gather, 60-second explicit effective coefficient model). Checkerboard experiment is not deployed.
+Save schema7 (entrance corrected to X=0). Older schemas rejected, not migrated. User requested fresh game; old generations backed up outside active Saves.
+Tests: GridSevenFiveTests.Run and LocalThermalUpdateTests.RunBatch (which also calls TwoLayerFrameTests); geometry, mapping, mass/capacity conservation, contents, boundary exchange, persistence, movement and 1440-minute finite run.
+
+Brood entrance corrected to YZ slice0 (X=0). X=0..20mm tunnel, Y=20..370mm opening width, Z=15..25mm height. Opening 350x10mm; all 40 internal Y subdivisions are air. The former Y=0 opening is restored to wood. Floor, X=max wall, both Y walls, supers and lid remain solid. Brood shell owned cells=1672, air cells=4880; overall grid/connection counts unchanged.
+Air cells use existing air material and ambient heat exchange; no wind/advection model or entrance reducer. Existing artwork/prefabs unchanged. Tests verify every opening cell, exterior -X faces, 0.0035m2 total opening, inside air paths, former opening closed and cold-air thermal response; full 1440-minute and save roundtrip tests pass.
+Schema7 rejects older wall-energy layouts. New minute0 save regenerated; prior files backed up.

@@ -45,7 +45,7 @@ public static class ThermalTopology
             foreach (var edge in grid.Edges())
             {
                 l.Coordinates(edge.A,out int x,out int y,out int z);
-                int axis = edge.B-edge.A==1?0:edge.B-edge.A==18?1:2;
+                int axis = edge.B-edge.A==1?0:edge.B-edge.A==HiveGridLayout.SizeX?1:2;
                 var coords = axis==0?l.X:axis==1?l.Y:l.Z; int p=axis==0?x:axis==1?y:z;
                 // Queen excluder is a zero-thickness permeable face; no calibrated thermal resistance exists.
                 faces.Add(new ThermalExchange.Face(map[edge.A],map[edge.B],edge.AreaMm2*1e-6,(coords[p+1]-coords[p])*.0005,(coords[p+2]-coords[p+1])*.0005,axis));
@@ -190,7 +190,7 @@ public static class ThermalTopology
     {
         var a=lower.Layout; var b=upper.Layout;
         if(!a.X.SequenceEqual(b.X)||!a.Y.SequenceEqual(b.Y)) throw new InvalidOperationException("Nonconforming stack interface "+lower.Box.Id+" / "+upper.Box.Id+"; six-direction index invalid. Overlap-face construction required; no partial graph accepted.");
-        for(int y=0;y<HiveGridLayout.SizeY;y++) for(int x=0;x<18;x++)
+        for(int y=0;y<HiveGridLayout.SizeY;y++) for(int x=0;x<HiveGridLayout.SizeX;x++)
         {
             int lo=grids[lower][a.Index(x,y,a.SizeZ-1)], hi=grids[upper][b.Index(x,y,0)];
             if (!boundaries.Remove((lo,5)) || !boundaries.Remove((hi,4))) throw new InvalidOperationException("Stack face already occluded");

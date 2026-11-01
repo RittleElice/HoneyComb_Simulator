@@ -27,7 +27,7 @@ public static class CombThermalTests
             var centre = back;
             var s = f.Front;
             double baseHeat = front.HeatCapacityJPerK;
-            Near(baseHeat, 1.8375, "empty comb effective density and mm3 to m3");
+            Near(baseHeat, 5.04, "empty comb effective density and mm3 to m3");
             Near(centre.ContentHeatCapacityJPerK,0,"back initially empty");
             s.TrySetConstruction(0,0,80);
             Check(s.TryAddNectar(0,0,0,0,100),"store water");
@@ -94,14 +94,14 @@ public static class CombThermalTests
             Near(wood.HeatCapacityJPerK,wood.VolumeMm3*1e-9*500*1600,"wood baseline units");
             Check(s.TrySetType(0,0,CombCellType.Drone),"legacy tag retained");
             Check(!s.TryAddNectar(0,0,0,0,201),"drone tag gets no extra capacity");
-            // Every cell in each 7x5 group lands once in its own side/region.
+            // Every cell in each 12x8 group lands once in its own side/region.
             var dense=new FrameData(); var denseItem=new ItemData(3,"dense",ItemKind.Frame,dense);
             foreach(var side in new[]{FrameSide.Front,FrameSide.Back})
             {
                 var surface=dense.GetSurface(side); surface.SetAllConstruction(100);
                 for(int y=0;y<40;y++) for(int x=0;x<84;x++) Check(surface.TryAddNectar(x,y,0,0,1),"populate all cells");
-                for(int z=0;z<8;z++) for(int x=0;x<12;x++)
-                    Near(CombSpatialMapper.GetContentCell(denseItem,side,x*7,z*5).ContentHeatCapacityJPerK,35*.00418,"region conserves 35 cells");
+                for(int z=0;z<5;z++) for(int x=0;x<7;x++)
+                    Near(CombSpatialMapper.GetContentCell(denseItem,side,x*12,z*8).ContentHeatCapacityJPerK,96*.00418,"region conserves 96 cells");
             }
             long cacheBytes=dense.Front.AllocatedDataBytes;
             for(int k=0;k<100;k++) dense.Front.GetThermalRegion(0,0);

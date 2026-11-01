@@ -61,11 +61,11 @@ public sealed class HiveSpatialAssembly : IDisposable
     {
         for (int i = 0; i + 1 < boxes.Count; i++)
         for (int y = 0; y < HiveGridLayout.SizeY; y++)
-        for (int x = 0; x < 18; x++)
+        for (int x = 0; x < HiveGridLayout.SizeX; x++)
             yield return new HiveStackFace(boxes[i], boxes[i + 1], x, y);
         if (boxes.Count > 0 && LidGrid != null)
         for (int y = 0; y < HiveGridLayout.SizeY; y++)
-        for (int x = 0; x < 18; x++)
+        for (int x = 0; x < HiveGridLayout.SizeX; x++)
             yield return new HiveStackFace(boxes[boxes.Count - 1], LidGrid, x, y);
     }
     public void Dispose()

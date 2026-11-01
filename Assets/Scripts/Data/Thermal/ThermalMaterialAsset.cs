@@ -32,8 +32,10 @@ public readonly struct ThermalMaterialValue
 public sealed class ThermalMaterials
 {
     private readonly ThermalMaterialValue[] values;
-    public double MaximumExchangeFractionPerMinute { get; }
-    public double ExteriorFilmCoefficientWPerM2K { get; }
+    private readonly double maximumFraction, exteriorFilm;
+    private ThermalExchangeSettings liveSettings;
+    public double MaximumExchangeFractionPerMinute => liveSettings != null ? liveSettings.ValidFraction : maximumFraction;
+    public double ExteriorFilmCoefficientWPerM2K => liveSettings != null ? liveSettings.ValidExterior : exteriorFilm;
     public ThermalMaterialValue this[ThermalMaterialKind kind] => values[(int)kind];
     public ThermalMaterials(ThermalMaterialValue[] source, double maximumExchangeFractionPerMinute = 0.1, double exteriorFilmCoefficientWPerM2K = 5)
     {
@@ -42,8 +44,8 @@ public sealed class ThermalMaterials
             throw new ArgumentOutOfRangeException(nameof(maximumExchangeFractionPerMinute));
         if (!ThermalExchange.Finite(exteriorFilmCoefficientWPerM2K) || exteriorFilmCoefficientWPerM2K < 0)
             throw new ArgumentOutOfRangeException(nameof(exteriorFilmCoefficientWPerM2K));
-        ExteriorFilmCoefficientWPerM2K = exteriorFilmCoefficientWPerM2K;
-        MaximumExchangeFractionPerMinute = maximumExchangeFractionPerMinute;
+        exteriorFilm = exteriorFilmCoefficientWPerM2K;
+        maximumFraction = maximumExchangeFractionPerMinute;
         values = (ThermalMaterialValue[])source.Clone();
         foreach (var v in values) new ThermalMaterialValue(v.Density, v.SpecificHeat, v.Conductivity);
     }
@@ -59,6 +61,6 @@ public sealed class ThermalMaterials
         }
         var settings = Resources.Load<ThermalExchangeSettings>("Thermal/ExchangeSettings");
         if (settings == null) throw new InvalidOperationException("Missing thermal exchange settings");
-        return new ThermalMaterials(result, settings.MaximumFractionPerMinute, settings.ExteriorFilmCoefficientWPerM2K);
+        return new ThermalMaterials(result, settings.ValidFraction, settings.ValidExterior) { liveSettings = settings };
     }
 }

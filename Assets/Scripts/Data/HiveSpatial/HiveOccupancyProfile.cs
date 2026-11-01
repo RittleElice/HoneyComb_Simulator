@@ -23,6 +23,6 @@ public sealed class HiveOccupancyProfile
     }
 
     public bool Occupies(int localX, int localY, int localZ)
-        => localX >= 1 && localX <= 14 && localZ >= 0 && localZ < 10 &&
+        => localX >= 1 && localX <= HiveGridLayout.FrameSizeX && localZ >= 0 && localZ < HiveGridLayout.FrameSizeZ &&
            localY >= FirstY && localY < FirstY + CountY;
 }

@@ -118,8 +118,8 @@ public sealed class EquipmentThermalState
         }
         var g = item.EquipmentGrid;
         // Logical 14x10 groups uniformly cover the actual 420x200 opening.
-        // Conservatively project onto the existing 12x8 interior; no mass is assigned to wood.
-        for (int z = 1; z < 9; z++) for (int y = 0; y < 2; y++) for (int x = 1; x < 13; x++)
+        // Conservatively project onto the existing 7x5 interior; no mass is assigned to wood.
+        for (int z = 1; z < HiveGridLayout.FrameSizeZ - 1; z++) for (int y = 0; y < 2; y++) for (int x = 1; x < HiveGridLayout.FrameSizeX - 1; x++)
         {
             float mass = (float)((g.X[x+1]-g.X[x]) * (g.Z[z+1]-g.Z[z]) * .25e-9 * lastMaterials[ThermalMaterialKind.Wax].Density);
             for (int lz = 0; lz < 10; lz++) for (int lx = 0; lx < 14; lx++)
@@ -161,7 +161,7 @@ public sealed class EquipmentThermalState
             float f = (float)g.SolidFraction(y);
             depthConductivity[index] = 1f / (f / solid.Conductivity + (1-f) / m[ThermalMaterialKind.Air].Conductivity);
         }
-        // Existing 7x5 content regions map once to each face of the 12x8 interior.
+        // Existing 7x5 content regions map once to each face of the 7x5 interior.
         // Heat-capacity-only coupling: no invented content volume/conductivity or transported enthalpy.
         double contents = cell?.ContentHeatCapacityJPerK ?? 0;
         contentCapacity[index] = (float)contents;
