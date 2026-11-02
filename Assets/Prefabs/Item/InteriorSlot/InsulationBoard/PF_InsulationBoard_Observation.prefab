@@ -84,7 +84,7 @@ GameObject:
   - component: {fileID: 5879928347907685988}
   - component: {fileID: 900000010}
   m_Layer: 5
-  m_Name: PF_Frame_Observation
+  m_Name: PF_InsulationBoard_Observation
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

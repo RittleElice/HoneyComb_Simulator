@@ -4,7 +4,21 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="" />
+    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Apiary.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Apiary.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Hand.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Hand.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Inventory.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Inventory.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Observation.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Observation.prefab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Apiary.prefab" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Apiary.prefab.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Hand.prefab" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Hand.prefab.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Inventory.prefab" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Inventory.prefab.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Observation.prefab" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Observation.prefab.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/World/GameWorld.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/World/GameWorld.cs" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -128,6 +142,7 @@
       <workItem from="1793216170673" duration="14211000" />
       <workItem from="1793308929636" duration="8540000" />
       <workItem from="1793446247877" duration="1458000" />
+      <workItem from="1793585716017" duration="1248000" />
     </task>
     <servers />
   </component>

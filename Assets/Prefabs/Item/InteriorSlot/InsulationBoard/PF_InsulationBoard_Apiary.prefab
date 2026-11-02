@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 7775702591912798821}
   - component: {fileID: 123162756745773909}
   m_Layer: 0
-  m_Name: PF_Frame_Apiary
+  m_Name: PF_InsulationBoard_Apiary
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

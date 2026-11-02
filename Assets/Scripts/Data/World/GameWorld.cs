@@ -61,53 +61,24 @@ public class GameWorld
         Hand = new HandData();
 
         // 테스트용 단상
-        Inventory.TryAdd(
-            new ItemData(100, "단상", ItemKind.BroodBox)
-        );
-
+        Inventory.TryAdd(new ItemData(100, "단상", ItemKind.BroodBox));
         // 테스트용 계상 2개
-        Inventory.TryAdd(
-            new ItemData(101, "계상 1", ItemKind.Super)
-        );
-
-        Inventory.TryAdd(
-            new ItemData(102, "계상 2", ItemKind.Super)
-        );
-
+        Inventory.TryAdd(new ItemData(101, "계상 1", ItemKind.Super));
+        Inventory.TryAdd(new ItemData(102, "계상 2", ItemKind.Super));
         // 테스트용 뚜껑
-        Inventory.TryAdd(
-            new ItemData(103, "뚜껑", ItemKind.Lid)
-        );
-
+        Inventory.TryAdd(new ItemData(103, "뚜껑", ItemKind.Lid));
         // 테스트용 소비장 2개
-        Inventory.TryAdd(new ItemData(104, "소비장 1", ItemKind.Frame, new FrameData())
-        );
-
-        Inventory.TryAdd(
-            new ItemData(105, "소비장 2", ItemKind.Frame, new FrameData())
-        );
-
-        
+        Inventory.TryAdd(new ItemData(104, "소비장 1", ItemKind.Frame, new FrameData()));
+        Inventory.TryAdd(new ItemData(105, "소비장 2", ItemKind.Frame, new FrameData()));
         // 추가 테스트용 계상 3개
-        Inventory.TryAdd(
-            new ItemData(106, "계상 3", ItemKind.Super)
-        );
-
-        Inventory.TryAdd(
-            new ItemData(107, "계상 4", ItemKind.Super)
-        );
-
-        Inventory.TryAdd(
-            new ItemData(108, "계상 5", ItemKind.Super)
-        );
-        
-        Inventory.TryAdd(
-            new ItemData(109, "격왕판", ItemKind.QueenExcluder)
-        );
-        Inventory.TryAdd(
-            new ItemData(110, "단열판", ItemKind.InsulationBoard)
-        );
+        Inventory.TryAdd(new ItemData(106, "계상 3", ItemKind.Super));
+        Inventory.TryAdd(new ItemData(107, "계상 4", ItemKind.Super));
+        //Inventory.TryAdd(new ItemData(108, "계상 5", ItemKind.Super));
+        //Inventory.TryAdd(new ItemData(109, "격왕판", ItemKind.QueenExcluder));
+        Inventory.TryAdd(new ItemData(110, "단열판", ItemKind.InsulationBoard));
+        Inventory.TryAdd(new ItemData(113, "단열판", ItemKind.InsulationBoard));
         Inventory.TryAdd(new ItemData(111, "벌통 가온판", ItemKind.HeatingPanel));
+        Inventory.TryAdd(new ItemData(112, "벌통 가온판", ItemKind.HeatingPanel));
         
 
 

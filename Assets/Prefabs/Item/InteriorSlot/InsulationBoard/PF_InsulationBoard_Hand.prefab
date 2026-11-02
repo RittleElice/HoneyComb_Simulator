@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 5879928347907685988}
   - component: {fileID: -6204348012339922914}
   m_Layer: 5
-  m_Name: PF_Frame_Hand
+  m_Name: PF_InsulationBoard_Hand
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

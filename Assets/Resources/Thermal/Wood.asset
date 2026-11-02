@@ -16,8 +16,8 @@ MonoBehaviour:
   ReferenceTemperatureC: 20
   DensityKgPerM3: 500
   SpecificHeatJPerKgK: 1600
-  ConductivityWPerMK: 0.01
+  ConductivityWPerMK: 0.12
   EffectiveVolumetricHeatCapacityJPerM3K: 800000
   Sources: "https://www.fpl.fs.usda.gov/documnts/fplgtr/fplgtr282/fpl_gtr282.pdf Chapter 4"
-  Assumptions: "Assumed softwood near 12 percent moisture, across grain. Rounded modelling preset, not a measured species or hive. Density/cp/k uncertain; anisotropy omitted. Gameplay effective conductivity tuned to 0.01 W/(m K) for closed-hive heat retention; not measured wood conductivity."
+  Assumptions: "Assumed softwood near 12 percent moisture, across grain. Rounded modelling preset, not a measured species or hive. Conductivity restored to 0.12 W/(m K); effective volumetric capacity remains 800000 J/(m3 K). Anisotropy omitted."
   Uncertain: 1
