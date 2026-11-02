@@ -25,7 +25,7 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
-    private int schema = 7;
+    private int schema = 8;
     public static byte[] Encode(WorldSaveSnapshot snapshot)
     {
         ValidateTime(snapshot);
@@ -34,7 +34,7 @@ public sealed class WorldSaveCodec
         using (var stream = new MemoryStream())
         using (var w = new BinaryWriter(stream,Encoding.UTF8,true))
         {
-            int version = 7;
+            int version = 8;
             w.Write(version); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
             var world = snapshot.World; w.Write(world.CurrentGameMinute);
             var codec = new WorldSaveCodec { hives = world.Apiary.Hives, schema = version };
@@ -58,7 +58,7 @@ public sealed class WorldSaveCodec
         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
         {
             int schema=r.ReadInt32();
-            if(schema!=7) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
+            if(schema!=7 && schema!=8) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);
@@ -104,6 +104,8 @@ public sealed class WorldSaveCodec
         }
         else if(item.Content is HiveOccupancyProfile profile)
         { w.Write((byte)3); w.Write(profile.FirstY); w.Write(profile.CountY); w.Write((int)profile.Material); }
+        else if(item.Content is HeatingPanelData heater)
+        { w.Write((byte)4);w.Write(heater.Enabled);w.Write(heater.OutputWatts); }
         else throw new InvalidDataException("저장할 수 없는 장비 내용물: "+item.Content.GetType().Name);
         if(item.InteriorSlots!=null) for(int i=0;i<item.InteriorSlots.Capacity;i++) WriteItem(w,item.InteriorSlots.GetSlot(i).Value,depth+1);
         if(item.TopSlot!=null) WriteItem(w,item.TopSlot.Value,depth+1);
@@ -121,7 +123,7 @@ public sealed class WorldSaveCodec
         }
         if(tag!=1) throw new InvalidDataException("Invalid item tag.");
         int id=r.ReadInt32(); string name=SaveBinary.Text(r); int kind=r.ReadInt32(); float aging=r.ReadSingle();
-        if(kind<0 || kind>(int)ItemKind.InsulationBoard) throw new InvalidDataException("Unknown item kind.");
+        if(kind<0 || kind>(int)(schema>=8?ItemKind.HeatingPanel:ItemKind.InsulationBoard)) throw new InvalidDataException("Unknown item kind.");
         object content=null; byte contentTag=r.ReadByte();
         switch(contentTag)
         {
@@ -132,6 +134,9 @@ public sealed class WorldSaveCodec
                 if(width<1||height<1||(long)width*height>1000000||side<0||side>1) throw new InvalidDataException("Invalid frame dimensions.");
                 var frame=new FrameData(width,height); frame.SetFacingSide((FrameSide)side); frame.Front.ReadSnapshot(r); frame.Back.ReadSnapshot(r); content=frame; break;
             case 3: content=new HiveOccupancyProfile(r.ReadInt32(),r.ReadInt32(),(HiveMaterial)r.ReadInt32()); break;
+            case 4:
+                if(schema<8 || kind!=(int)ItemKind.HeatingPanel)throw new InvalidDataException("Invalid heater content.");
+                var heater=new HeatingPanelData();if(!heater.TryConfigure(r.ReadBoolean(),r.ReadSingle()))throw new InvalidDataException("Invalid heater power.");content=heater;break;
             default: throw new InvalidDataException("Unknown content type.");
         }
         var item=new ItemData(id,name,(ItemKind)kind,content); if(!item.TrySetAging(aging)) throw new InvalidDataException("Invalid item aging.");

@@ -42,10 +42,23 @@ public sealed class ThermalWorld : IGameMinuteParticipant
                 throw new InvalidOperationException("Exterior forcing requires weather at the start of the minute");
             // Keep thermal before weather: T_air(n) forces [n,n+1), without advancing RNG on thermal failure.
             double outside=world.Weather.Current.TemperatureCelsius;
-            Refresh(); PrepareExchange(); Exchange.StepPrepared(60,outside);
+            Refresh(); PrepareExchange(); SupplyHeating(60); Exchange.StepPrepared(60,outside);
             return Task.CompletedTask;
         }
         catch (Exception e) { Failure = e.Message; throw; }
+    }
+    public double LastHeatingEnergyJ { get; private set; }
+    private void SupplyHeating(double seconds)
+    {
+        LastHeatingEnergyJ=0;
+        foreach(var item in Items(world))if(item.GetContent<HeatingPanelData>() is HeatingPanelData heater)heater.LastSuppliedJoules=0;
+        // A heater in inventory or the hand is unplugged. Only interior-slot installations heat.
+        foreach(var box in Items(world))if(box.InteriorSlots!=null)
+            for(int i=0;i<box.InteriorSlots.Capacity;i++){
+                var panel=box.InteriorSlots.GetSlot(i).Item;var heater=panel?.GetContent<HeatingPanelData>();
+                if(panel?.Kind!=ItemKind.HeatingPanel||heater==null||!heater.Enabled||heater.OutputWatts==0)continue;
+                double joules=seconds*heater.OutputWatts;panel.ThermalState.SupplyHeat(joules);heater.LastSuppliedJoules=joules;LastHeatingEnergyJ+=joules;
+            }
     }
     private readonly GameWorld world;
     private ThermalMaterials materials;

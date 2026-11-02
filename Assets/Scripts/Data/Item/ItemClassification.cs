@@ -12,6 +12,7 @@ public static class ItemClassification
             case ItemKind.Frame:
             case ItemKind.DividerBoard:
             case ItemKind.InsulationBoard:
+            case ItemKind.HeatingPanel:
                 return SlotCategory.InteriorSlot;
             
             case ItemKind.QueenExcluder:

@@ -40,6 +40,7 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
         if(comb==null){EditorGUILayout.HelpBox("소방 설정 파일이 없습니다.",MessageType.Error);return;}
         Editor.CreateCachedEditor(comb,typeof(CombBalanceSettingsEditor),ref combEditor);
         combEditor.OnInspectorGUI();
+        DrawHeatingPanels();
         EditorGUILayout.Space();
         if(GUILayout.Button("재질·소방 설정을 프로젝트 기본값으로 저장")){
             AssetDatabase.SaveAssetIfDirty(comb);
@@ -49,4 +50,25 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
             }
         }
     }
+    private void DrawHeatingPanels(){
+        EditorGUILayout.Space();EditorGUILayout.LabelField("테스트용 벌통 가온판",EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("단열재 본체에 설정한 총 출력×60초의 열을 공급합니다. 벌통 내부 슬롯에 설치됐을 때만 작동하며, 소지품·손에서는 작동하지 않습니다. 출력과 켜짐 상태는 게임 저장에 포함됩니다.",MessageType.Info);
+        var world=GameBootstrap.Instance?.GameWorld;
+        if(world==null){EditorGUILayout.HelpBox("게임 실행 후 가온판을 추가하거나 출력을 조정할 수 있습니다. 새 게임에는 가온판 1개가 지급됩니다.",MessageType.None);return;}
+        using(new EditorGUI.DisabledScope(GameTimeRuntime.InputBlocked)){
+            if(GUILayout.Button("소지품에 테스트 가온판 추가")){
+                int id=0;foreach(var item in ThermalWorld.Items(world))id=System.Math.Max(id,item.Id);
+                if(id<int.MaxValue&&!world.Inventory.TryAdd(new ItemData(id+1,"벌통 가온판",ItemKind.HeatingPanel)))Debug.LogWarning("소지품 공간이 부족합니다.");
+            }
+            foreach(var item in ThermalWorld.Items(world))if(item.Kind==ItemKind.HeatingPanel){
+                var heater=item.GetContent<HeatingPanelData>();if(heater==null)continue;
+                EditorGUILayout.LabelField(item.Name+" #"+item.Id,EditorStyles.boldLabel);
+                bool enabled=EditorGUILayout.Toggle("전원",heater.Enabled);
+                float watts=EditorGUILayout.DelayedFloatField("총 출력 (W, 0~1000)",heater.OutputWatts);
+                if(enabled!=heater.Enabled||watts!=heater.OutputWatts)if(!heater.TryConfigure(enabled,watts))Debug.LogWarning("출력은 유한한 0~1000 W여야 합니다.");
+                EditorGUILayout.LabelField("지난 1분 공급 열량",heater.LastSuppliedJoules.ToString("F2")+" J");
+            }
+        }
+    }
+
 }

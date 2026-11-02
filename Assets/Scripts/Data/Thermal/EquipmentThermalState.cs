@@ -156,7 +156,7 @@ public sealed class EquipmentThermalState
             ThermalMath.Mix(centreVolume, 0, solid, foundation, m, out _, out _, out float centreK);
             depthConductivity[index] = 1f / (.8f / faceK + .2f / centreK);
         }
-        else if (item.Kind == ItemKind.DividerBoard || item.Kind == ItemKind.InsulationBoard)
+        else if (item.Kind == ItemKind.DividerBoard || item.Kind == ItemKind.InsulationBoard || item.Kind == ItemKind.HeatingPanel)
         {
             float f = (float)g.SolidFraction(y);
             depthConductivity[index] = 1f / (f / solid.Conductivity + (1-f) / m[ThermalMaterialKind.Air].Conductivity);
@@ -168,6 +168,18 @@ public sealed class EquipmentThermalState
         c = (float)(c + contents);
         if (!ThermalMath.Finite(contentCapacity[index]) || contentCapacity[index] < 0 || !ThermalMath.Positive(c))
             throw new InvalidOperationException("Invalid contents heat capacity");
+    }
+    // Uniform volumetric heat source across the owned insulation panel.
+    internal void SupplyHeat(double joules)
+    {
+        if (item.Kind != ItemKind.HeatingPanel || !ThermalExchange.Finite(joules) || joules < 0)
+            throw new ArgumentOutOfRangeException(nameof(joules));
+        var g=item.EquipmentGrid;double volume=0;
+        for(int i=0;i<Count;i++){int x=i%g.SizeX,y=i/g.SizeX%g.SizeY,z=i/(g.SizeX*g.SizeY);volume+=(g.X[x+1]-g.X[x])*(g.Y[y+1]-g.Y[y])*(g.Z[z+1]-g.Z[z])*g.SolidFraction(y);}
+        if(!(volume>0))throw new InvalidOperationException("Heating panel has no solid volume.");
+        for(int i=0;i<Count;i++){int x=i%g.SizeX,y=i/g.SizeX%g.SizeY,z=i/(g.SizeX*g.SizeY);double v=(g.X[x+1]-g.X[x])*(g.Y[y+1]-g.Y[y])*(g.Z[z+1]-g.Z[z])*g.SolidFraction(y);
+            double next=energy[i]+joules*v/volume;if(!initialized[i]||dirty[i]||!ThermalExchange.Finite(next)||next>float.MaxValue)throw new InvalidOperationException("Invalid heating state");energy[i]=(float)next;
+        }
     }
     internal void WriteSnapshot(BinaryWriter w)
     {

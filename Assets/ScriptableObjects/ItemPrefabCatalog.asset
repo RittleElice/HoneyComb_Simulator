@@ -113,5 +113,37 @@ MonoBehaviour:
     context: 3
     prefab: {fileID: 1146316118959187193, guid: 4c9f79752293e6447878cad858204dcf, type: 3}
     sprite: {fileID: 1641462934683544951, guid: 03354f3786a35fc4e95a25811e5c60ac, type: 3}
+  - kind: 7
+    context: 3
+    prefab: {fileID: 1146316118959187193, guid: 4c9f79752293e6447878cad858204dcf, type: 3}
+    sprite: {fileID: 1641462934683544951, guid: 03354f3786a35fc4e95a25811e5c60ac, type: 3}
+  - kind: 7
+    context: 3
+    prefab: {fileID: 1146316118959187193, guid: 4c9f79752293e6447878cad858204dcf, type: 3}
+    sprite: {fileID: 1641462934683544951, guid: 03354f3786a35fc4e95a25811e5c60ac, type: 3}
+  - kind: 7
+    context: 3
+    prefab: {fileID: 1146316118959187193, guid: 4c9f79752293e6447878cad858204dcf, type: 3}
+    sprite: {fileID: 1641462934683544951, guid: 03354f3786a35fc4e95a25811e5c60ac, type: 3}
+  - kind: 7
+    context: 3
+    prefab: {fileID: 1146316118959187193, guid: 4c9f79752293e6447878cad858204dcf, type: 3}
+    sprite: {fileID: 1641462934683544951, guid: 03354f3786a35fc4e95a25811e5c60ac, type: 3}
+  - kind: 8
+    context: 0
+    prefab: {fileID: 581215804078796527, guid: 644e89bee838de24c85af5451a3011cb, type: 3}
+    sprite: {fileID: -208290855664773658, guid: 0b25a4c6ca5baaf43a3367b89d5ccf55, type: 3}
+  - kind: 8
+    context: 1
+    prefab: {fileID: 1146316118959187193, guid: aaba22a68626c0b469bb82ec8797ff4f, type: 3}
+    sprite: {fileID: -1755979715985395351, guid: 7e124a364f039cd449dda42464b5709d, type: 3}
+  - kind: 8
+    context: 2
+    prefab: {fileID: 1146316118959187193, guid: 830c5933679623f4e9d0063b52c96cb9, type: 3}
+    sprite: {fileID: -1755979715985395351, guid: a91eb89b5f53ad643a726b0f27aa58b7, type: 3}
+  - kind: 8
+    context: 3
+    prefab: {fileID: 1146316118959187193, guid: 7e428e01619060d47b3338ca6547928d, type: 3}
+    sprite: {fileID: 4767972103994320761, guid: f1b5d8f571d7a2242b1902c18b2634c7, type: 3}
   defaultApiaryPrefab: {fileID: 0}
   defaultUIPrefab: {fileID: 1146316118959187193, guid: 6ec61c54f22a7144bab31703aca01d42, type: 3}

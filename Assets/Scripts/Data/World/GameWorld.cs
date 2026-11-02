@@ -107,6 +107,7 @@ public class GameWorld
         Inventory.TryAdd(
             new ItemData(110, "단열판", ItemKind.InsulationBoard)
         );
+        Inventory.TryAdd(new ItemData(111, "벌통 가온판", ItemKind.HeatingPanel));
         
 
 

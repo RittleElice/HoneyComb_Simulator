@@ -47,14 +47,14 @@ public sealed class EquipmentSpatialGrid
     public int SlotFirstY { get; }
 
     public static bool Supports(ItemKind kind) => kind == ItemKind.Frame || kind == ItemKind.DividerBoard ||
-        kind == ItemKind.InsulationBoard || kind == ItemKind.QueenExcluder || kind == ItemKind.BroodBox ||
+        kind == ItemKind.InsulationBoard || kind == ItemKind.HeatingPanel || kind == ItemKind.QueenExcluder || kind == ItemKind.BroodBox ||
         kind == ItemKind.Super || kind == ItemKind.Lid;
 
     internal EquipmentSpatialGrid(ItemData item)
     {
         Equipment = item;
         bool frame = item.Kind == ItemKind.Frame;
-        bool panel = item.Kind == ItemKind.DividerBoard || item.Kind == ItemKind.InsulationBoard;
+        bool panel = item.Kind == ItemKind.DividerBoard || item.Kind == ItemKind.InsulationBoard || item.Kind == ItemKind.HeatingPanel;
         bool boundary = item.Kind == ItemKind.QueenExcluder;
         HiveOccupancyProfile profile = null;
         HiveGridLayout layout = null;
@@ -114,7 +114,7 @@ public sealed class EquipmentSpatialGrid
 
     public double SolidFraction(int y)
     {
-        if (Equipment.Kind != ItemKind.DividerBoard && Equipment.Kind != ItemKind.InsulationBoard) return 1;
+        if (Equipment.Kind != ItemKind.DividerBoard && Equipment.Kind != ItemKind.InsulationBoard && Equipment.Kind != ItemKind.HeatingPanel) return 1;
         var p = Equipment.GetContent<HiveOccupancyProfile>() ?? (Equipment.Kind == ItemKind.DividerBoard ? HiveOccupancyProfile.Divider : HiveOccupancyProfile.Insulation);
         double[] old = { -5, 0, 10, 15, 25 };
         double overlap = Math.Max(0, Math.Min(Y[y+1], old[p.FirstY+p.CountY]) - Math.Max(Y[y], old[p.FirstY]));

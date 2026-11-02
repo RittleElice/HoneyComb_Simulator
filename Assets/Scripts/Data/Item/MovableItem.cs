@@ -17,5 +17,6 @@ public enum ItemKind
     Super,
     QueenExcluder,
     DividerBoard,
-    InsulationBoard
+    InsulationBoard,
+    HeatingPanel
 }

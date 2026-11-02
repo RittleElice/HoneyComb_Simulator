@@ -55,7 +55,9 @@ public class ItemData : MovableItem
         Id = id;
         Name = name;
         Kind = kind;
-        Content = content;
+        if (kind == ItemKind.HeatingPanel && content != null && !(content is HeatingPanelData))
+            throw new System.ArgumentException("Heating panel requires heater data.");
+        Content = kind == ItemKind.HeatingPanel ? content ?? new HeatingPanelData() : content;
 
         if (kind == ItemKind.BroodBox ||
             kind == ItemKind.Super)
@@ -72,5 +74,18 @@ public class ItemData : MovableItem
     public T GetContent<T>() where T : class
     {
         return Content as T;
+    }
+}
+
+// Test heater: output is total device power, never watts per cell. Saved with its owning item.
+public sealed class HeatingPanelData
+{
+    public bool Enabled { get; private set; } = true;
+    public float OutputWatts { get; private set; } = 1;
+    public double LastSuppliedJoules { get; internal set; }
+    public bool TryConfigure(bool enabled, float watts)
+    {
+        if (!ThermalMath.Finite(watts) || watts < 0 || watts > 1000) return false;
+        Enabled = enabled; OutputWatts = watts; return true;
     }
 }
