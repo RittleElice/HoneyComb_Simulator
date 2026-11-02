@@ -54,7 +54,7 @@ public sealed class ThermalMaterials
     public ThermalMaterials(ThermalMaterialValue[] source, double maximumExchangeFractionPerMinute = 0.1, double exteriorFilmCoefficientWPerM2K = 5, ThermalPairCoefficients pairs = null)
     {
         if (source == null || source.Length != 7) throw new ArgumentException("Seven materials required.");
-        if (!ThermalExchange.Finite(maximumExchangeFractionPerMinute) || maximumExchangeFractionPerMinute <= 0 || maximumExchangeFractionPerMinute > 0.5)
+        if (!ThermalExchange.Finite(maximumExchangeFractionPerMinute) || maximumExchangeFractionPerMinute <= 0 || maximumExchangeFractionPerMinute > ThermalExchangeSettings.MaxFraction)
             throw new ArgumentOutOfRangeException(nameof(maximumExchangeFractionPerMinute));
         if (!ThermalExchange.Finite(exteriorFilmCoefficientWPerM2K) || exteriorFilmCoefficientWPerM2K < 0)
             throw new ArgumentOutOfRangeException(nameof(exteriorFilmCoefficientWPerM2K));

@@ -148,7 +148,7 @@ public sealed class ThermalExchange : IDisposable
     // null is retained only for physical-model diagnostics and regression comparisons.
     public ThermalExchange(Cell[] source, Face[] connections, double? maximumFractionPerMinute = 0.1, Boundary[] exteriorBoundaries = null, double exteriorFilmCoefficientWPerM2K = 5, ThermalPairCoefficients materialPairs = null)
     {
-        if (maximumFractionPerMinute.HasValue && (!Finite(maximumFractionPerMinute.Value) || maximumFractionPerMinute.Value <= 0 || maximumFractionPerMinute.Value > 0.5))
+        if (maximumFractionPerMinute.HasValue && (!Finite(maximumFractionPerMinute.Value) || maximumFractionPerMinute.Value <= 0 || maximumFractionPerMinute.Value > ThermalExchangeSettings.MaxFraction))
             throw new ArgumentOutOfRangeException(nameof(maximumFractionPerMinute));
         this.materialPairs=materialPairs;
         this.maximumFractionPerMinute = maximumFractionPerMinute;
@@ -255,6 +255,15 @@ public sealed class ThermalExchange : IDisposable
         foreach(var pair in replacements){var old=cells[pair.Key];ownerIndices[old.Owner][old.Index]=-1;}
         foreach(var pair in replacements){cells[pair.Key]=pair.Value;ownerIndices[pair.Value.Owner][pair.Value.Index]=pair.Key;changedCells.Add(pair.Key);}
     }
+    private double MinuteScale(double limitSeconds)
+    {
+        if (!maximumFractionPerMinute.HasValue) return 1;
+        double fraction = maximumFractionPerMinute.Value;
+        // At the 100% endpoint, leave room for rounding when the six face terms
+        // and the exterior term are summed again for the 60-second stability check.
+        if (fraction == 1) fraction = 1 - 2e-15;
+        return Math.Min(1, fraction * (limitSeconds / 60d));
+    }
     private void InitializeCoefficients()
     {
         Array.Clear(sums,0,sums.Length);Array.Clear(rawExterior,0,rawExterior.Length);
@@ -275,7 +284,7 @@ public sealed class ThermalExchange : IDisposable
             var c=cells[i];double capacity=c.Owner.HeatCapacityBuffer[c.Index];cachedCapacities[i]=c.Owner.HeatCapacityBuffer[c.Index];rawTotals[i]=sums[i];
             if(!Positive(capacity)||!Finite(sums[i]))throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
             double limit=sums[i]>0?capacity/sums[i]:double.PositiveInfinity;rawLimits.SetInitial(i,limit);
-            scales[i]=maximumFractionPerMinute.HasValue?Math.Min(1,maximumFractionPerMinute.Value*(limit/60d)):1;
+            scales[i]=MinuteScale(limit);
         }
         if(maximumFractionPerMinute.HasValue)Array.Clear(sums,0,sums.Length);
         for(int id=0;id<faces.Length;id++) {
@@ -336,7 +345,7 @@ public sealed class ThermalExchange : IDisposable
             cachedCapacities[i]=c.Owner.HeatCapacityBuffer[c.Index];
             if(!Positive(capacity)||!Finite(sum))throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
             double limit=sum>0?capacity/sum:double.PositiveInfinity;if(bulk)rawLimits.SetInitial(i,limit);else rawLimits.Set(i,limit);
-            double scale=maximumFractionPerMinute.HasValue?Math.Min(1,maximumFractionPerMinute.Value*(limit/60d)):1;
+            double scale=MinuteScale(limit);
             if(scale!=scales[i])for(int p=offsets[i];p<offsets[i+1];p++)effectiveWork.Add(rowFaces[p]);
             scales[i]=scale;exterior[i]=ext*scale;finalWork.Add(i);
         }
