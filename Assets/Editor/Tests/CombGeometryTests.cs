@@ -5,7 +5,7 @@ public static class CombGeometryTests
     static int checks;
     static void Check(bool ok, string message) { checks++; if (!ok) throw new Exception(message); }
 #if UNITY_EDITOR
-    [UnityEditor.MenuItem("Tools/HoneyComb/Run Comb Geometry Tests")]
+    [UnityEditor.MenuItem("Tools/HoneyComb/검증/Run Comb Geometry Tests")]
 #endif
     public static void RunAll()
     {

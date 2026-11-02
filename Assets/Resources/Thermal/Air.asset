@@ -17,6 +17,7 @@ MonoBehaviour:
   DensityKgPerM3: 1.2
   SpecificHeatJPerKgK: 1004
   ConductivityWPerMK: 0.0254
+  EffectiveVolumetricHeatCapacityJPerM3K: 120480
   Sources: "https://shepherd.caltech.edu/Ae101/old/guide/guide.pdf p11 (PDF p15), nominal 20 C and 1 bar"
-  Assumptions: "Dry air; rounded cp at nominal 1 bar; isotropic molecular conductivity, no convection enhancement."
-  Uncertain: 0
+  Assumptions: "Dry air; rounded cp at nominal 1 bar; isotropic molecular conductivity, no convection enhancement. Air heat capacity uses a gameplay effective volumetric value of 120480 J/(m3 K), equivalent to 100 times nominal rho*cp; not a measured air property."
+  Uncertain: 1

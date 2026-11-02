@@ -8,7 +8,7 @@ public static class TwoLayerFrameTests
  static int checks;
  static void Check(bool ok,string why){checks++;if(!ok)throw new Exception(why);}
  static void Near(double a,double b,string why){Check(Math.Abs(a-b)<2e-6*Math.Max(1,Math.Abs(b)),why+": "+a+" / "+b);}
- [MenuItem("Tools/HoneyComb/Run Two Layer Frame Tests")]
+ [MenuItem("Tools/HoneyComb/검증/Run Two Layer Frame Tests")]
  public static void RunBatch()
  {
   try {

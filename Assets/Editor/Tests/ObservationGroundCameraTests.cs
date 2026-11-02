@@ -15,7 +15,7 @@ public static class ObservationGroundCameraTests
     static void Call(object o, string m) => o.GetType().GetMethod(m, Flags).Invoke(o, null);
     static void Check(bool ok, string message) { if (!ok) throw new Exception(message); }
 
-    [MenuItem("Tools/HoneyComb/Test Ground Camera in Play %&k")]
+    [MenuItem("Tools/HoneyComb/검증/Test Ground Camera in Play %&k")]
     public static void Run()
     {
         if (!EditorApplication.isPlaying) throw new Exception("Enter Observation through Bootstrap first.");

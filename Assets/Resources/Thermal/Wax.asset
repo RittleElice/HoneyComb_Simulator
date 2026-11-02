@@ -17,6 +17,7 @@ MonoBehaviour:
   DensityKgPerM3: 950
   SpecificHeatJPerKgK: 2321
   ConductivityWPerMK: 0.25
+  EffectiveVolumetricHeatCapacityJPerM3K: 2204950
   Sources: "https://www.fao.org/4/W0076e/w0076e12.htm ; https://www.tainstruments.com/applications-notes/thermal-analysis-of-phase-change-materials-three-organic-waxes-using-tga-dsc-and-modulated-dsc/"
   Assumptions: "Density 950 is user initial assumption (FAO gives 958-970 at 15 C); conductivity converted from 0.0025 J cm/(s C cm2). cp 2321 is measured yellow beeswax at 20 C in TA Instruments Table 1; white beeswax is 2901, so sample variation remains uncertain. No latent heat."
   Uncertain: 1

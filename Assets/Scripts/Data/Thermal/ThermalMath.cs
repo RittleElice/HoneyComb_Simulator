@@ -23,7 +23,18 @@ public static class ThermalMath
         double free = (double)volume - solidVolume - waxVolume;
         if (free < -volume * 1e-6) throw new InvalidOperationException("Occupied volume exceeds cell volume: " + (solidVolume + waxVolume) + " > " + volume + " m3");
         airVolume = (float)Math.Max(0, free);
-        capacity = solidVolume * solid.Density * solid.SpecificHeat + waxMass * wax.SpecificHeat + airVolume * air.Density * air.SpecificHeat;
+        // Each material contributes volume times its effective volumetric heat capacity.
+        // Keep the original multiplication order when the override is disabled.
+        float airCapacity = air.EffectiveVolumetricHeatCapacityJPerM3K > 0
+            ? airVolume * air.EffectiveVolumetricHeatCapacityJPerM3K
+            : airVolume * air.Density * air.SpecificHeat;
+        float solidCapacity = solid.EffectiveVolumetricHeatCapacityJPerM3K > 0
+            ? solidVolume * solid.EffectiveVolumetricHeatCapacityJPerM3K
+            : solidVolume * solid.Density * solid.SpecificHeat;
+        float waxCapacity = wax.EffectiveVolumetricHeatCapacityJPerM3K > 0
+            ? waxVolume * wax.EffectiveVolumetricHeatCapacityJPerM3K
+            : waxMass * wax.SpecificHeat;
+        capacity = solidCapacity + waxCapacity + airCapacity;
         conductivity = (solidVolume * solid.Conductivity + waxVolume * wax.Conductivity + airVolume * air.Conductivity) / volume;
         if (!Positive(capacity) || !Positive(conductivity)) throw new InvalidOperationException("Non-finite thermal mixture");
     }

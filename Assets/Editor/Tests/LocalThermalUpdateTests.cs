@@ -22,7 +22,7 @@ public static class LocalThermalUpdateTests
   for(int i=0;i<n;i++){double exterior=ext[i]*scales[i];sums[i]+=exterior;Equal(e.SumConductance(i),sums[i],"sum G "+i);Equal(e.ExteriorConductance(i),exterior,"exterior "+i);Equal(e.RawExteriorConductance(i),ext[i],"raw exterior "+i);var c=e.GetCell(i);double cap=c.Owner.HeatCapacityJPerK[c.Index];double limit=sums[i]>0?cap/sums[i]:double.PositiveInfinity;if(limit<minimum){minimum=limit;limiting=i;}}
   Equal(e.MinimumStepSeconds,minimum,"minimum");Check(e.LimitingCell==limiting,"minimum tie order");
  }
- [MenuItem("Tools/HoneyComb/Run Local Thermal Update Tests")]
+ [MenuItem("Tools/HoneyComb/검증/Run Local Thermal Update Tests")]
  public static void RunBatch()
  {
   try{

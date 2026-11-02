@@ -11,7 +11,7 @@ public static class ActionButtonSetup
     public const string CatalogPath = "Assets/Resources/ActionButtonCatalog.asset";
     private static Sprite Icon(string name) => AssetDatabase.LoadAllAssetsAtPath("Assets/Art/UI/" + name + ".png").OfType<Sprite>().FirstOrDefault();
 
-    [MenuItem("Tools/HoneyComb/Install Common Action Buttons")]
+    [MenuItem("Tools/HoneyComb/유지보수/Install Common Action Buttons")]
     public static void Install()
     {
         if (!Application.isBatchMode && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;

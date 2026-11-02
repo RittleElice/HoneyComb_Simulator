@@ -9,7 +9,7 @@ public static class HiveSpatialGridTests
     private static ItemData Item(ItemKind kind, object content = null) => new ItemData(0, kind.ToString(), kind, content);
 
 #if UNITY_EDITOR
-    [UnityEditor.MenuItem("Tools/HoneyComb/Run Hive Spatial Grid Tests")]
+    [UnityEditor.MenuItem("Tools/HoneyComb/검증/Run Hive Spatial Grid Tests")]
 #endif
     public static void RunAll()
     {

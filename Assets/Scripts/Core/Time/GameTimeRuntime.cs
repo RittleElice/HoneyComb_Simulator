@@ -51,7 +51,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     private void Update()
     {
         RefreshInputLock();
-        if (!HasWorld || suspended || operation || failure != null) return;
+        if (!HasWorld || suspended || operation || failure != null || (GameBootstrap.Instance?.IsPreparingNewGame ?? false)) return;
         try { thermalWorld?.Thermal?.Refresh(); } catch (Exception e) { Fail(e); return; }
         if (pendingMinutes > 0)
         {
@@ -93,7 +93,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
         }
     }
     private void Fail(Exception e) { failure = e.ToString(); Debug.LogException(e); RefreshInputLock(); }
-    private Task NextFrame()
+    internal Task NextFrame()
     {
         var completion = new TaskCompletionSource<bool>();
         frameWaits.Add(completion);

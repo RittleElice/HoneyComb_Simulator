@@ -5,7 +5,7 @@ public static class CellStateTests
     private static void Check(bool value, string message)
     { checks++; if (!value) throw new Exception("Cell state: " + message); }
 #if UNITY_EDITOR
-    [UnityEditor.MenuItem("Tools/HoneyComb/Run Cell State Tests")]
+    [UnityEditor.MenuItem("Tools/HoneyComb/검증/Run Cell State Tests")]
 #endif
     public static void RunAll()
     {

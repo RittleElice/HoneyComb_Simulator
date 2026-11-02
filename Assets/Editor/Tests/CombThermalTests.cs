@@ -6,7 +6,7 @@ public static class CombThermalTests
     private static void Check(bool value, string message) { checks++; if (!value) throw new Exception("Comb thermal: " + message); }
     private static void Near(double value, double expected, string message) => Check(Math.Abs(value - expected) < 1e-6, message + ": " + value + " != " + expected);
 #if UNITY_EDITOR
-    [UnityEditor.MenuItem("Tools/HoneyComb/Run Comb Thermal Tests")]
+    [UnityEditor.MenuItem("Tools/HoneyComb/검증/Run Comb Thermal Tests")]
 #endif
     public static void RunAll()
     {

@@ -1,9 +1,14 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 public class GameBootstrap : MonoBehaviour
 {
     public static GameBootstrap Instance { get; private set; }
 
+    public bool IsPreparingNewGame { get; private set; }
+    public string NewGameStatus { get; private set; } = "";
     public GameWorld GameWorld { get; private set; }
     public GameFlowManager GameFlow { get; private set; }
     public GameTimeRuntime TimeSystem { get; private set; }
@@ -39,7 +44,7 @@ public class GameBootstrap : MonoBehaviour
 
     public async void ContinueGame()
     {
-        if (GameFlow.IsTransitioning || GameTimeRuntime.InputBlocked || SaveSystem.IsSaving || GameWorld != null) return;
+        if (IsPreparingNewGame || GameFlow.IsTransitioning || GameTimeRuntime.InputBlocked || SaveSystem.IsSaving || GameWorld != null) return;
         try
         {
             var snapshot = await SaveSystem.LoadAsync();
@@ -56,28 +61,59 @@ public class GameBootstrap : MonoBehaviour
         catch (System.Exception e) { Debug.LogWarning("[Continue] " + e.Message); }
     }
 
-    public void StartNewGame()
+    public async void StartNewGame() => await StartNewGameAsync(1, 1, 1, CancellationToken.None);
+
+    public async Task<bool> StartNewGameAsync(long year, int month, int day, CancellationToken cancellation)
     {
-        if (GameFlow.IsTransitioning || GameTimeRuntime.InputBlocked || SaveSystem.IsSaving)
-            return;
+        if (IsPreparingNewGame || GameFlow.IsTransitioning || GameTimeRuntime.InputBlocked || SaveSystem.IsSaving) return false;
+        try
+        {
+            long target = GameClock.ToMinute(year, month, day, 0, 0);
+            IsPreparingNewGame = true;
+            NewGameStatus = "시작 날짜의 날씨를 준비하고 있습니다…";
+            await TimeSystem.NextFrame();
+            var candidate = await NewGameWeatherPreparation.CreateAsync(target,
+                WeatherAssetLoader.Create(WeatherSimulator.DefaultSeed), TimeSystem.NextFrame,
+                TimeSystem.WaitForResumeAsync, cancellation,
+                (done, total) => NewGameStatus = total == 0 ? "새 게임 준비 완료" : $"날씨 준비 {100d * done / total:F0}%");
+            cancellation.ThrowIfCancellationRequested();
+            await TimeSystem.WaitForResumeAsync();
+            cancellation.ThrowIfCancellationRequested();
+            // Publish only a completed candidate. BeginWorld initializes equipment at the selected weather.
+            IsPreparingNewGame = false;
+            TimeSystem.BeginWorld(candidate);
+            GameWorld = candidate;
+            GameFlow.ResetApiaryCamera();
+            GameFlow.OpenApiary();
+            SaveSystem.RequestSave();
+            NewGameStatus = "";
+            return true;
+        }
+        catch (OperationCanceledException) { NewGameStatus = "새 게임 준비를 취소했습니다."; return false; }
+        catch (Exception e) { NewGameStatus = "새 게임 준비 실패: " + e.Message; Debug.LogWarning(NewGameStatus); return false; }
+        finally { IsPreparingNewGame = false; }
+    }
+}
 
-        GameWorld = new GameWorld(WeatherAssetLoader.Create(WeatherSimulator.DefaultSeed));
-        TimeSystem.BeginWorld(GameWorld);
-        GameFlow.ResetApiaryCamera();
-
-        ApiaryData apiary = GameWorld.Apiary;
-
-        Debug.Log(
-            $"[ApiaryGrid] 크기: " +
-            $"{apiary.Grid.Width} x {apiary.Grid.Height}");
-
-        Debug.Log(
-            $"[GameBootstrap] 새 게임 시작: " +
-            $"{GameWorld.Year}년 " +
-            $"{GameWorld.Month}월 " +
-            $"{GameWorld.Day}일");
-
-        GameFlow.OpenApiary();
-        SaveSystem.RequestSave();
+// The provisional world is not published or saved until weather replay succeeds.
+public static class NewGameWeatherPreparation
+{
+    public static async Task<GameWorld> CreateAsync(long target, WeatherSimulator weather,
+        Func<Task> yieldFrame, Func<Task> waitUntilForeground, CancellationToken cancellation,
+        Action<long,long> progress = null)
+    {
+        if (target < 0 || weather == null || weather.Minute != 0) throw new ArgumentOutOfRangeException(nameof(target));
+        cancellation.ThrowIfCancellationRequested();
+        var world = new GameWorld(weather);
+        var scheduler = new SimulationScheduler(world.Clock);
+        scheduler.Register(weather); // Deliberately no thermal/equipment or other simulation participants.
+        progress?.Invoke(0, target);
+        await scheduler.RunToAsync(target, async () => {
+            progress?.Invoke(scheduler.Completed, scheduler.Total);
+            await yieldFrame();
+        }, waitUntilForeground, cancellation);
+        cancellation.ThrowIfCancellationRequested();
+        progress?.Invoke(target, target);
+        return world;
     }
 }

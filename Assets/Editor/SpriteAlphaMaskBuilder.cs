@@ -48,7 +48,7 @@ public sealed class SpriteAlphaMaskBuilder : AssetPostprocessor, IPreprocessBuil
         };
     }
 
-    [MenuItem("Tools/HoneyComb/Rebuild Sprite Alpha Masks")]
+    [MenuItem("Tools/HoneyComb/유지보수/Rebuild Sprite Alpha Masks")]
     public static void Rebuild() { EnsureCurrent(true); }
 
     public void OnPreprocessBuild(BuildReport report) { EnsureCurrent(); }

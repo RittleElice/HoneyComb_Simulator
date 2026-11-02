@@ -26,7 +26,7 @@ public static class ObservationAlphaMaskTests
             new Vector3(r.xMin + r.width * uv.x, r.yMin + r.height * uv.y)));
     }
 
-    [MenuItem("Tools/HoneyComb/Test Alpha Selection in Play %&h")]
+    [MenuItem("Tools/HoneyComb/검증/Test Alpha Selection in Play %&h")]
     public static void RunPlay()
     {
         if (!EditorApplication.isPlaying) throw new InvalidOperationException("Enter Observation in Play Mode with a placed brood box first.");
@@ -124,7 +124,7 @@ public static class ObservationAlphaMaskTests
     private static int importStage;
     private static double deadline;
 
-    [MenuItem("Tools/HoneyComb/Test Automatic Alpha Refresh %&j")]
+    [MenuItem("Tools/HoneyComb/검증/Test Automatic Alpha Refresh %&j")]
     public static void RunImportRefresh()
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode || scratch != null)

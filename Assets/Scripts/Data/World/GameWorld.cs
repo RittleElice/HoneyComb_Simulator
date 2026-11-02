@@ -102,9 +102,12 @@ public class GameWorld
         );
         
         Inventory.TryAdd(
-            new ItemData(109, "격왕판", ItemKind.QueenExcluder
-            )
+            new ItemData(109, "격왕판", ItemKind.QueenExcluder)
         );
+        Inventory.TryAdd(
+            new ItemData(110, "단열판", ItemKind.InsulationBoard)
+        );
+        
 
 
     }

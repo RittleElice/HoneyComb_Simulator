@@ -3,14 +3,21 @@ using UnityEngine;
 public sealed class ThermalExchangeSettingsMenu : EditorWindow {
     private ThermalExchangeSettings settings;
     private double fraction, exterior;
-    [MenuItem("Tools/HoneyComb/격자 열교환 설정")]
-    [MenuItem("HoneyComb/Developer/Thermal Exchange")]
-    public static void Open(){GetWindow<ThermalExchangeSettingsMenu>("열교환 설정");}
-    private void OnEnable(){Reload();minSize=new Vector2(430,330);}
+    private Vector2 scroll;
+    private Editor combEditor;
+    [MenuItem("Tools/HoneyComb/열 파라미터 설정", false, 10)]
+    public static void Open(){GetWindow<ThermalExchangeSettingsMenu>("열 파라미터 설정");}
+    private void OnEnable(){Reload();minSize=new Vector2(560,650);}
     private void Reload(){settings=Resources.Load<ThermalExchangeSettings>("Thermal/ExchangeSettings");if(settings!=null){fraction=settings.ValidFraction;exterior=settings.ValidExterior;}}
     private bool Valid()=>!double.IsNaN(fraction)&&!double.IsInfinity(fraction)&&fraction>=.001&&fraction<=.5&&!double.IsNaN(exterior)&&!double.IsInfinity(exterior)&&exterior>=0;
     private void Apply(){Undo.RecordObject(settings,"열교환 설정 변경");settings.MaximumFractionPerMinute=fraction;settings.ExteriorFilmCoefficientWPerM2K=exterior;EditorUtility.SetDirty(settings);}
+    private void OnDisable(){if(combEditor!=null)DestroyImmediate(combEditor);}
     private void OnGUI(){
+        scroll=EditorGUILayout.BeginScrollView(scroll);
+        DrawSettings();
+        EditorGUILayout.EndScrollView();
+    }
+    private void DrawSettings(){
         if(settings==null){EditorGUILayout.HelpBox("열교환 설정 파일이 없습니다.",MessageType.Error);return;}
         EditorGUILayout.LabelField("격자 열교환",EditorStyles.boldLabel);
         EditorGUILayout.LabelField("현재 적용값",$"분당 제한 {settings.ValidFraction:P1} / 외기 계수 {settings.ValidExterior:G5}");
@@ -26,8 +33,20 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
         if(!Valid())EditorGUILayout.HelpBox("제한은 0.1~50%, 외기 계수는 유한한 0 이상이어야 합니다.",MessageType.Error);
         EditorGUILayout.BeginHorizontal();
         if(GUILayout.Button("현재 값 다시 읽기"))Reload();
-        if(GUILayout.Button("기본값 입력 (10%, 5)")){fraction=.1;exterior=5;}
         if(GUILayout.Button("설정 파일 선택"))Selection.activeObject=settings;
         EditorGUILayout.EndHorizontal();
+        EditorGUILayout.Space(16);
+        var comb=Resources.Load<CombBalanceSettings>("CombBalanceSettings");
+        if(comb==null){EditorGUILayout.HelpBox("소방 설정 파일이 없습니다.",MessageType.Error);return;}
+        Editor.CreateCachedEditor(comb,typeof(CombBalanceSettingsEditor),ref combEditor);
+        combEditor.OnInspectorGUI();
+        EditorGUILayout.Space();
+        if(GUILayout.Button("재질·소방 설정을 프로젝트 기본값으로 저장")){
+            AssetDatabase.SaveAssetIfDirty(comb);
+            foreach(ThermalMaterialKind kind in System.Enum.GetValues(typeof(ThermalMaterialKind))){
+                var material=Resources.Load<ThermalMaterialAsset>("Thermal/"+kind);
+                if(material!=null)AssetDatabase.SaveAssetIfDirty(material);
+            }
+        }
     }
 }

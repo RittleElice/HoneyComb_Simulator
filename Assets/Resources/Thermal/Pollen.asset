@@ -17,6 +17,7 @@ MonoBehaviour:
   DensityKgPerM3: 1300
   SpecificHeatJPerKgK: 1800
   ConductivityWPerMK: 0.2
+  EffectiveVolumetricHeatCapacityJPerM3K: 2340000
   Sources: "https://handbook.ashrae.org/handbooks/R18/SI/R18_Ch19/r18_ch19_si.aspx Table 1 Choi and Okos equations evaluated at 20 C (component-model context only)"
   Assumptions: "All three numbers are provisional dry mixed-food surrogate assumptions, NOT measured pollen at 20 C. Botanical source, moisture and packing unknown; bulk vs skeletal density unresolved. Reserved, not connected."
   Uncertain: 1

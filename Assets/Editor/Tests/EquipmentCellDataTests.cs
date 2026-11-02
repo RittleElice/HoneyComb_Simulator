@@ -7,7 +7,7 @@ public static class EquipmentCellDataTests
     private static void Check(bool condition, string message)
     { checks++; if (!condition) throw new Exception("Equipment/cell data: " + message); }
 #if UNITY_EDITOR
-    [UnityEditor.MenuItem("Tools/HoneyComb/Run Equipment Cell Data Tests")]
+    [UnityEditor.MenuItem("Tools/HoneyComb/검증/Run Equipment Cell Data Tests")]
 #endif
     public static void RunAll()
     {

@@ -17,7 +17,7 @@ public static class ItemVisualTests
     }
     private static void Near(Vector3 a, Vector3 b, string message) => Check((a-b).magnitude < 0.02f, message);
 
-    [MenuItem("Tools/HoneyComb/Run Item Visual Tests")]
+    [MenuItem("Tools/HoneyComb/검증/Run Item Visual Tests")]
     public static void RunAll()
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode)

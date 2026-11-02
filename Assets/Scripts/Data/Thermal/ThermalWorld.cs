@@ -48,7 +48,7 @@ public sealed class ThermalWorld : IGameMinuteParticipant
         catch (Exception e) { Failure = e.Message; throw; }
     }
     private readonly GameWorld world;
-    private readonly ThermalMaterials materials;
+    private ThermalMaterials materials;
     private readonly Dictionary<HiveSpatialGrid, HiveThermalView> views = new Dictionary<HiveSpatialGrid, HiveThermalView>();
     public ThermalWorld(GameWorld owner, ThermalMaterials values) { world = owner; materials = values; }
     public HiveThermalView View(HiveSpatialGrid grid)
@@ -58,6 +58,7 @@ public sealed class ThermalWorld : IGameMinuteParticipant
     }
     public void Refresh(float? fixedOutsideC = null)
     {
+        materials = materials.RefreshLiveSnapshot();
         if (!fixedOutsideC.HasValue && world.Weather == null) throw new InvalidOperationException("Weather is required for new thermal cells.");
         float t = fixedOutsideC ?? (float)world.Weather.Current.TemperatureCelsius;
         foreach (var item in Items(world)) if (item.EquipmentGrid != null) item.ThermalState.Refresh(materials, t);

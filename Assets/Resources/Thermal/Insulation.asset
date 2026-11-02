@@ -17,6 +17,7 @@ MonoBehaviour:
   DensityKgPerM3: 14
   SpecificHeatJPerKgK: 1450
   ConductivityWPerMK: 0.036
+  EffectiveVolumetricHeatCapacityJPerM3K: 20300
   Sources: "https://insutech-eg.com/products/eps-14.html"
   Assumptions: "EPS 14 kg/m3 manufacturer surrogate. 1450 reference cp; conductivity upper declared value used at 20 C without temperature correction. Actual hive insulation unspecified. Bulk density already includes pores; do not add internal pore air twice."
   Uncertain: 1

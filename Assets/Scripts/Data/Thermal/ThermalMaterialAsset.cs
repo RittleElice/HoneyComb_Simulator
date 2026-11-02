@@ -11,26 +11,38 @@ public sealed class ThermalMaterialAsset : ScriptableObject
     public float DensityKgPerM3;
     public float SpecificHeatJPerKgK;
     public float ConductivityWPerMK;
+    [Tooltip("유효 체적 열용량 [J/(m³·K)]. 0이면 밀도 × 비열을 사용합니다.")]
+    [Min(0)] public float EffectiveVolumetricHeatCapacityJPerM3K;
     [TextArea(2, 8)] public string Sources;
     [TextArea(2, 8)] public string Assumptions;
     public bool Uncertain;
-    public ThermalMaterialValue Read() => new ThermalMaterialValue(DensityKgPerM3, SpecificHeatJPerKgK, ConductivityWPerMK);
+    private void OnValidate() => ThermalMaterials.NotifyAssetsChanged();
+    public ThermalMaterialValue Read() => new ThermalMaterialValue(DensityKgPerM3, SpecificHeatJPerKgK, ConductivityWPerMK, EffectiveVolumetricHeatCapacityJPerM3K);
 }
 
 // A detached immutable snapshot: no Unity API is used by the data model or save decoder.
 public readonly struct ThermalMaterialValue
 {
     public readonly float Density, SpecificHeat, Conductivity;
-    public ThermalMaterialValue(float density, float specificHeat, float conductivity)
+    public readonly float EffectiveVolumetricHeatCapacityJPerM3K;
+    public ThermalMaterialValue(float density, float specificHeat, float conductivity, float effectiveVolumetricHeatCapacityJPerM3K = 0)
     {
         if (!ThermalMath.Positive(density) || !ThermalMath.Positive(specificHeat) || !ThermalMath.Positive(conductivity))
             throw new ArgumentOutOfRangeException("Thermal material must be finite and positive.");
+        if (!ThermalMath.Finite(effectiveVolumetricHeatCapacityJPerM3K) || effectiveVolumetricHeatCapacityJPerM3K < 0)
+            throw new ArgumentOutOfRangeException(nameof(effectiveVolumetricHeatCapacityJPerM3K));
+        EffectiveVolumetricHeatCapacityJPerM3K = effectiveVolumetricHeatCapacityJPerM3K;
         Density = density; SpecificHeat = specificHeat; Conductivity = conductivity;
     }
 }
 
 public sealed class ThermalMaterials
 {
+    private static int assetRevision;
+    private int loadedRevision;
+    public static void NotifyAssetsChanged() => System.Threading.Interlocked.Increment(ref assetRevision);
+    // Detached test/save snapshots remain immutable. Loaded live settings refresh only after edits.
+    public ThermalMaterials RefreshLiveSnapshot() => liveSettings != null && loadedRevision != assetRevision ? Load() : this;
     private readonly ThermalMaterialValue[] values;
     private readonly double maximumFraction, exteriorFilm;
     private ThermalExchangeSettings liveSettings;
@@ -47,7 +59,7 @@ public sealed class ThermalMaterials
         exteriorFilm = exteriorFilmCoefficientWPerM2K;
         maximumFraction = maximumExchangeFractionPerMinute;
         values = (ThermalMaterialValue[])source.Clone();
-        foreach (var v in values) new ThermalMaterialValue(v.Density, v.SpecificHeat, v.Conductivity);
+        foreach (var v in values) new ThermalMaterialValue(v.Density, v.SpecificHeat, v.Conductivity, v.EffectiveVolumetricHeatCapacityJPerM3K);
     }
     public static ThermalMaterials Load()
     {
@@ -61,6 +73,6 @@ public sealed class ThermalMaterials
         }
         var settings = Resources.Load<ThermalExchangeSettings>("Thermal/ExchangeSettings");
         if (settings == null) throw new InvalidOperationException("Missing thermal exchange settings");
-        return new ThermalMaterials(result, settings.ValidFraction, settings.ValidExterior) { liveSettings = settings };
+        return new ThermalMaterials(result, settings.ValidFraction, settings.ValidExterior) { liveSettings = settings, loadedRevision = assetRevision };
     }
 }

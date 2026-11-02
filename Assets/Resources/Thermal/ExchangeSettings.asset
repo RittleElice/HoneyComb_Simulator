@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: ExchangeSettings
   m_EditorClassIdentifier: 
   MaximumFractionPerMinute: 0.5
-  ExteriorFilmCoefficientWPerM2K: 5
+  ExteriorFilmCoefficientWPerM2K: 50

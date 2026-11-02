@@ -25,7 +25,7 @@ public static class ItemAssemblyTests
     }
 
 #if UNITY_EDITOR
-    [UnityEditor.MenuItem("Tools/HoneyComb/Run Item Assembly Tests")]
+    [UnityEditor.MenuItem("Tools/HoneyComb/검증/Run Item Assembly Tests")]
 #endif
     public static void RunAll()
     {

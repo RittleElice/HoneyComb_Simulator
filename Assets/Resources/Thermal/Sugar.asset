@@ -17,6 +17,7 @@ MonoBehaviour:
   DensityKgPerM3: 1592.8908
   SpecificHeatJPerKgK: 1585.674
   ConductivityWPerMK: 0.2274255
+  EffectiveVolumetricHeatCapacityJPerM3K: 2525805.25
   Sources: "https://handbook.ashrae.org/handbooks/R18/SI/R18_Ch19/r18_ch19_si.aspx Table 1 Choi and Okos equations evaluated at 20 C"
   Assumptions: "Dry carbohydrate surrogate, NOT dissolved nectar sugar partial volume or pure sucrose. Reserved, not connected in stage 1."
   Uncertain: 1

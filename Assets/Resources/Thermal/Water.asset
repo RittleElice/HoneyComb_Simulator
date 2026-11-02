@@ -17,6 +17,7 @@ MonoBehaviour:
   DensityKgPerM3: 998
   SpecificHeatJPerKgK: 4182
   ConductivityWPerMK: 0.589
+  EffectiveVolumetricHeatCapacityJPerM3K: 4173636
   Sources: "https://shepherd.caltech.edu/Ae101/old/guide/guide.pdf p11 (PDF p15), nominal 20 C and 1 bar"
   Assumptions: "Liquid water at 20 C. Reserved; no phase change or nectar mixture model in stage 1."
   Uncertain: 0

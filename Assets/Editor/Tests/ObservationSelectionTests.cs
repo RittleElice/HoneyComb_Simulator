@@ -22,7 +22,7 @@ public static class ObservationSelectionTests
     private static T Find<T>(Scene scene) where T:Component => scene.GetRootGameObjects().SelectMany(g=>g.GetComponentsInChildren<T>(true)).Single();
     private static ItemData[] Parts() => new[] {new ItemData(10,"단상",ItemKind.BroodBox),new ItemData(11,"계상",ItemKind.Super),new ItemData(12,"계상",ItemKind.Super),new ItemData(13,"뚜껑",ItemKind.Lid)};
 
-    [MenuItem("Tools/HoneyComb/Run Observation Selection Tests")]
+    [MenuItem("Tools/HoneyComb/검증/Run Observation Selection Tests")]
     public static void RunAll()
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Run outside Play Mode.");

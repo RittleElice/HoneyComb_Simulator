@@ -13,14 +13,9 @@ public sealed class CombBalanceSettingsEditor : Editor
     }
     private static void ApplyCanonical()
     {
+        ThermalMaterials.NotifyAssetsChanged();
         var asset = AssetDatabase.LoadAssetAtPath<CombBalanceSettings>(Path);
         if (asset != null && !asset.TryApply(out string error)) Debug.LogError(error);
-    }
-    [MenuItem("Tools/HoneyComb/소방 용량·열용량 설정")]
-    private static void Open()
-    {
-        var asset = AssetDatabase.LoadAssetAtPath<CombBalanceSettings>(Path);
-        Selection.activeObject = asset; EditorGUIUtility.PingObject(asset);
     }
     private void Field(string name, string label)
     { EditorGUILayout.PropertyField(serializedObject.FindProperty("values").FindPropertyRelative(name), new GUIContent(label)); }
@@ -36,12 +31,33 @@ public sealed class CombBalanceSettingsEditor : Editor
         Field("PollenSpecificHeatJPerKgK", "화분 비열");
         Field("BroodHeatCapacityJPerK", "봉충 소방 1개의 열용량 (J/K)");
         EditorGUILayout.HelpBox("봉충은 벌 질량 모델 연결 전의 고정 대푯값입니다. 구형 FillRatio만 있는 소방은 질량을 추정하지 않아 내용물 열용량에서 제외됩니다.", MessageType.None);
-        EditorGUILayout.LabelField("공간 칸의 기본 재질", EditorStyles.boldLabel);
-        Field("AirDensityKgPerM3", "공기 밀도 (kg/m³)"); Field("AirSpecificHeatJPerKgK", "공기 비열");
-        Field("WoodDensityKgPerM3", "목재 밀도 (kg/m³)"); Field("WoodSpecificHeatJPerKgK", "목재 비열");
-        Field("CombEffectiveDensityKgPerM3", "빈 벌집 유효 밀도 (kg/m³)"); Field("CombSpecificHeatJPerKgK", "벌집 비열");
-        Field("InsulationDensityKgPerM3", "보온재 밀도 (kg/m³)"); Field("InsulationSpecificHeatJPerKgK", "보온재 비열");
-        EditorGUILayout.HelpBox("벌집 유효 밀도는 빈 공간을 포함한 격자 부피 기준입니다. 고체 밀랍의 밀도가 아닙니다. 기본 재질·봉충·당분·화분 값은 조정용 초기값입니다.", MessageType.None);
+        EditorGUILayout.LabelField("격자 재질 — 유효 체적 열용량·열전도율", EditorStyles.boldLabel);
+        string[] materialNames = { "공기", "목재", "밀랍", "보온재", "설탕 재질", "물 재질", "화분 재질" };
+        for (int i = 0; i < materialNames.Length; i++)
+        {
+            var material = Resources.Load<ThermalMaterialAsset>("Thermal/" + (ThermalMaterialKind)i);
+            if (material == null) { EditorGUILayout.HelpBox(materialNames[i] + " 재질 설정이 없습니다.", MessageType.Error); continue; }
+            var materialObject = new SerializedObject(material);
+            materialObject.Update();
+            var property = materialObject.FindProperty("EffectiveVolumetricHeatCapacityJPerM3K");
+            EditorGUILayout.LabelField(materialNames[i], EditorStyles.boldLabel);
+            float value = EditorGUILayout.DelayedFloatField("유효 체적 열용량 (J/m³·K)", property.floatValue);
+            if (value != property.floatValue)
+            {
+                if (ThermalMath.Finite(value) && value >= 0)
+                { property.floatValue = value; materialObject.ApplyModifiedProperties(); SceneView.RepaintAll(); }
+                else Debug.LogWarning("유효 체적 열용량은 0 이상의 유한한 값이어야 합니다.");
+            }
+            materialObject.Update();
+            var conductivity=materialObject.FindProperty("ConductivityWPerMK");
+            float k=EditorGUILayout.DelayedFloatField("열전도율 (W/m·K)",conductivity.floatValue);
+            if(k!=conductivity.floatValue){
+                if(ThermalMath.Positive(k)){conductivity.floatValue=k;materialObject.ApplyModifiedProperties();SceneView.RepaintAll();}
+                else Debug.LogWarning("열전도율은 유한한 양수여야 합니다.");
+            }
+            EditorGUILayout.Space(4);
+        }
+        EditorGUILayout.HelpBox("실제 격자 계산에 쓰는 재질 설정입니다. 0은 기존 밀도×비열 값을 사용합니다. 변경은 실행 중에도 다음 열 상태 갱신에 반영됩니다. 저장된 열에너지는 유지하므로 열용량 변경 시 온도도 달라집니다. 위 내용물의 비열 설정은 별도로 적용됩니다.", MessageType.Info);
         EditorGUILayout.LabelField("부피 계산용 밀도 — g/mL", EditorStyles.boldLabel);
         Field("WaterDensityGPerMl", "수분 밀도");
         Field("SugarEffectiveDensityGPerMl", "당분 유효 밀도");
