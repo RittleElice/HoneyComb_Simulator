@@ -13,7 +13,27 @@ public sealed class ThermalExchange : IDisposable
         public readonly EquipmentThermalState Owner;
         public readonly int Index;
         public readonly string Label;
-        public Cell(EquipmentThermalState owner, int index, string label) { Owner = owner; Index = index; Label = label; }
+        public readonly bool IsSlotAir;
+        public Cell(EquipmentThermalState owner, int index, string label, bool isSlotAir = false)
+        { Owner = owner; Index = index; Label = label; IsSlotAir = isSlotAir; }
+        public int MemberCount => IsSlotAir ? HiveGridLayout.SlotDepthCells : 1;
+        public int MemberIndex(int layer) => Index + layer * HiveGridLayout.SizeX;
+        public float HeatCapacityJPerK => Sum(Owner.HeatCapacityJPerK);
+        public float EnergyJ => Sum(Owner.EnergyJ);
+        private float Sum(IReadOnlyList<float> values)
+        {
+            if (!IsSlotAir) return values[Index];
+            double total = 0;
+            for (int k = 0; k < MemberCount; k++) total += values[MemberIndex(k)];
+            return (float)total;
+        }
+        // All four members are the same air material and share the X/Z area.
+        internal float MemberEnergy(float total, int member)
+        {
+            if (!IsSlotAir) return total;
+            int layer = (member - Index) / HiveGridLayout.SizeX;
+            return (float)(total * HiveGridLayout.SlotLayerEnergyShare(layer));
+        }
     }
     public readonly struct Face
     {
@@ -52,7 +72,8 @@ public sealed class ThermalExchange : IDisposable
     public bool MeasurePerformance { get; set; }
     private readonly double? maximumFractionPerMinute;
     private NativeArray<int> nativeOffsets, nativeNeighbours;
-    private NativeArray<double> nativeG, nativeExterior, nativeT, nativeEnergy, nativeNext;
+    private NativeArray<double> nativeG, nativeExterior, nativeT, nativeEnergy, nativeNext, nativeNextT;
+    private NativeArray<float> nativeCapacity;
     internal ThermalTopology.Binding TopologyBinding;
     private readonly Dictionary<EquipmentThermalState,int[]> ownerIndices = new Dictionary<EquipmentThermalState,int[]>();
     private readonly int[] rowFaces, faceSlotA, faceSlotB, boundaryOffsets, rowBoundaries;
@@ -67,17 +88,35 @@ public sealed class ThermalExchange : IDisposable
     public int BufferAllocations { get; private set; }
     public int CoefficientUploads { get; private set; }
     public bool HasBuffers => nativeOffsets.IsCreated;
-    public long BufferBytes => HasBuffers ? 4L * (offsets.Length + neighbours.Length) + 8L * (coefficients.Length + 4L * cells.Length) : 0;
+    public long BufferBytes => HasBuffers ? 4L * (offsets.Length + neighbours.Length) + 8L * (coefficients.Length + 5L * cells.Length) + 4L * cells.Length : 0;
     // Between completed minutes nativeEnergy holds the last committed float energy.
     // Equipment reads and writes its active rows through its stable owner-local mapping.
     private bool energyBound;
-    internal float ReadEnergy(int row) => (float)nativeEnergy[row];
-    internal void SetEnergy(int row, float value) => nativeEnergy[row] = value;
+    internal float ReadEnergy(int row, int member) => cells[row].MemberEnergy((float)nativeEnergy[row], member);
+    internal void SetEnergy(int row, int member, float value)
+    {
+        if (cells[row].IsSlotAir)
+        {
+            // A per-cell external write is applied to its physical owner before re-mixing.
+            ReleaseEnergy();
+            cells[row].Owner.CommitExchangeEnergy(member, value);
+            return;
+        }
+        nativeEnergy[row] = value;
+        nativeT[row] = (double)value / nativeCapacity[row];
+    }
     private void ReleaseEnergy()
     {
         if (!energyBound) return;
         for (int i = 0; i < cells.Length; i++)
-            cells[i].Owner.CommitExchangeEnergy(cells[i].Index, ReadEnergy(i));
+        {
+            var cell = cells[i];
+            for (int k = 0; k < cell.MemberCount; k++)
+            {
+                int member = cell.MemberIndex(k);
+                cell.Owner.CommitExchangeEnergy(member, ReadEnergy(i, member));
+            }
+        }
         foreach (var owner in owners) owner.BindEnergy(null, null);
         energyBound = false;
     }
@@ -88,6 +127,8 @@ public sealed class ThermalExchange : IDisposable
         if (nativeNeighbours.IsCreated) nativeNeighbours.Dispose();
         if (nativeG.IsCreated) nativeG.Dispose();
         if (nativeExterior.IsCreated) nativeExterior.Dispose();
+        if (nativeCapacity.IsCreated) nativeCapacity.Dispose();
+        if (nativeNextT.IsCreated) nativeNextT.Dispose();
         if (nativeT.IsCreated) nativeT.Dispose();
         if (nativeEnergy.IsCreated) nativeEnergy.Dispose();
         if (nativeNext.IsCreated) nativeNext.Dispose();
@@ -116,6 +157,8 @@ public sealed class ThermalExchange : IDisposable
                 nativeG = new NativeArray<double>(coefficients.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 nativeExterior = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 nativeT = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeNextT = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeCapacity = new NativeArray<float>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 nativeEnergy = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 nativeNext = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 activeBuffers.Add(this);
@@ -125,6 +168,7 @@ public sealed class ThermalExchange : IDisposable
         }
         if (uploadedBuild != CoefficientBuilds)
         {
+            nativeCapacity.CopyFrom(cachedCapacities);
             nativeG.CopyFrom(coefficients);
             nativeExterior.CopyFrom(exterior);
             uploadedBuild = CoefficientBuilds;
@@ -204,7 +248,9 @@ public sealed class ThermalExchange : IDisposable
         rowBoundaries=new int[boundaries.Length];cursor=(int[])boundaryOffsets.Clone();
         for(int b=0;b<boundaries.Length;b++)rowBoundaries[cursor[boundaries[b].Cell]++]=b;
         foreach(var owner in owners) {var indices=new int[owner.Count];for(int j=0;j<indices.Length;j++)indices[j]=-1;ownerIndices.Add(owner,indices);}
-        for(int i=0;i<cells.Length;i++)ownerIndices[cells[i].Owner][cells[i].Index]=i;
+        for (int i = 0; i < cells.Length; i++)
+            for (int k = 0; k < cells[i].MemberCount; k++)
+                ownerIndices[cells[i].Owner][cells[i].MemberIndex(k)] = i;
     }
     public static bool Finite(double v) => !double.IsNaN(v) && !double.IsInfinity(v);
     private static bool Positive(double v) => Finite(v) && v > 0;
@@ -223,7 +269,7 @@ public sealed class ThermalExchange : IDisposable
         : materialPairs.Exterior(c.Owner.ExchangeMaterial(c.Index),b.AreaM2,b.HalfM,k);
     private string Detail(int i, string reason)
     {
-        var c = cells[i]; double capacity = c.Owner.HeatCapacityBuffer[c.Index];
+        var c = cells[i]; double capacity = c.HeatCapacityJPerK;
         return reason + "; " + c.Label + "; C=" + capacity.ToString("R") + " J/K; sumG=" + sums[i].ToString("R") +
             " W/K; dtMax=" + (sums[i] > 0 ? capacity/sums[i] : double.PositiveInfinity).ToString("R") + " s";
     }
@@ -281,7 +327,7 @@ public sealed class ThermalExchange : IDisposable
             rawBoundaries[id]=g;rawExterior[b.Cell]+=g;sums[b.Cell]+=g;
         }
         for(int i=0;i<cells.Length;i++) {
-            var c=cells[i];double capacity=c.Owner.HeatCapacityBuffer[c.Index];cachedCapacities[i]=c.Owner.HeatCapacityBuffer[c.Index];rawTotals[i]=sums[i];
+            var c=cells[i];double capacity=c.HeatCapacityJPerK;cachedCapacities[i]=c.HeatCapacityJPerK;rawTotals[i]=sums[i];
             if(!Positive(capacity)||!Finite(sums[i]))throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
             double limit=sums[i]>0?capacity/sums[i]:double.PositiveInfinity;rawLimits.SetInitial(i,limit);
             scales[i]=MinuteScale(limit);
@@ -341,8 +387,8 @@ public sealed class ThermalExchange : IDisposable
             double sum=0,ext=0;
             for(int p=offsets[i];p<offsets[i+1];p++)sum+=rawFaces[rowFaces[p]];
             for(int p=boundaryOffsets[i];p<boundaryOffsets[i+1];p++){double g=rawBoundaries[rowBoundaries[p]];ext+=g;sum+=g;}
-            rawExterior[i]=ext;rawTotals[i]=sum;var c=cells[i];double capacity=c.Owner.HeatCapacityBuffer[c.Index];
-            cachedCapacities[i]=c.Owner.HeatCapacityBuffer[c.Index];
+            rawExterior[i]=ext;rawTotals[i]=sum;var c=cells[i];double capacity=c.HeatCapacityJPerK;
+            cachedCapacities[i]=c.HeatCapacityJPerK;
             if(!Positive(capacity)||!Finite(sum))throw new InvalidOperationException(Detail(i,"Invalid C or sumG"));
             double limit=sum>0?capacity/sum:double.PositiveInfinity;if(bulk)rawLimits.SetInitial(i,limit);else rawLimits.Set(i,limit);
             double scale=MinuteScale(limit);
@@ -369,6 +415,11 @@ public sealed class ThermalExchange : IDisposable
         if(canPatch) {
             foreach(int id in effectiveWork.Values){nativeG[faceSlotA[id]]=coefficients[faceSlotA[id]];nativeG[faceSlotB[id]]=coefficients[faceSlotB[id]];}
             foreach(int i in scaleWork.Values)nativeExterior[i]=exterior[i];
+            foreach (int i in changedCells.Values)
+            {
+                nativeCapacity[i] = cachedCapacities[i];
+                if (energyBound) nativeT[i] = nativeEnergy[i] / cachedCapacities[i];
+            }
             uploadedBuild=CoefficientBuilds;CoefficientUploads++;
         }
         changedCells.Clear();rawWork.Clear();scaleWork.Clear();effectiveWork.Clear();finalWork.Clear();
@@ -380,17 +431,28 @@ public sealed class ThermalExchange : IDisposable
         if (seconds > MinimumStepSeconds) throw new InvalidOperationException(Detail(LimitingCell,"Explicit step rejected: dt="+seconds+" s"));
     }
     [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard, CompileSynchronously = true)]
+    private struct ConvertTemperatures : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<double> Energy;
+        [ReadOnly] public NativeArray<float> Capacity;
+        [WriteOnly] public NativeArray<double> Temperature;
+        public void Execute(int i) => Temperature[i] = Energy[i] / Capacity[i];
+    }
+    [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard, CompileSynchronously = true)]
     private struct Gather : IJobParallelFor
     {
         [ReadOnly] public NativeArray<int> Offsets, Neighbours;
         [ReadOnly] public NativeArray<double> G, T, Energy, Exterior;
-        [WriteOnly] public NativeArray<double> Next;
+        [ReadOnly] public NativeArray<float> Capacity;
+        [WriteOnly] public NativeArray<double> Next, NextT;
         public double Seconds, OutsideC;
         public void Execute(int i)
         {
             double watts = Exterior[i] * (OutsideC - T[i]);
             for (int p = Offsets[i]; p < Offsets[i+1]; p++) watts += G[p] * (T[Neighbours[p]] - T[i]);
-            Next[i] = (float)(Energy[i] + Seconds * watts);
+            double committedEnergy = (float)(Energy[i] + Seconds * watts);
+            Next[i] = committedEnergy;
+            NextT[i] = committedEnergy / Capacity[i];
         }
     }
     // Results are committed directly after the Job; result-range and energy-balance audits live in editor tests.
@@ -414,6 +476,7 @@ public sealed class ThermalExchange : IDisposable
                 ValidateStep(seconds);
             }
             double ambient=outsideC ?? 0;
+            bool rebuildTemperatures = !energyBound || uploadedBuild != CoefficientBuilds;
             PrepareBuffers();
             var o=nativeOffsets; var n=nativeNeighbours; var g=nativeG; var ext=nativeExterior;
             var t=nativeT; var e=nativeEnergy; var next=nativeNext;
@@ -423,12 +486,15 @@ public sealed class ThermalExchange : IDisposable
                     // Another solver (for example a diagnostic one) can share these owners.
                     foreach (var owner in owners) owner.ActiveExchange?.ReleaseEnergy();
                     for (int i = 0; i < cells.Length; i++)
-                        e[i] = cells[i].Owner.ReadEnergy(cells[i].Index);
+                        e[i] = cells[i].EnergyJ;
                 }
-                for (int i = 0; i < cells.Length; i++)
-                    t[i] = e[i] / cachedCapacities[i];
+                JobHandle temperaturesReady = default;
+                if (rebuildTemperatures)
+                    temperaturesReady = new ConvertTemperatures { Energy=e, Capacity=nativeCapacity, Temperature=t }
+                        .Schedule(cells.Length, 64);
                 if(DiagnosticsEnabled)
                 {
+                    temperaturesReady.Complete();
                     double externalEnergy=0,externalCorrection=0;
                     for(int i=0;i<cells.Length;i++)
                     {
@@ -438,9 +504,11 @@ public sealed class ThermalExchange : IDisposable
                     ExternalEnergyJ=externalEnergy;
                 }
                 var jobTime = measure ? Stopwatch.StartNew() : null;
-                new Gather {Offsets=o,Neighbours=n,G=g,T=t,Energy=e,Next=next,Seconds=seconds,Exterior=ext,OutsideC=ambient}.Schedule(cells.Length,64).Complete();
+                new Gather {Offsets=o,Neighbours=n,G=g,T=t,Energy=e,Next=next,NextT=nativeNextT,Capacity=nativeCapacity,Seconds=seconds,Exterior=ext,OutsideC=ambient}.Schedule(cells.Length,64,temperaturesReady).Complete();
                 LastJobMilliseconds = jobTime?.Elapsed.TotalMilliseconds ?? 0;
                 // Publish only after the complete job succeeds.
+                nativeT = nativeNextT;
+                nativeNextT = t;
                 nativeEnergy = next;
                 nativeNext = e;
                 if (!energyBound)

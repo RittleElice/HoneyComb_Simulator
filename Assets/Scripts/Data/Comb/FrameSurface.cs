@@ -229,7 +229,7 @@ public sealed partial class FrameSurface
 
     public CombRegionThermalMass GetThermalRegion(int regionX, int regionZ)
     {
-        // Legacy frame dimensions use normalized regions; standard 84x40 maps 12x8 comb cells to each 7x5 thermal region.
+        // Legacy frame dimensions use normalized regions; the same mapping is used when looking up an individual cell.
         if (regionX < 0 || regionX >= HiveGridLayout.CombColumns || regionZ < 0 || regionZ >= HiveGridLayout.CombRows) throw new ArgumentOutOfRangeException();
         if (thermalRegions == null) thermalRegions = new CombRegionThermalMass[HiveGridLayout.CombColumns * HiveGridLayout.CombRows];
         if (thermalDirty)
@@ -238,7 +238,7 @@ public sealed partial class FrameSurface
             for (int i = 0; i < cells.Length; i++)
             {
                 if (cells[i].Content == CellContentKind.Empty) continue;
-                int region = (i % Width) * HiveGridLayout.CombColumns / Width + HiveGridLayout.CombColumns * ((i / Width) * HiveGridLayout.CombRows / Height);
+                int region = CombSpatialMapper.RegionX(i % Width, Width) + HiveGridLayout.CombColumns * CombSpatialMapper.RegionZ(i / Width, Height);
                 var mass = thermalRegions[region];
                 if (materials == null || !materials.Has(i)) mass.UnquantifiedCellCount++;
                 else switch (cells[i].Content)

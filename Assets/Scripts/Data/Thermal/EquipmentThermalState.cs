@@ -12,7 +12,7 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
     private readonly bool[] initialized, dirty;
     private readonly List<int> dirtyIndices = new List<int>();
     private readonly float[] capacity, conductivity, airVolume, waxMass;
-    private readonly float[] logicalWax = new float[420];
+    private readonly float[] logicalWax = new float[2 * HiveGridLayout.CombColumns * HiveGridLayout.CombRows];
     private int frontRevision = -1, backRevision = -1, balanceRevision = -1;
     private readonly int[] cellCacheRevision;
     internal int CellCacheRevision(int index) => cellCacheRevision[index];
@@ -45,13 +45,13 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
     internal float ReadEnergy(int index)
     {
         int row = activeIndices == null ? -1 : activeIndices[index];
-        return row < 0 ? energy[index] : ActiveExchange.ReadEnergy(row);
+        return row < 0 ? energy[index] : ActiveExchange.ReadEnergy(row, index);
     }
     private void SetEnergy(int index, float value)
     {
         int row = activeIndices == null ? -1 : activeIndices[index];
         if (row < 0) energy[index] = value;
-        else ActiveExchange.SetEnergy(row, value);
+        else ActiveExchange.SetEnergy(row, index, value);
     }
     internal float[] HeatCapacityBuffer => capacity;
     public IReadOnlyList<float> HeatCapacityJPerK => capacity;
@@ -130,31 +130,24 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
     }
     private void RebuildWax(FrameData frame)
     {
-        bool standard = frame.Width == 84 && frame.Height == 40;
-        MappingNotice = standard ? null : "Legacy dimensions: normalized 14x10 projection; groups are not 6x4. Original comb data retained.";
+        bool standard = frame.Width == FrameData.DefaultWidth && frame.Height == FrameData.DefaultHeight;
+        MappingNotice = standard ? null : "Custom frame size: cells mapped to normalized thermal regions.";
         Array.Clear(logicalWax, 0, logicalWax.Length);
         foreach (var side in new[] { FrameSide.Front, FrameSide.Back })
         {
             var surface = frame.GetSurface(side);
             for (int z = 0; z < frame.Height; z++) for (int x = 0; x < frame.Width; x++)
             {
-                int index = standard ? ThermalMath.LogicalIndex(x, z, side) :
-                    x * 14 / frame.Width + 14 * ((side == FrameSide.Front ? 0 : 2) + 3 * (z * 10 / frame.Height));
+                int index = ThermalMath.LogicalIndex(x, z, side, frame.Width, frame.Height);
                 logicalWax[index] += ThermalMath.WaxMassKg(surface.GetCell(x, z));
             }
         }
         var g = item.EquipmentGrid;
-        // Logical 14x10 groups uniformly cover the actual 420x200 opening.
-        // Conservatively project onto the existing 7x5 interior; no mass is assigned to wood.
+        // Front/back wax and contents use identical region boundaries.
         for (int z = 1; z < HiveGridLayout.FrameSizeZ - 1; z++) for (int y = 0; y < 2; y++) for (int x = 1; x < HiveGridLayout.FrameSizeX - 1; x++)
         {
             float mass = (float)((g.X[x+1]-g.X[x]) * (g.Z[z+1]-g.Z[z]) * .25e-9 * lastMaterials[ThermalMaterialKind.Wax].Density);
-            for (int lz = 0; lz < 10; lz++) for (int lx = 0; lx < 14; lx++)
-            {
-                float area = ThermalMath.Overlap(g.X[x], g.X[x+1], 10 + lx * 30, 10 + (lx+1) * 30) *
-                    ThermalMath.Overlap(g.Z[z], g.Z[z+1], 10 + lz * 20, 10 + (lz+1) * 20);
-                mass += logicalWax[lx + 14 * (y * 2 + 3 * lz)] * (area / 600f);
-            }
+            mass += logicalWax[(x-1) + HiveGridLayout.CombColumns * (y + 2 * (z-1))];
             int index = g.Index(x, y, z);
             if (waxMass[index] != mass) { waxMass[index] = mass; MarkDirty(index); }
         }
@@ -188,7 +181,7 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
             float f = (float)g.SolidFraction(y);
             depthConductivity[index] = 1f / (f / solid.Conductivity + (1-f) / m[ThermalMaterialKind.Air].Conductivity);
         }
-        // Existing 7x5 content regions map once to each face of the 7x5 interior.
+        // Content regions map once to each face of the thermal interior.
         // Heat-capacity-only coupling: no invented content volume/conductivity or transported enthalpy.
         double contents = cell?.ContentHeatCapacityJPerK ?? 0;
         contentCapacity[index] = (float)contents;

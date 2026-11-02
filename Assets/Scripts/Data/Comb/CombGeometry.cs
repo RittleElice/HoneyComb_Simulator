@@ -12,7 +12,7 @@ public sealed class CombGeometry
     public double StepY => 1.5 * Radius;
     public double Width => StepX * (Columns + (Rows > 1 ? 0.5 : 0));
     public double Height => Radius * (1.5 * (Rows - 1) + 2);
-    public CombGeometry(int columns = 84, int rows = 40)
+    public CombGeometry(int columns = FrameData.DefaultWidth, int rows = FrameData.DefaultHeight)
     {
         if (columns <= 0 || rows <= 0) throw new ArgumentOutOfRangeException();
         Columns = columns; Rows = rows;
@@ -66,15 +66,16 @@ public static class CombSpatialMapper
         return GetLogicalCell(item, column, row, side == FrameSide.Front ? 0 : 1);
     }
 
-    // Logical 12 x 8 comb-cell blocks, NOT geometric containment or area-weighted overlap.
-    // Hexagons cross physical 60 x 40 mm boundaries; their centres can also
-    // belong to a different physical block. Y is the chosen depth layer (0..1).
+    internal static int RegionX(int column, int width) => column * HiveGridLayout.CombColumns / width;
+    internal static int RegionZ(int row, int height) => row * HiveGridLayout.CombRows / height;
+
+    // Logical grouping of the existing biological cells, shared with the contents heat cache.
     public static EquipmentSpatialCell GetLogicalCell(ItemData item, int column, int row, int depth)
     {
         var frame = item == null ? null : item.GetContent<FrameData>();
-        if (item == null || item.Kind != ItemKind.Frame || frame == null || frame.Width != 84 || frame.Height != 40)
-            throw new ArgumentException("Logical mapping requires an 84 x 40 frame");
+        if (item == null || item.Kind != ItemKind.Frame || frame == null)
+            throw new ArgumentException("Logical mapping requires frame content");
         frame.Front.GetIndex(column, row);
-        return item.EquipmentGrid.GetCell(1 + column / 12, depth, 1 + row / 8);
+        return item.EquipmentGrid.GetCell(1 + RegionX(column, frame.Width), depth, 1 + RegionZ(row, frame.Height));
     }
 }

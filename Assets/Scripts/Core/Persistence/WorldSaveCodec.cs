@@ -17,7 +17,7 @@ internal static class SaveBinary
     public static string Text(BinaryReader r)
     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
 }
-/// <summary>Schema 7 places the brood entrance on X=0 to 7x5 frame interiors and two layers. Older play data is not migrated.
+/// <summary>Schema 9 uses 5x3 thermal regions on each face. Earlier saves stay in the previous save directory.
 /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
 public sealed class WorldSaveCodec
 {
@@ -25,7 +25,7 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
-    private int schema = 8;
+    private int schema = 9;
     public static byte[] Encode(WorldSaveSnapshot snapshot)
     {
         ValidateTime(snapshot);
@@ -34,7 +34,7 @@ public sealed class WorldSaveCodec
         using (var stream = new MemoryStream())
         using (var w = new BinaryWriter(stream,Encoding.UTF8,true))
         {
-            int version = 8;
+            int version = 9;
             w.Write(version); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
             var world = snapshot.World; w.Write(world.CurrentGameMinute);
             var codec = new WorldSaveCodec { hives = world.Apiary.Hives, schema = version };
@@ -58,7 +58,7 @@ public sealed class WorldSaveCodec
         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
         {
             int schema=r.ReadInt32();
-            if(schema!=7 && schema!=8) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
+            if(schema!=9) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);

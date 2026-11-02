@@ -101,7 +101,7 @@ public sealed class EquipmentSpatialGrid
     }
 
     // Front/back are stable data sides, not the current display FacingSide.
-    // Logical 7x5 groups: front -> local Y=0; back -> local Y=1; foundation is shared by both layers.
+    // Logical comb regions: front -> local Y=0; back -> local Y=1; foundation is shared by both layers.
     public CombRegionThermalMass GetContentThermalMass(int index)
     {
         if (index < 0 || index >= cells.Length) throw new ArgumentOutOfRangeException(nameof(index));

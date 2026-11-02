@@ -27,7 +27,7 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
     }
     private void Awake()
     {
-        string directory=Path.Combine(Application.persistentDataPath,"Saves");
+        string directory=Path.Combine(Application.persistentDataPath,"Saves-5x3");
 #if UNITY_EDITOR
         // Batch tests use an isolated location and must never touch the player's save files.
         string testDirectory=Environment.GetEnvironmentVariable("HONEYCOMB_SAVE_TEST_ROOT");

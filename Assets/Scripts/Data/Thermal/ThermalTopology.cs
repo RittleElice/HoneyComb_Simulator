@@ -4,21 +4,36 @@ using System.Linq;
 
 public static class ThermalTopology
 {
-    public static object[] Signature(GameWorld world)
+    public static object[] Signature(GameWorld world, IReadOnlyList<ItemData> items = null)
     {
         var result = new List<object>();
         foreach(var hive in world.Apiary.Hives) result.Add(hive.Slot.Value);
         for(int y=0;y<world.Apiary.Grid.Height;y++) for(int x=0;x<world.Apiary.Grid.UnlockedWidth;x++) result.Add(world.Apiary.GetItemSlot(x,y).Value);
         for(int i=0;i<world.Inventory.Capacity;i++) result.Add(world.Inventory.GetSlot(i).Value);
         result.Add(world.Hand.Value);
-        foreach(var item in ThermalWorld.Items(world)) { result.Add(item); if(item.SpatialGrid!=null) result.Add(item.SpatialGrid.Revision); }
+        foreach(var item in items ?? ThermalWorld.Items(world)) { result.Add(item); if(item.SpatialGrid!=null) result.Add(item.SpatialGrid.Revision); }
         return result.ToArray();
+    }
+    private static int EmptySlotMask(HiveSpatialGrid grid)
+    {
+        if (grid.Box.InteriorSlots == null) return 0;
+        int mask = 0;
+        for (int slot = 0; slot < HiveGridLayout.SlotCount; slot++)
+            if (grid.Box.InteriorSlots.GetSlot(slot).IsEmpty) mask |= 1 << slot;
+        return mask;
+    }
+    private static bool IsGrouped(int mask, HiveGridLayout layout, int x, int y, int z)
+    {
+        if (mask == 0 || x < 1 || x >= HiveGridLayout.SizeX - 1 ||
+            y < 1 || y >= HiveGridLayout.SizeY - 1 || z < layout.SlotBottom ||
+            z >= layout.SlotBottom + HiveGridLayout.FrameSizeZ) return false;
+        return (mask & (1 << ((y - 1) / HiveGridLayout.SlotDepthCells))) != 0;
     }
     // Six neighbours are valid only because all placed cell bounds are conforming.
     // CSR still stores the full adjacency, avoiding a silent six-entry truncation.
-    public static ThermalExchange Build(GameWorld world, double maximumFractionPerMinute = 0.1, double exteriorFilmCoefficientWPerM2K = 5, ThermalPairCoefficients materialPairs = null)
+    public static ThermalExchange Build(GameWorld world, double maximumFractionPerMinute = 0.1, double exteriorFilmCoefficientWPerM2K = 5, ThermalPairCoefficients materialPairs = null, IReadOnlyList<ItemData> items = null)
     {
-        var items = ThermalWorld.Items(world).ToArray();
+        items ??= ThermalWorld.Items(world).ToArray();
         var cells = new List<ThermalExchange.Cell>(); var faces = new List<ThermalExchange.Face>();
         var boundaries = new Dictionary<(int,int),ThermalExchange.Boundary>();
         var indices = new Dictionary<(EquipmentThermalState,int),int>();
@@ -27,11 +42,23 @@ public static class ThermalTopology
         {
             var grid = item.SpatialGrid; if (grid == null) continue;
             var map = new int[grid.CellCount]; grids.Add(grid,map); var l = grid.Layout;
+            int emptyMask = EmptySlotMask(grid);
             for (int i=0;i<map.Length;i++)
             {
                 var source = grid.GetCell(i).SourceCell;
                 var owner = source?.Equipment.ThermalState ?? item.ThermalState; int local = source?.Index ?? i;
                 l.Coordinates(i,out int x,out int y,out int z);
+                bool slotAir = IsGrouped(emptyMask, l, x, y, z);
+                if (slotAir)
+                {
+                    if (source != null || grid.GetCell(i).Material != HiveMaterial.Air)
+                        throw new InvalidOperationException("Expected air in empty slot");
+                    if ((y - 1) % HiveGridLayout.SlotDepthCells != 0)
+                    {
+                        map[i] = map[i - HiveGridLayout.SizeX];
+                        continue;
+                    }
+                }
                 if (source != null)
                 {
                     var eg = source.Equipment.EquipmentGrid;
@@ -39,16 +66,37 @@ public static class ThermalTopology
                     if (!Same(l.X[x+1]-l.X[x],eg.X[sx+1]-eg.X[sx]) || !Same(l.Y[y+1]-l.Y[y],eg.Y[sy+1]-eg.Y[sy]) || !Same(l.Z[z+1]-l.Z[z],eg.Z[sz+1]-eg.Z[sz]))
                         throw new InvalidOperationException("Nonconforming placed cell: equipment "+source.Equipment.Id+" local "+local+" grid "+i+"; six-neighbour topology invalid");
                 }
-                map[i] = Add(cells,indices,owner,local,"box "+item.Id+" cell "+i+" ("+x+","+y+","+z+") owner "+(source?.Equipment.Id ?? item.Id)+":"+local);
+                map[i] = Add(cells,indices,owner,local,"box "+item.Id+" cell "+i+" ("+x+","+y+","+z+") owner "+(source?.Equipment.Id ?? item.Id)+":"+local,slotAir);
             }
             AddExterior(map,l.X,l.Y,l.Z,boundaries);
+            var mergedFaces = new Dictionary<(int,int),int>();
             foreach (var edge in grid.Edges())
             {
                 l.Coordinates(edge.A,out int x,out int y,out int z);
                 int axis = edge.B-edge.A==1?0:edge.B-edge.A==HiveGridLayout.SizeX?1:2;
                 var coords = axis==0?l.X:axis==1?l.Y:l.Z; int p=axis==0?x:axis==1?y:z;
                 // Queen excluder is a zero-thickness permeable face; no calibrated thermal resistance exists.
-                faces.Add(new ThermalExchange.Face(map[edge.A],map[edge.B],edge.AreaMm2*1e-6,(coords[p+1]-coords[p])*.0005,(coords[p+2]-coords[p+1])*.0005,axis));
+                int a = map[edge.A], b = map[edge.B];
+                if (a == b) continue; // Internal to a single mixed air volume.
+                double halfA = (coords[p+1]-coords[p])*.0005;
+                double halfB = (coords[p+2]-coords[p+1])*.0005;
+                double area = edge.AreaMm2*1e-6;
+                if (cells[a].IsSlotAir || cells[b].IsSlotAir)
+                {
+                    if (axis == 1)
+                    {
+                        if (cells[a].IsSlotAir) halfA = HiveGridLayout.SlotDepthMm*.0005;
+                        if (cells[b].IsSlotAir) halfB = HiveGridLayout.SlotDepthMm*.0005;
+                    }
+                    if (mergedFaces.TryGetValue((a,b), out int existing))
+                    {
+                        var face = faces[existing];
+                        faces[existing] = new ThermalExchange.Face(a,b,face.AreaM2+area,halfA,halfB,axis);
+                        continue;
+                    }
+                    mergedFaces.Add((a,b),faces.Count);
+                }
+                faces.Add(new ThermalExchange.Face(a,b,area,halfA,halfB,axis));
             }
         }
         // Unplaced equipment has its own network exposed to ambient; hidden box air is excluded.
@@ -82,7 +130,7 @@ public static class ThermalTopology
         var seen=new HashSet<MovableItem>();
         foreach(var root in roots) AddStacks(root,seen,grids,faces,boundaries);
         var exchange = new ThermalExchange(cells.ToArray(),faces.ToArray(),maximumFractionPerMinute,boundaries.Values.OrderBy(b=>b.Cell).ThenBy(b=>b.Direction).ToArray(),exteriorFilmCoefficientWPerM2K,materialPairs);
-        exchange.TopologyBinding = new Binding(world,grids);
+        exchange.TopologyBinding = new Binding(world,grids,items);
         return exchange;
     }
     // Fixed geometric lattice: slot moves only change the equipment that owns a cell.
@@ -90,17 +138,18 @@ public static class ThermalTopology
     internal sealed class Binding
     {
         private readonly HiveSpatialGrid[] grids;
-        private readonly int[] starts, revisions;
+        private readonly int[][] cellMaps;
+        private readonly int[] revisions, emptyMasks;
         private readonly ItemData[] detached;
         private readonly List<(HiveSpatialGrid,HiveSpatialGrid)> pairs;
         private readonly List<KeyValuePair<int,ThermalExchange.Cell>> replacements = new List<KeyValuePair<int,ThermalExchange.Cell>>();
-        public Binding(GameWorld world,Dictionary<HiveSpatialGrid,int[]> maps)
+        public Binding(GameWorld world,Dictionary<HiveSpatialGrid,int[]> maps, IReadOnlyList<ItemData> items)
         {
-            var items=ThermalWorld.Items(world).ToArray();grids=items.Where(i=>i.SpatialGrid!=null).Select(i=>i.SpatialGrid).ToArray();
-            starts=grids.Select(g=>maps[g][0]).ToArray();revisions=grids.Select(g=>g.Revision).ToArray();
+            grids=items.Where(i=>i.SpatialGrid!=null).Select(i=>i.SpatialGrid).ToArray();
+            cellMaps=grids.Select(g=>maps[g]).ToArray();emptyMasks=grids.Select(EmptySlotMask).ToArray();revisions=grids.Select(g=>g.Revision).ToArray();
             detached=Detached(items);pairs=Pairs(world);
         }
-        private static ItemData[] Detached(ItemData[] items)
+        private static ItemData[] Detached(IReadOnlyList<ItemData> items)
         {
             var placed=new HashSet<ItemData>();
             foreach(var item in items)if(item.InteriorSlots!=null)for(int j=0;j<item.InteriorSlots.Capacity;j++)if(item.InteriorSlots.GetSlot(j).Item!=null)placed.Add(item.InteriorSlots.GetSlot(j).Item);
@@ -120,21 +169,23 @@ public static class ThermalTopology
             for(int i=0;i<world.Inventory.Capacity;i++)visit(world.Inventory.GetSlot(i).Value);visit(world.Hand.Value);
             return result;
         }
-        public bool TryUpdate(GameWorld world,ThermalExchange exchange)
+        public bool TryUpdate(GameWorld world,ThermalExchange exchange, IReadOnlyList<ItemData> items = null)
         {
-            var items=ThermalWorld.Items(world).ToArray();
+            items ??= ThermalWorld.Items(world).ToArray();
             if(!grids.SequenceEqual(items.Where(i=>i.SpatialGrid!=null).Select(i=>i.SpatialGrid)) || !detached.SequenceEqual(Detached(items)) || !pairs.SequenceEqual(Pairs(world)))return false;
             replacements.Clear();
             for(int g=0;g<grids.Length;g++){
-                var grid=grids[g];if(revisions[g]==grid.Revision)continue;var l=grid.Layout;
+                var grid=grids[g];if(revisions[g]==grid.Revision)continue;
+                if (EmptySlotMask(grid) != emptyMasks[g]) return false;
+                var l=grid.Layout;
                 for(int i=0;i<grid.CellCount;i++){
                     var source=grid.GetCell(i).SourceCell;var owner=source?.Equipment.ThermalState??grid.Box.ThermalState;int local=source?.Index??i;
-                    var old=exchange.GetCell(starts[g]+i);if(ReferenceEquals(old.Owner,owner)&&old.Index==local)continue;
+                    var old=exchange.GetCell(cellMaps[g][i]);if(old.IsSlotAir)continue;if(ReferenceEquals(old.Owner,owner)&&old.Index==local)continue;
                     if(!exchange.CanRebind(owner))return false;
                     l.Coordinates(i,out int x,out int y,out int z);
                     if(source!=null){var eg=source.Equipment.EquipmentGrid;int sx=local%eg.SizeX,sy=local/eg.SizeX%eg.SizeY,sz=local/(eg.SizeX*eg.SizeY);
                         if(!Same(l.X[x+1]-l.X[x],eg.X[sx+1]-eg.X[sx])||!Same(l.Y[y+1]-l.Y[y],eg.Y[sy+1]-eg.Y[sy])||!Same(l.Z[z+1]-l.Z[z],eg.Z[sz+1]-eg.Z[sz]))throw new InvalidOperationException("Nonconforming moved equipment");}
-                    replacements.Add(new KeyValuePair<int,ThermalExchange.Cell>(starts[g]+i,new ThermalExchange.Cell(owner,local,"box "+grid.Box.Id+" cell "+i+" ("+x+","+y+","+z+") owner "+(source?.Equipment.Id??grid.Box.Id)+":"+local)));
+                    replacements.Add(new KeyValuePair<int,ThermalExchange.Cell>(cellMaps[g][i],new ThermalExchange.Cell(owner,local,"box "+grid.Box.Id+" cell "+i+" ("+x+","+y+","+z+") owner "+(source?.Equipment.Id??grid.Box.Id)+":"+local)));
                 }
             }
             exchange.RebindCells(replacements);
@@ -158,10 +209,10 @@ public static class ThermalTopology
         }
     }
     private static bool Same(double a,double b) => Math.Abs(a-b)<1e-9;
-    private static int Add(List<ThermalExchange.Cell> cells,Dictionary<(EquipmentThermalState,int),int> map,EquipmentThermalState owner,int index,string label)
+    private static int Add(List<ThermalExchange.Cell> cells,Dictionary<(EquipmentThermalState,int),int> map,EquipmentThermalState owner,int index,string label,bool slotAir=false)
     {
         if(map.ContainsKey((owner,index))) throw new InvalidOperationException("Duplicate active owner: "+label);
-        int result=cells.Count; map.Add((owner,index),result); cells.Add(new ThermalExchange.Cell(owner,index,label)); return result;
+        int result=cells.Count; map.Add((owner,index),result); cells.Add(new ThermalExchange.Cell(owner,index,label,slotAir)); return result;
     }
     private static void AddStacks(MovableItem root,HashSet<MovableItem> seen,Dictionary<HiveSpatialGrid,int[]> grids,List<ThermalExchange.Face> faces,Dictionary<(int,int),ThermalExchange.Boundary> boundaries)
     {

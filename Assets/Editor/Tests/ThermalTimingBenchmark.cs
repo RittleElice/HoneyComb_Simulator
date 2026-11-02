@@ -30,7 +30,7 @@ public static class ThermalTimingBenchmark
                 {
                     frame=new ItemData(9990,"timing frame",ItemKind.Frame,new FrameData());
                     frame.GetContent<FrameData>().Front.SetAllConstruction(100);
-                    for(int y=0;y<40;y++)for(int x=0;x<84;x++)frame.GetContent<FrameData>().Front.TryAddNectar(x,y,0,0,100);
+                    for(int y=0;y<FrameData.DefaultHeight;y++)for(int x=0;x<FrameData.DefaultWidth;x++)frame.GetContent<FrameData>().Front.TryAddNectar(x,y,0,0,100);
                     world.Hand.Slot.TryInsert(frame);
                     box.InteriorSlots.GetSlot(1).TryInsert(new ItemData(9991,"insulation",ItemKind.InsulationBoard));
                     box.InteriorSlots.GetSlot(2).TryInsert(new ItemData(9992,"divider",ItemKind.DividerBoard));

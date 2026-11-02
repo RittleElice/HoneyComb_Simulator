@@ -44,16 +44,16 @@ public static class ContentThermalIntegrationTests
             foreach(var side in new[]{FrameSide.Front,FrameSide.Back})
             {
                 var surf=dense.GetSurface(side);surf.SetAllConstruction(100);
-                for(int y=0;y<40;y++)for(int x=0;x<84;x++)Check(surf.TryAddNectar(x,y,0,0,1),"dense insert");
+                for(int y=0;y<surf.Height;y++)for(int x=0;x<surf.Width;x++)Check(surf.TryAddNectar(x,y,0,0,1),"dense insert");
             }
             denseItem.ThermalState.Refresh(materials,20);
-            Near(denseItem.ThermalState.ContentHeatCapacityJPerK.Sum(v=>(double)v),6720*.00418,"all cells counted once");
+            Near(denseItem.ThermalState.ContentHeatCapacityJPerK.Sum(v=>(double)v),6630*.00418,"all cells counted once");
             var world=new GameWorld(new WeatherSimulator(42,WeatherAssetLoader.LoadBaseline()));
             Check(world.Hand.Slot.TryInsert(denseItem),"put dense frame in saved world");world.PrepareThermal(materials);
             var snap=new WorldSaveSnapshot{World=world,UtcTicks=DateTime.UtcNow.Ticks,TargetMinute=world.CurrentGameMinute};
             var bytes=WorldSaveCodec.Encode(snap);var loaded=WorldSaveCodec.Decode(bytes);loaded.World.PrepareThermal(materials);
             Check(bytes.SequenceEqual(WorldSaveCodec.Encode(loaded)),"content and energy exact save roundtrip");
-            Near(loaded.World.Hand.Item.ThermalState.ContentHeatCapacityJPerK.Sum(v=>(double)v),6720*.00418,"loaded contents rebuild capacity");
+            Near(loaded.World.Hand.Item.ThermalState.ContentHeatCapacityJPerK.Sum(v=>(double)v),6630*.00418,"loaded contents rebuild capacity");
         }
         finally {CombBalance.TryApply(original,out _);}
         UnityEngine.Debug.Log("CONTENT THERMAL INTEGRATION PASS");

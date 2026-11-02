@@ -7,9 +7,16 @@ public static class ThermalMath
     public static float WaxMassKg(CellData cell) => (cell.Type == CombCellType.Drone ? 20e-6f : 15e-6f) * (cell.Construction / 100f);
     public static int LogicalIndex(int column, int row, FrameSide side)
     {
-        if (column < 0 || column >= 84 || row < 0 || row >= 40 || (side != FrameSide.Front && side != FrameSide.Back))
+        return LogicalIndex(column, row, side, FrameData.DefaultWidth, FrameData.DefaultHeight);
+    }
+    internal static int LogicalIndex(int column, int row, FrameSide side, int width, int height)
+    {
+        if (column < 0 || column >= width || row < 0 || row >= height ||
+            (side != FrameSide.Front && side != FrameSide.Back))
             throw new ArgumentOutOfRangeException("Comb coordinate");
-        return column / 6 + 14 * ((side == FrameSide.Front ? 0 : 2) + 3 * (row / 4));
+        int layer = side == FrameSide.Front ? 0 : 1;
+        return CombSpatialMapper.RegionX(column, width) + HiveGridLayout.CombColumns *
+            (layer + 2 * CombSpatialMapper.RegionZ(row, height));
     }
     public static float Overlap(double a, double b, double c, double d) => (float)Math.Max(0, Math.Min(b, d) - Math.Max(a, c));
     // No clipping of occupied mass. Overflow is a modelling error and cannot become valid state.

@@ -22,7 +22,7 @@ public static class EquipmentCellDataTests
             Check(item.AgingAffectsInsulation == (kind == ItemKind.BroodBox || kind == ItemKind.Super || kind == ItemKind.Lid), "insulation aging hook");
         }
         var f = new FrameData(); var s = f.Front;
-        Check(f.TotalCellCount == 6720 && s.AllocatedDataBytes == 3360 * 8, "fixed default compact arrays");
+        Check(f.TotalCellCount == 6630 && s.AllocatedDataBytes == 3315 * 8, "fixed default compact arrays");
         Check(!s.TryAddNectar(0,0,0,10,20) && !s.TrySetBrood(0,0,123), "unfinished cannot hold material");
         s.TrySetConstruction(0,0,79); Check(!s.GetCell(0,0).IsComplete, "79 not complete");
         s.TrySetConstruction(0,0,80); Check(s.GetCell(0,0).IsComplete, "80 completes");

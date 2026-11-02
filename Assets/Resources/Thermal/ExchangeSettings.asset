@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99ea4aeddd97409fbbb1fa2d5b9ac184, type: 3}
   m_Name: ExchangeSettings
   m_EditorClassIdentifier: 
-  MaximumFractionPerMinute: 0.5
+  MaximumFractionPerMinute: 1
   ExteriorFilmCoefficientWPerM2K: 50
   UseMaterialPairs: 1
   AirAir: 250

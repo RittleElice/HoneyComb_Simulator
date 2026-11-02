@@ -13,19 +13,21 @@ public sealed class ThermalWorld : IGameMinuteParticipant
     public int TopologyBuilds { get; private set; }
     public int LocalTopologyUpdates { get; private set; }
     private ThermalPairCoefficients appliedPairs;
-    public void PrepareExchange()
+    private readonly List<ItemData> minuteItems = new List<ItemData>();
+    public void PrepareExchange() => PrepareExchange(Items(world).ToArray());
+    private void PrepareExchange(IReadOnlyList<ItemData> items)
     {
         double fraction=materials.MaximumExchangeFractionPerMinute, exterior=materials.ExteriorFilmCoefficientWPerM2K;
         var pairs=materials.Pairs;
         bool settingsChanged=fraction!=appliedFraction || exterior!=appliedExterior || !ReferenceEquals(pairs,appliedPairs);
-        var stamp = ThermalTopology.Signature(world);
+        var stamp = ThermalTopology.Signature(world, items);
         if (Exchange == null || settingsChanged || !stamp.SequenceEqual(topologyStamp))
         {
-            if(!settingsChanged && Exchange != null && Exchange.TopologyBinding != null && Exchange.TopologyBinding.TryUpdate(world,Exchange))
+            if(!settingsChanged && Exchange != null && Exchange.TopologyBinding != null && Exchange.TopologyBinding.TryUpdate(world,Exchange,items))
                 LocalTopologyUpdates++;
             else
             {
-                var replacement = ThermalTopology.Build(world, fraction, exterior, pairs);
+                var replacement = ThermalTopology.Build(world, fraction, exterior, pairs, items);
                 Exchange?.Dispose();
                 Exchange = replacement; TopologyBuilds++;
             }
@@ -45,18 +47,24 @@ public sealed class ThermalWorld : IGameMinuteParticipant
                 throw new InvalidOperationException("Exterior forcing requires weather at the start of the minute");
             // Keep thermal before weather: T_air(n) forces [n,n+1), without advancing RNG on thermal failure.
             double outside=world.Weather.Current.TemperatureCelsius;
-            Refresh(); PrepareExchange(); SupplyHeating(60); Exchange.StepPrepared(60,outside);
+            minuteItems.Clear();
+            minuteItems.AddRange(Items(world));
+            RefreshItems(minuteItems, null);
+            PrepareExchange(minuteItems);
+            SupplyItemHeating(minuteItems, 60);
+            Exchange.StepPrepared(60, outside);
             return Task.CompletedTask;
         }
         catch (Exception e) { Failure = e.Message; throw; }
     }
     public double LastHeatingEnergyJ { get; private set; }
-    private void SupplyHeating(double seconds)
+    private void SupplyHeating(double seconds) => SupplyItemHeating(Items(world).ToArray(), seconds);
+    private void SupplyItemHeating(IReadOnlyList<ItemData> items, double seconds)
     {
         LastHeatingEnergyJ=0;
-        foreach(var item in Items(world))if(item.GetContent<HeatingPanelData>() is HeatingPanelData heater)heater.LastSuppliedJoules=0;
+        foreach(var item in items)if(item.GetContent<HeatingPanelData>() is HeatingPanelData heater)heater.LastSuppliedJoules=0;
         // A heater in inventory or the hand is unplugged. Only interior-slot installations heat.
-        foreach(var box in Items(world))if(box.InteriorSlots!=null)
+        foreach(var box in items)if(box.InteriorSlots!=null)
             for(int i=0;i<box.InteriorSlots.Capacity;i++){
                 var panel=box.InteriorSlots.GetSlot(i).Item;var heater=panel?.GetContent<HeatingPanelData>();
                 if(panel?.Kind!=ItemKind.HeatingPanel||heater==null||!heater.Enabled||heater.OutputWatts==0)continue;
@@ -72,13 +80,14 @@ public sealed class ThermalWorld : IGameMinuteParticipant
         if (!views.TryGetValue(grid, out var view)) { view = new HiveThermalView(grid); views.Add(grid, view); }
         return view;
     }
-    public void Refresh(float? fixedOutsideC = null)
+    public void Refresh(float? fixedOutsideC = null) => RefreshItems(Items(world).ToArray(), fixedOutsideC);
+    private void RefreshItems(IReadOnlyList<ItemData> items, float? fixedOutsideC)
     {
         materials = materials.RefreshLiveSnapshot();
         if (!fixedOutsideC.HasValue && world.Weather == null) throw new InvalidOperationException("Weather is required for new thermal cells.");
         float t = fixedOutsideC ?? (float)world.Weather.Current.TemperatureCelsius;
-        foreach (var item in Items(world)) if (item.EquipmentGrid != null) item.ThermalState.Refresh(materials, t);
-        foreach (var item in Items(world)) if (item.SpatialGrid != null) View(item.SpatialGrid).Refresh(t);
+        foreach (var item in items) if (item.EquipmentGrid != null) item.ThermalState.Refresh(materials, t);
+        foreach (var item in items) if (item.SpatialGrid != null) View(item.SpatialGrid).Refresh(t);
     }
     public static IEnumerable<ItemData> Items(GameWorld world)
     {
