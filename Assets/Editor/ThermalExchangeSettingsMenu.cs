@@ -22,8 +22,10 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
         EditorGUILayout.LabelField("격자 열교환",EditorStyles.boldLabel);
         EditorGUILayout.LabelField("현재 적용값",$"분당 제한 {settings.ValidFraction:P1} / 외기 계수 {settings.ValidExterior:G5}");
         EditorGUILayout.Space();
+        DrawPairs();
         fraction=EditorGUILayout.Slider(new GUIContent("분당 교환 제한 (%)","주변 온도 차를 반영하는 최대 비율. 각 연결의 실제 비율은 더 작을 수 있습니다."),(float)(fraction*100),.1f,50f)/100d;
-        exterior=EditorGUILayout.DoubleField(new GUIContent("외기 열전달계수 (W/m²·K)","0이면 외기 열교환이 꺼집니다. 내부 교환은 유지됩니다."),exterior);
+        using(new EditorGUI.DisabledScope(settings.UseMaterialPairs))
+        exterior=DragParameter("외기 열전달계수 (W/m²·K)",exterior,0,1000,1);
         EditorGUILayout.HelpBox("적용하면 실행 중인 게임도 다음 열 계산부터 변경됩니다. 기존 열에너지는 유지됩니다. 재생이 일시정지 상태라면 열 계산이 재개될 때 반영됩니다.",MessageType.Info);
         EditorGUILayout.HelpBox("분당 제한을 높이면 내부·외기 교환의 상한이 함께 올라갑니다. 외기 계수는 외부 노출면에 작용합니다. 환기·대류·벌 발열을 추가하는 설정은 아닙니다. 현재 60초 계산의 안정성 범위로 제한합니다.",MessageType.None);
         using(new EditorGUI.DisabledScope(!Valid())){
@@ -49,6 +51,37 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
                 if(material!=null)AssetDatabase.SaveAssetIfDirty(material);
             }
         }
+    }
+    private void DrawPairs(){
+        EditorGUILayout.LabelField("재질 조합별 유효 열전달계수 · W/(m²·K)",EditorStyles.boldLabel);
+        var so=new SerializedObject(settings);so.Update();
+        EditorGUILayout.PropertyField(so.FindProperty("UseMaterialPairs"),new GUIContent("재질 조합 방식 사용"));
+        string[] names={"AirAir","AirWood","AirComb","AirInsulation","WoodWood","WoodComb","WoodInsulation","CombComb","CombInsulation","InsulationInsulation","AirOutside","WoodOutside","CombOutside","InsulationOutside"};
+        string[] labels={"공기 ↔ 공기","공기 ↔ 목재","공기 ↔ 소방 복합층","공기 ↔ 단열재","목재 ↔ 목재","목재 ↔ 소방 복합층","목재 ↔ 단열재","소방 ↔ 소방","소방 ↔ 단열재","단열재 ↔ 단열재","공기 → 외기","목재 → 외기","소방 → 외기","단열재 → 외기"};
+        bool valid=true;
+        using(new EditorGUI.DisabledScope(!so.FindProperty("UseMaterialPairs").boolValue))for(int i=0;i<names.Length;i++){
+            var prop=so.FindProperty(names[i]);prop.doubleValue=DragParameter(labels[i],prop.doubleValue,0,1000,1);
+            valid &= ThermalExchange.Finite(prop.doubleValue)&&prop.doubleValue>=0;
+        }
+        if(valid)so.ApplyModifiedProperties();else EditorGUILayout.HelpBox("계수는 유한한 0 이상이어야 합니다. 잘못된 값은 적용되지 않습니다.",MessageType.Error);
+        EditorGUILayout.HelpBox("편집 즉시 다음 열 계산에 반영됩니다. 0은 해당 연결의 교환을 끕니다. 공기끼리는 h×면적을 사용합니다. 공기–고체는 1/h와 고체 쪽 두께/열전도율을, 고체끼리는 1/h와 양쪽 두께/열전도율을 합산합니다. 소방 내용물은 복합층의 열용량에 포함됩니다. 외기 계수는 노출면에만 적용되며 실제 환기 흐름을 계산하지 않습니다. 저장은 아래 프로젝트 기본값 저장 버튼을 사용하세요.",MessageType.Info);
+    }
+    // Keep exact typed values, including those outside the drag range, until the slider is actually moved.
+    public static double DragParameter(string label,double value,double minimum,double maximum,double scale){
+        double result=EditorGUILayout.DelayedDoubleField(new GUIContent(label,"숫자를 직접 입력하거나 아래 막대를 드래그하세요. 작은 값은 세밀하게, 큰 값은 넓게 조절됩니다."),value);
+        double shown=ThermalExchange.Finite(result)?System.Math.Clamp(result,minimum,maximum):minimum;
+        double lo=System.Math.Log(1+minimum/scale),hi=System.Math.Log(1+maximum/scale);
+        float position=(float)((System.Math.Log(1+shown/scale)-lo)/(hi-lo));
+        EditorGUILayout.BeginHorizontal();
+        GUILayout.Label(new GUIContent("드래그",$"드래그 범위: {minimum:G5} ~ {maximum:G5}. 범위 밖의 값은 숫자로 입력할 수 있습니다."),GUILayout.Width(48));
+        EditorGUI.BeginChangeCheck();
+        float next=GUILayout.HorizontalSlider(position,0f,1f);
+        if(EditorGUI.EndChangeCheck()){
+            double adjusted=next<=0?minimum:next>=1?maximum:scale*(System.Math.Exp(lo+next*(hi-lo))-1);
+            result=double.Parse(adjusted.ToString("G6",System.Globalization.CultureInfo.InvariantCulture),System.Globalization.CultureInfo.InvariantCulture);
+        }
+        EditorGUILayout.EndHorizontal();
+        return result;
     }
     private void DrawHeatingPanels(){
         EditorGUILayout.Space();EditorGUILayout.LabelField("테스트용 벌통 가온판",EditorStyles.boldLabel);

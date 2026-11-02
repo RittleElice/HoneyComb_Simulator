@@ -5,7 +5,7 @@ using System.IO;
 // Authoritative float sensible energy, referenced to 0 C (negative energies are valid).
 // E=C*T is an engineering cp-based model, not absolute thermodynamic internal energy.
 // Equipment owns state even when detached. Derived SoA arrays are never serialized.
-public sealed class EquipmentThermalState
+public sealed class EquipmentThermalState : IReadOnlyList<float>
 {
     private readonly ItemData item;
     private readonly float[] energy;
@@ -21,11 +21,38 @@ public sealed class EquipmentThermalState
     public float Conductivity(int index, int axis) => axis == 1 ? depthConductivity[index] : conductivity[index];
     public IReadOnlyList<float> ContentHeatCapacityJPerK => contentCapacity;
     private ThermalMaterials lastMaterials;
+    public HiveMaterial ExchangeMaterial(int index) {
+        var g=item.EquipmentGrid;
+        return g.GetCell(index%g.SizeX,index/g.SizeX%g.SizeY,index/(g.SizeX*g.SizeY))?.Material ?? HiveMaterial.Air;
+    }
     public int Count => energy.Length;
-    public IReadOnlyList<float> EnergyJ => energy;
-    // Solver-only direct views. These readonly array instances live for the owner's lifetime.
-    // Energy stays authoritative here; capacity changes are published via CacheRevision.
-    internal float[] EnergyBuffer => energy;
+    // A retained read-only view follows the owner even across moves and buffer release.
+    public IReadOnlyList<float> EnergyJ => this;
+    float IReadOnlyList<float>.this[int index] => ReadEnergy(index);
+    public IEnumerator<float> GetEnumerator()
+    {
+        for (int i = 0; i < Count; i++) yield return ReadEnergy(i);
+    }
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    internal ThermalExchange ActiveExchange { get; private set; }
+    private int[] activeIndices;
+    internal void BindEnergy(ThermalExchange exchange, int[] indices)
+    {
+        ActiveExchange = exchange;
+        activeIndices = indices;
+    }
+    internal float ReadEnergy(int index)
+    {
+        int row = activeIndices == null ? -1 : activeIndices[index];
+        return row < 0 ? energy[index] : ActiveExchange.ReadEnergy(row);
+    }
+    private void SetEnergy(int index, float value)
+    {
+        int row = activeIndices == null ? -1 : activeIndices[index];
+        if (row < 0) energy[index] = value;
+        else ActiveExchange.SetEnergy(row, value);
+    }
     internal float[] HeatCapacityBuffer => capacity;
     public IReadOnlyList<float> HeatCapacityJPerK => capacity;
     public IReadOnlyList<float> EffectiveConductivityWPerMK => conductivity;
@@ -57,14 +84,14 @@ public sealed class EquipmentThermalState
     public void RestoreEnergy(int index, float joules)
     {
         if (!ThermalMath.Finite(joules)) throw new ArgumentOutOfRangeException(nameof(joules));
-        energy[index] = joules; initialized[index] = true;
+        SetEnergy(index, joules); initialized[index] = true;
     }
     // Solver-only result commit. Initialization and input validation happen before the Job.
     internal void CommitExchangeEnergy(int index, float joules) => energy[index] = joules;
     public float TemperatureC(int index)
     {
         if (!initialized[index] || dirty[index] || Diagnostic != null) throw new InvalidOperationException("Thermal cache is not ready.");
-        return energy[index] / capacity[index];
+        return ReadEnergy(index) / capacity[index];
     }
     public void Refresh(ThermalMaterials materials, float outsideC)
     {
@@ -89,11 +116,11 @@ public sealed class EquipmentThermalState
                 Compute(i, materials, out float a, out float c, out float k);
                 if (!initialized[i] || capacity[i] != c || conductivity[i] != k || oldDepth != depthConductivity[i])
                     cellCacheRevision[i] = CacheRevision + 1;
-                float e = initialized[i] ? energy[i] : c * outsideC;
+                float e = initialized[i] ? ReadEnergy(i) : c * outsideC;
                 if (!ThermalMath.Finite(e)) throw new InvalidOperationException("Non-finite initial thermal energy");
                 // Dirty remains set until the entire refresh is successful.
                 airVolume[i] = a; capacity[i] = c; conductivity[i] = k;
-                energy[i] = e; initialized[i] = true;
+                SetEnergy(i, e); initialized[i] = true;
             }
             if (dirtyIndices.Count > 0) CacheRevision++;
             foreach (int i in dirtyIndices) dirty[i] = false;
@@ -169,7 +196,7 @@ public sealed class EquipmentThermalState
         if (!ThermalMath.Finite(contentCapacity[index]) || contentCapacity[index] < 0 || !ThermalMath.Positive(c))
             throw new InvalidOperationException("Invalid contents heat capacity");
     }
-    // Uniform volumetric heat source across the owned insulation panel.
+    // Uniform volumetric heat source across the owned panel.
     internal void SupplyHeat(double joules)
     {
         if (item.Kind != ItemKind.HeatingPanel || !ThermalExchange.Finite(joules) || joules < 0)
@@ -178,14 +205,14 @@ public sealed class EquipmentThermalState
         for(int i=0;i<Count;i++){int x=i%g.SizeX,y=i/g.SizeX%g.SizeY,z=i/(g.SizeX*g.SizeY);volume+=(g.X[x+1]-g.X[x])*(g.Y[y+1]-g.Y[y])*(g.Z[z+1]-g.Z[z])*g.SolidFraction(y);}
         if(!(volume>0))throw new InvalidOperationException("Heating panel has no solid volume.");
         for(int i=0;i<Count;i++){int x=i%g.SizeX,y=i/g.SizeX%g.SizeY,z=i/(g.SizeX*g.SizeY);double v=(g.X[x+1]-g.X[x])*(g.Y[y+1]-g.Y[y])*(g.Z[z+1]-g.Z[z])*g.SolidFraction(y);
-            double next=energy[i]+joules*v/volume;if(!initialized[i]||dirty[i]||!ThermalExchange.Finite(next)||next>float.MaxValue)throw new InvalidOperationException("Invalid heating state");energy[i]=(float)next;
+            double next=ReadEnergy(i)+joules*v/volume;if(!initialized[i]||dirty[i]||!ThermalExchange.Finite(next)||next>float.MaxValue)throw new InvalidOperationException("Invalid heating state");SetEnergy(i,(float)next);
         }
     }
     internal void WriteSnapshot(BinaryWriter w)
     {
         if (Diagnostic != null) throw new InvalidDataException(Diagnostic);
         w.Write(Count);
-        for (int i = 0; i < Count; i++) { w.Write(initialized[i]); if (initialized[i]) { if (!ThermalMath.Finite(energy[i])) throw new InvalidDataException("Invalid energy"); w.Write(energy[i]); } }
+        for (int i = 0; i < Count; i++) { w.Write(initialized[i]); if (initialized[i]) { float value = ReadEnergy(i); if (!ThermalMath.Finite(value)) throw new InvalidDataException("Invalid energy"); w.Write(value); } }
     }
     internal void ReadSnapshot(BinaryReader r)
     {

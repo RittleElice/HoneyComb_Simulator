@@ -5,18 +5,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Apiary.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Apiary.prefab" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Hand.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Hand.prefab" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Inventory.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Inventory.prefab" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Observation.prefab" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/HeatingPanel/PF_HeatingPanel_Observation.prefab" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Apiary.prefab" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Apiary.prefab.meta" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Hand.prefab" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Hand.prefab.meta" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Inventory.prefab" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Inventory.prefab.meta" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Observation.prefab" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Prefabs/Item/InteriorSlot/InsulationBoard/PF_Frame_Observation.prefab.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Editor/CombBalanceSettingsEditor.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Editor/CombBalanceSettingsEditor.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Editor/ThermalExchangeSettingsMenu.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Editor/ThermalExchangeSettingsMenu.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Resources/Thermal/ExchangeSettings.asset" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Resources/Thermal/ExchangeSettings.asset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/EquipmentThermalState.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/EquipmentThermalState.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalExchange.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalExchange.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalExchangeSettings.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalExchangeSettings.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalMaterialAsset.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalMaterialAsset.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalTopology.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalTopology.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalWorld.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalWorld.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/World/GameWorld.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/World/GameWorld.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -49,20 +47,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;Inspections-XAML&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "열교환-방식-테스트",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "Inspections-XAML",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="독립실행형 플레이어.Unity 시작">
     <configuration name="유닛 테스트(배치 모드)" type="RunUnityExe" factoryName="Unity Executable">
       <option name="EXE_PATH" value="C:\Program Files\Unity\Hub\Editor\6000.5.1f1\Editor\Unity.exe" />
@@ -142,7 +140,7 @@
       <workItem from="1793216170673" duration="14211000" />
       <workItem from="1793308929636" duration="8540000" />
       <workItem from="1793446247877" duration="1458000" />
-      <workItem from="1793585716017" duration="1248000" />
+      <workItem from="1793585716017" duration="3132000" />
     </task>
     <servers />
   </component>

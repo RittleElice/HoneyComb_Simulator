@@ -12,10 +12,12 @@ public sealed class ThermalWorld : IGameMinuteParticipant
     public string Failure { get; private set; }
     public int TopologyBuilds { get; private set; }
     public int LocalTopologyUpdates { get; private set; }
+    private ThermalPairCoefficients appliedPairs;
     public void PrepareExchange()
     {
         double fraction=materials.MaximumExchangeFractionPerMinute, exterior=materials.ExteriorFilmCoefficientWPerM2K;
-        bool settingsChanged=fraction!=appliedFraction || exterior!=appliedExterior;
+        var pairs=materials.Pairs;
+        bool settingsChanged=fraction!=appliedFraction || exterior!=appliedExterior || !ReferenceEquals(pairs,appliedPairs);
         var stamp = ThermalTopology.Signature(world);
         if (Exchange == null || settingsChanged || !stamp.SequenceEqual(topologyStamp))
         {
@@ -23,11 +25,12 @@ public sealed class ThermalWorld : IGameMinuteParticipant
                 LocalTopologyUpdates++;
             else
             {
-                var replacement = ThermalTopology.Build(world, fraction, exterior);
+                var replacement = ThermalTopology.Build(world, fraction, exterior, pairs);
                 Exchange?.Dispose();
                 Exchange = replacement; TopologyBuilds++;
             }
             topologyStamp = stamp;
+            appliedPairs=pairs;
             appliedFraction=fraction; appliedExterior=exterior;
         }
         Exchange.RefreshCoefficients();

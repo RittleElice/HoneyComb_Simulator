@@ -14,3 +14,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MaximumFractionPerMinute: 0.5
   ExteriorFilmCoefficientWPerM2K: 50
+  UseMaterialPairs: 1
+  AirAir: 2000
+  AirWood: 1000
+  AirComb: 500
+  AirInsulation: 200
+  WoodWood: 100
+  WoodComb: 20
+  WoodInsulation: 10
+  CombComb: 100
+  CombInsulation: 10
+  InsulationInsulation: 100
+  AirOutside: 100
+  WoodOutside: 80
+  CombOutside: 20
+  InsulationOutside: 20

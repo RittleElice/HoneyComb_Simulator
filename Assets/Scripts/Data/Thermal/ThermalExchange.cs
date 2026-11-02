@@ -29,6 +29,7 @@ public sealed class ThermalExchange : IDisposable
         public Boundary(int cell, int direction, double area, double half)
         { Cell=cell; Direction=direction; AreaM2=area; HalfM=half; }
     }
+    private readonly ThermalPairCoefficients materialPairs;
     private readonly Boundary[] boundaries;
     private readonly double exteriorFilmCoefficient;
     private readonly double[] exterior, rawExterior;
@@ -67,10 +68,22 @@ public sealed class ThermalExchange : IDisposable
     public int CoefficientUploads { get; private set; }
     public bool HasBuffers => nativeOffsets.IsCreated;
     public long BufferBytes => HasBuffers ? 4L * (offsets.Length + neighbours.Length) + 8L * (coefficients.Length + 4L * cells.Length) : 0;
-    // Releases only derived working storage. Authoritative equipment energy is untouched.
-    // A subsequent Step may lazily recreate the buffers (e.g. returning to a loaded world).
+    // Between completed minutes nativeEnergy holds the last committed float energy.
+    // Equipment reads and writes its active rows through its stable owner-local mapping.
+    private bool energyBound;
+    internal float ReadEnergy(int row) => (float)nativeEnergy[row];
+    internal void SetEnergy(int row, float value) => nativeEnergy[row] = value;
+    private void ReleaseEnergy()
+    {
+        if (!energyBound) return;
+        for (int i = 0; i < cells.Length; i++)
+            cells[i].Owner.CommitExchangeEnergy(cells[i].Index, ReadEnergy(i));
+        foreach (var owner in owners) owner.BindEnergy(null, null);
+        energyBound = false;
+    }
     public void Dispose()
     {
+        ReleaseEnergy();
         if (nativeOffsets.IsCreated) nativeOffsets.Dispose();
         if (nativeNeighbours.IsCreated) nativeNeighbours.Dispose();
         if (nativeG.IsCreated) nativeG.Dispose();
@@ -133,10 +146,11 @@ public sealed class ThermalExchange : IDisposable
     public Face GetFace(int i) => faces[i];
     public double SumConductance(int i) => sums[i];
     // null is retained only for physical-model diagnostics and regression comparisons.
-    public ThermalExchange(Cell[] source, Face[] connections, double? maximumFractionPerMinute = 0.1, Boundary[] exteriorBoundaries = null, double exteriorFilmCoefficientWPerM2K = 5)
+    public ThermalExchange(Cell[] source, Face[] connections, double? maximumFractionPerMinute = 0.1, Boundary[] exteriorBoundaries = null, double exteriorFilmCoefficientWPerM2K = 5, ThermalPairCoefficients materialPairs = null)
     {
         if (maximumFractionPerMinute.HasValue && (!Finite(maximumFractionPerMinute.Value) || maximumFractionPerMinute.Value <= 0 || maximumFractionPerMinute.Value > 0.5))
             throw new ArgumentOutOfRangeException(nameof(maximumFractionPerMinute));
+        this.materialPairs=materialPairs;
         this.maximumFractionPerMinute = maximumFractionPerMinute;
         cells = (Cell[])source.Clone(); faces = (Face[])connections.Clone();
         if (!Finite(exteriorFilmCoefficientWPerM2K) || exteriorFilmCoefficientWPerM2K < 0)
@@ -201,6 +215,12 @@ public sealed class ThermalExchange : IDisposable
         if (!Positive(g)) throw new InvalidOperationException("Non-finite face conductance");
         return g;
     }
+    private double FaceConductance(Face f,Cell a,Cell b) => materialPairs==null
+        ? Conductance(f.AreaM2,f.HalfAM,a.Owner.Conductivity(a.Index,f.Axis),f.HalfBM,b.Owner.Conductivity(b.Index,f.Axis))
+        : materialPairs.Conductance(a.Owner.ExchangeMaterial(a.Index),b.Owner.ExchangeMaterial(b.Index),f.AreaM2,f.HalfAM,a.Owner.Conductivity(a.Index,f.Axis),f.HalfBM,b.Owner.Conductivity(b.Index,f.Axis));
+    private double BoundaryConductance(Boundary b,Cell c,double k)=>materialPairs==null
+        ? (exteriorFilmCoefficient==0?0:b.AreaM2/(b.HalfM/k+1/exteriorFilmCoefficient))
+        : materialPairs.Exterior(c.Owner.ExchangeMaterial(c.Index),b.AreaM2,b.HalfM,k);
     private string Detail(int i, string reason)
     {
         var c = cells[i]; double capacity = c.Owner.HeatCapacityBuffer[c.Index];
@@ -230,6 +250,7 @@ public sealed class ThermalExchange : IDisposable
     internal bool CanRebind(EquipmentThermalState owner) => ownerIndices.ContainsKey(owner);
     internal void RebindCells(List<KeyValuePair<int,Cell>> replacements)
     {
+        if (replacements.Count > 0) ReleaseEnergy();
         // Clear all old mappings before assigning: a move may exchange two owners.
         foreach(var pair in replacements){var old=cells[pair.Key];ownerIndices[old.Owner][old.Index]=-1;}
         foreach(var pair in replacements){cells[pair.Key]=pair.Value;ownerIndices[pair.Value.Owner][pair.Value.Index]=pair.Key;changedCells.Add(pair.Key);}
@@ -241,12 +262,12 @@ public sealed class ThermalExchange : IDisposable
         // This avoids retaining world-sized work lists just for later small edits.
         for(int id=0;id<faces.Length;id++) {
             var f=faces[id];var a=cells[f.A];var b=cells[f.B];
-            double g=Conductance(f.AreaM2,f.HalfAM,a.Owner.Conductivity(a.Index,f.Axis),f.HalfBM,b.Owner.Conductivity(b.Index,f.Axis));
+            double g=FaceConductance(f,a,b);
             rawFaces[id]=g;sums[f.A]+=g;sums[f.B]+=g;
         }
         for(int id=0;id<boundaries.Length;id++) {
             var b=boundaries[id];var c=cells[b.Cell];double k=c.Owner.Conductivity(c.Index,b.Direction/2);
-            double g=exteriorFilmCoefficient==0?0:b.AreaM2/(b.HalfM/k+1/exteriorFilmCoefficient);
+            double g=BoundaryConductance(b,c,k);
             if(!Finite(g)||g<0)throw new InvalidOperationException("Invalid exterior conductance");
             rawBoundaries[id]=g;rawExterior[b.Cell]+=g;sums[b.Cell]+=g;
         }
@@ -296,13 +317,13 @@ public sealed class ThermalExchange : IDisposable
             for(int p=boundaryOffsets[i];p<boundaryOffsets[i+1];p++) {
                 int id=rowBoundaries[p];var boundary=boundaries[id];var cell=cells[i];
                 double k=cell.Owner.Conductivity(cell.Index,boundary.Direction/2);
-                double g=exteriorFilmCoefficient==0?0:boundary.AreaM2/(boundary.HalfM/k+1/exteriorFilmCoefficient);
+                double g=BoundaryConductance(boundary,cell,k);
                 if(!Finite(g)||g<0)throw new InvalidOperationException("Invalid exterior conductance");rawBoundaries[id]=g;
             }
         }
         foreach(int id in rawWork.Values) {
             var f=faces[id];var a=cells[f.A];var b=cells[f.B];
-            rawFaces[id]=Conductance(f.AreaM2,f.HalfAM,a.Owner.Conductivity(a.Index,f.Axis),f.HalfBM,b.Owner.Conductivity(b.Index,f.Axis));
+            rawFaces[id]=FaceConductance(f,a,b);
             scaleWork.Add(f.A);scaleWork.Add(f.B);effectiveWork.Add(id);
         }
         LastRawFacesUpdated=rawWork.Values.Count;
@@ -360,7 +381,7 @@ public sealed class ThermalExchange : IDisposable
         {
             double watts = Exterior[i] * (OutsideC - T[i]);
             for (int p = Offsets[i]; p < Offsets[i+1]; p++) watts += G[p] * (T[Neighbours[p]] - T[i]);
-            Next[i] = Energy[i] + Seconds * watts;
+            Next[i] = (float)(Energy[i] + Seconds * watts);
         }
     }
     // Results are committed directly after the Job; result-range and energy-balance audits live in editor tests.
@@ -388,14 +409,15 @@ public sealed class ThermalExchange : IDisposable
             var o=nativeOffsets; var n=nativeNeighbours; var g=nativeG; var ext=nativeExterior;
             var t=nativeT; var e=nativeEnergy; var next=nativeNext;
             {
-                var energyBuffer = e; var temperatureBuffer = t;
-                for (int i = 0; i < cells.Length; i++)
+                if (!energyBound)
                 {
-                    var c = cells[i];
-                    double energy = c.Owner.EnergyBuffer[c.Index];
-                    energyBuffer[i] = energy;
-                    temperatureBuffer[i] = energy / cachedCapacities[i];
+                    // Another solver (for example a diagnostic one) can share these owners.
+                    foreach (var owner in owners) owner.ActiveExchange?.ReleaseEnergy();
+                    for (int i = 0; i < cells.Length; i++)
+                        e[i] = cells[i].Owner.ReadEnergy(cells[i].Index);
                 }
+                for (int i = 0; i < cells.Length; i++)
+                    t[i] = e[i] / cachedCapacities[i];
                 if(DiagnosticsEnabled)
                 {
                     double externalEnergy=0,externalCorrection=0;
@@ -409,8 +431,14 @@ public sealed class ThermalExchange : IDisposable
                 var jobTime = measure ? Stopwatch.StartNew() : null;
                 new Gather {Offsets=o,Neighbours=n,G=g,T=t,Energy=e,Next=next,Seconds=seconds,Exterior=ext,OutsideC=ambient}.Schedule(cells.Length,64).Complete();
                 LastJobMilliseconds = jobTime?.Elapsed.TotalMilliseconds ?? 0;
-                for (int i = 0; i < cells.Length; i++)
-                    cells[i].Owner.CommitExchangeEnergy(cells[i].Index,(float)next[i]);
+                // Publish only after the complete job succeeds.
+                nativeEnergy = next;
+                nativeNext = e;
+                if (!energyBound)
+                {
+                    foreach (var owner in owners) owner.BindEnergy(this, ownerIndices[owner]);
+                    energyBound = true;
+                }
             }
         }
         catch (Exception ex) { Diagnostic = ex.Message; throw; }

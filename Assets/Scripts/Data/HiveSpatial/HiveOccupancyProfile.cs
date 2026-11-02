@@ -9,6 +9,7 @@ public sealed class HiveOccupancyProfile
 {
     public static readonly HiveOccupancyProfile Divider = new HiveOccupancyProfile(2, 1, HiveMaterial.Wood);
     public static readonly HiveOccupancyProfile Insulation = new HiveOccupancyProfile(1, 3, HiveMaterial.Insulation);
+    public static readonly HiveOccupancyProfile Heating = new HiveOccupancyProfile(1, 3, HiveMaterial.Wood);
     public int FirstY { get; }
     public int CountY { get; }
     public HiveMaterial Material { get; }

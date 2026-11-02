@@ -41,7 +41,7 @@ public sealed class CombBalanceSettingsEditor : Editor
             materialObject.Update();
             var property = materialObject.FindProperty("EffectiveVolumetricHeatCapacityJPerM3K");
             EditorGUILayout.LabelField(materialNames[i], EditorStyles.boldLabel);
-            float value = EditorGUILayout.DelayedFloatField("유효 체적 열용량 (J/m³·K)", property.floatValue);
+            float value = (float)ThermalExchangeSettingsMenu.DragParameter("유효 체적 열용량 (J/m³·K)",property.floatValue,0,10000000,1000);
             if (value != property.floatValue)
             {
                 if (ThermalMath.Finite(value) && value >= 0)
@@ -50,7 +50,7 @@ public sealed class CombBalanceSettingsEditor : Editor
             }
             materialObject.Update();
             var conductivity=materialObject.FindProperty("ConductivityWPerMK");
-            float k=EditorGUILayout.DelayedFloatField("열전도율 (W/m·K)",conductivity.floatValue);
+            float k=(float)ThermalExchangeSettingsMenu.DragParameter("열전도율 (W/m·K)",conductivity.floatValue,0.000001,10,0.01);
             if(k!=conductivity.floatValue){
                 if(ThermalMath.Positive(k)){conductivity.floatValue=k;materialObject.ApplyModifiedProperties();SceneView.RepaintAll();}
                 else Debug.LogWarning("열전도율은 유한한 양수여야 합니다.");

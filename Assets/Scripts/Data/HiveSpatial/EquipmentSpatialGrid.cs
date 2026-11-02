@@ -61,7 +61,7 @@ public sealed class EquipmentSpatialGrid
         if (frame || panel)
         {
             profile = panel ? item.GetContent<HiveOccupancyProfile>() ??
-                (item.Kind == ItemKind.DividerBoard ? HiveOccupancyProfile.Divider : HiveOccupancyProfile.Insulation) : null;
+                (item.Kind == ItemKind.HeatingPanel ? HiveOccupancyProfile.Heating : item.Kind == ItemKind.DividerBoard ? HiveOccupancyProfile.Divider : HiveOccupancyProfile.Insulation) : null;
             SlotFirstY = 1;
             X = Slice(HiveGridLayout.Brood.X, 2, HiveGridLayout.FrameSizeX);
             Y = Slice(HiveGridLayout.Brood.Y, 1 + SlotFirstY, 2);
@@ -115,7 +115,7 @@ public sealed class EquipmentSpatialGrid
     public double SolidFraction(int y)
     {
         if (Equipment.Kind != ItemKind.DividerBoard && Equipment.Kind != ItemKind.InsulationBoard && Equipment.Kind != ItemKind.HeatingPanel) return 1;
-        var p = Equipment.GetContent<HiveOccupancyProfile>() ?? (Equipment.Kind == ItemKind.DividerBoard ? HiveOccupancyProfile.Divider : HiveOccupancyProfile.Insulation);
+        var p = Equipment.GetContent<HiveOccupancyProfile>() ?? (Equipment.Kind == ItemKind.HeatingPanel ? HiveOccupancyProfile.Heating : Equipment.Kind == ItemKind.DividerBoard ? HiveOccupancyProfile.Divider : HiveOccupancyProfile.Insulation);
         double[] old = { -5, 0, 10, 15, 25 };
         double overlap = Math.Max(0, Math.Min(Y[y+1], old[p.FirstY+p.CountY]) - Math.Max(Y[y], old[p.FirstY]));
         return overlap / (Y[y+1]-Y[y]);

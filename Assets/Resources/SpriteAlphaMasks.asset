@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9e70a11279266e540886aff2bfbc9f1c, type: 3}
   m_Name: SpriteAlphaMasks
   m_EditorClassIdentifier: Assembly-CSharp::SpriteAlphaMaskDatabase
-  sourceFingerprint: 1de2f15376a8a593bda1ea415239eea9
+  sourceFingerprint: 6d93d6261465a02ae03a546d18bd514e
   entries:
   - sprite: {fileID: 112980336061508253, guid: 80c21250a63236c42800e50d7c997fb4, type: 3}
     width: 623

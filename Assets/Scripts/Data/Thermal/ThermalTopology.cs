@@ -16,7 +16,7 @@ public static class ThermalTopology
     }
     // Six neighbours are valid only because all placed cell bounds are conforming.
     // CSR still stores the full adjacency, avoiding a silent six-entry truncation.
-    public static ThermalExchange Build(GameWorld world, double maximumFractionPerMinute = 0.1, double exteriorFilmCoefficientWPerM2K = 5)
+    public static ThermalExchange Build(GameWorld world, double maximumFractionPerMinute = 0.1, double exteriorFilmCoefficientWPerM2K = 5, ThermalPairCoefficients materialPairs = null)
     {
         var items = ThermalWorld.Items(world).ToArray();
         var cells = new List<ThermalExchange.Cell>(); var faces = new List<ThermalExchange.Face>();
@@ -81,7 +81,7 @@ public static class ThermalTopology
         roots.Add(world.Hand.Value);
         var seen=new HashSet<MovableItem>();
         foreach(var root in roots) AddStacks(root,seen,grids,faces,boundaries);
-        var exchange = new ThermalExchange(cells.ToArray(),faces.ToArray(),maximumFractionPerMinute,boundaries.Values.OrderBy(b=>b.Cell).ThenBy(b=>b.Direction).ToArray(),exteriorFilmCoefficientWPerM2K);
+        var exchange = new ThermalExchange(cells.ToArray(),faces.ToArray(),maximumFractionPerMinute,boundaries.Values.OrderBy(b=>b.Cell).ThenBy(b=>b.Direction).ToArray(),exteriorFilmCoefficientWPerM2K,materialPairs);
         exchange.TopologyBinding = new Binding(world,grids);
         return exchange;
     }

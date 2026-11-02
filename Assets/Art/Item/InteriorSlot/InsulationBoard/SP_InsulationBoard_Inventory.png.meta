@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: SP_InsulationBoard_Hand
+      name: SP_InsulationBoard_Inventory
       rect:
         serializedVersion: 2
         x: 0
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      SP_InsulationBoard_Hand: -6854019710012876895
+      SP_InsulationBoard_Inventory: -6854019710012876895
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
