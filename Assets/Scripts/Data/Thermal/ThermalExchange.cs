@@ -71,7 +71,10 @@ public sealed class ThermalExchange : IDisposable
     public bool DiagnosticsEnabled { get; set; }
     public bool MeasurePerformance { get; set; }
     private readonly double? maximumFractionPerMinute;
+    private const int RowStride = HiveGridLayout.SizeX;
+    private const int PlaneStride = RowStride * HiveGridLayout.SizeY;
     private NativeArray<int> nativeOffsets, nativeNeighbours;
+    private NativeArray<byte> nativeFixedRows;
     private NativeArray<double> nativeG, nativeExterior, nativeT, nativeEnergy, nativeNext, nativeNextT;
     private NativeArray<float> nativeCapacity;
     internal ThermalTopology.Binding TopologyBinding;
@@ -88,7 +91,7 @@ public sealed class ThermalExchange : IDisposable
     public int BufferAllocations { get; private set; }
     public int CoefficientUploads { get; private set; }
     public bool HasBuffers => nativeOffsets.IsCreated;
-    public long BufferBytes => HasBuffers ? 4L * (offsets.Length + neighbours.Length) + 8L * (coefficients.Length + 5L * cells.Length) + 4L * cells.Length : 0;
+    public long BufferBytes => HasBuffers ? 4L * (offsets.Length + neighbours.Length) + 8L * (coefficients.Length + 5L * cells.Length) + 5L * cells.Length : 0;
     // Between completed minutes nativeEnergy holds the last committed float energy.
     // Equipment reads and writes its active rows through its stable owner-local mapping.
     private bool energyBound;
@@ -123,6 +126,7 @@ public sealed class ThermalExchange : IDisposable
     public void Dispose()
     {
         ReleaseEnergy();
+        if (nativeFixedRows.IsCreated) nativeFixedRows.Dispose();
         if (nativeOffsets.IsCreated) nativeOffsets.Dispose();
         if (nativeNeighbours.IsCreated) nativeNeighbours.Dispose();
         if (nativeG.IsCreated) nativeG.Dispose();
@@ -146,12 +150,29 @@ public sealed class ThermalExchange : IDisposable
         UnityEngine.Application.quitting -= ReleaseAllBuffers;
         UnityEngine.Application.quitting += ReleaseAllBuffers;
     }
+    // Compare the actual solver rows, not the nominal geometry: merged slots and
+    // stack boundaries can change the offsets. Keep the original sum order.
+    private bool HasFixedNeighbours(int row)
+    {
+        int p = offsets[row];
+        return offsets[row + 1] - p == 6
+            && neighbours[p]     == row - PlaneStride
+            && neighbours[p + 1] == row - RowStride
+            && neighbours[p + 2] == row - 1
+            && neighbours[p + 3] == row + 1
+            && neighbours[p + 4] == row + RowStride
+            && neighbours[p + 5] == row + PlaneStride;
+    }
+
     private void PrepareBuffers()
     {
         if (!HasBuffers)
         {
             try
             {
+                nativeFixedRows = new NativeArray<byte>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                for (int i = 0; i < cells.Length; i++)
+                    nativeFixedRows[i] = (byte)(HasFixedNeighbours(i) ? 1 : 0);
                 nativeOffsets = new NativeArray<int>(offsets, Allocator.Persistent);
                 nativeNeighbours = new NativeArray<int>(neighbours, Allocator.Persistent);
                 nativeG = new NativeArray<double>(coefficients.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
@@ -442,6 +463,7 @@ public sealed class ThermalExchange : IDisposable
     private struct Gather : IJobParallelFor
     {
         [ReadOnly] public NativeArray<int> Offsets, Neighbours;
+        [ReadOnly] public NativeArray<byte> FixedRows;
         [ReadOnly] public NativeArray<double> G, T, Energy, Exterior;
         [ReadOnly] public NativeArray<float> Capacity;
         [WriteOnly] public NativeArray<double> Next, NextT;
@@ -449,7 +471,22 @@ public sealed class ThermalExchange : IDisposable
         public void Execute(int i)
         {
             double watts = Exterior[i] * (OutsideC - T[i]);
-            for (int p = Offsets[i]; p < Offsets[i+1]; p++) watts += G[p] * (T[Neighbours[p]] - T[i]);
+            int start = Offsets[i];
+            double temperature = T[i];
+            if (FixedRows[i] != 0)
+            {
+                watts += G[start]     * (T[i - PlaneStride] - temperature);
+                watts += G[start + 1] * (T[i - RowStride] - temperature);
+                watts += G[start + 2] * (T[i - 1] - temperature);
+                watts += G[start + 3] * (T[i + 1] - temperature);
+                watts += G[start + 4] * (T[i + RowStride] - temperature);
+                watts += G[start + 5] * (T[i + PlaneStride] - temperature);
+            }
+            else
+            {
+                for (int p = start; p < Offsets[i + 1]; p++)
+                    watts += G[p] * (T[Neighbours[p]] - temperature);
+            }
             double committedEnergy = (float)(Energy[i] + Seconds * watts);
             Next[i] = committedEnergy;
             NextT[i] = committedEnergy / Capacity[i];
@@ -504,7 +541,7 @@ public sealed class ThermalExchange : IDisposable
                     ExternalEnergyJ=externalEnergy;
                 }
                 var jobTime = measure ? Stopwatch.StartNew() : null;
-                new Gather {Offsets=o,Neighbours=n,G=g,T=t,Energy=e,Next=next,NextT=nativeNextT,Capacity=nativeCapacity,Seconds=seconds,Exterior=ext,OutsideC=ambient}.Schedule(cells.Length,64,temperaturesReady).Complete();
+                new Gather {Offsets=o,Neighbours=n,FixedRows=nativeFixedRows,G=g,T=t,Energy=e,Next=next,NextT=nativeNextT,Capacity=nativeCapacity,Seconds=seconds,Exterior=ext,OutsideC=ambient}.Schedule(cells.Length,64,temperaturesReady).Complete();
                 LastJobMilliseconds = jobTime?.Elapsed.TotalMilliseconds ?? 0;
                 // Publish only after the complete job succeeds.
                 nativeT = nativeNextT;
