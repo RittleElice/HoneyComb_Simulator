@@ -12,6 +12,10 @@ public sealed class GameWeatherUI : MonoBehaviour
     public long DisplayedMinute { get; private set; } = -1;
     private RectTransform panel;
     private TMP_Text date;
+    private static readonly string[] SourceLabels={"유채","벚나무","아까시나무","밤나무","야생화 1","야생화 2","야생화 3","야생화 4"};
+    private TMP_Text forage;
+    private GameObject weatherBody;
+    private bool showForage;
     private readonly TMP_Text[] values = new TMP_Text[8];
     private GameWorld displayedWorld;
     private static readonly string[] Labels = { "기온", "상대습도", "구름량", "풍속", "이번 분 강수량", "수증기압", "이번 분 일사량", "토양수분 저장량" };
@@ -27,10 +31,16 @@ public sealed class GameWeatherUI : MonoBehaviour
         panel.anchoredPosition = new Vector2(16, -82);
         window.GetComponent<Image>().color = new Color(.075f, .12f, .17f, .98f);
         // The panel receives raycasts so dragging/clicking its contents does not select items behind it.
-        Text("Title", "현재 날씨", new Vector2(0, 1), new Vector2(1, 1), new Vector2(24, -58), new Vector2(-112, -14), 28);
+        var title=Text("Title", "날씨   |   밀원 보기 ▶", new Vector2(0, 1), new Vector2(1, 1), new Vector2(24, -58), new Vector2(-112, -14), 28);
+        var switcher=title.gameObject.AddComponent<Button>();
+        title.raycastTarget=true;
+        switcher.onClick.AddListener(() => { showForage=!showForage; title.text=showForage?"밀원   |   날씨 보기 ▶":"날씨   |   밀원 보기 ▶"; DisplayedMinute=-1; Refresh(); });
+        forage=Text("NectarValues","",Vector2.zero,Vector2.one,new Vector2(24,12),new Vector2(-24,-106),20);
+        forage.enableAutoSizing=true; forage.fontSizeMin=12; forage.fontSizeMax=20;
         date = Text("WeatherDate", "", new Vector2(0, 1), new Vector2(1, 1), new Vector2(24, -94), new Vector2(-24, -58), 18);
         date.color = new Color(.7f, .8f, .87f);
         var bodyObject = new GameObject("WeatherValues", typeof(RectTransform));
+        weatherBody=bodyObject;
         bodyObject.transform.SetParent(panel, false);
         var body = (RectTransform)bodyObject.transform;
         body.anchorMin = Vector2.zero; body.anchorMax = Vector2.one;
@@ -95,6 +105,17 @@ public sealed class GameWeatherUI : MonoBehaviour
         var weather=world.Weather.Current;
         if(ReferenceEquals(world,displayedWorld)&&DisplayedMinute==weather.Minute)return;
         displayedWorld=world;DisplayedMinute=weather.Minute;date.text=world.Clock.ToString();
+        weatherBody.SetActive(!showForage); forage.gameObject.SetActive(showForage);
+        if(showForage) {
+            var nectar=world.Weather.Nectar;
+            var lines=new System.Text.StringBuilder("밀원     개화율     현재 화밀량\n");
+            double sum=0;
+            for(int i=0;i<nectar.Sources.Length;i++) {
+                var s=nectar.Sources[i]; sum+=s.Total;
+                lines.AppendLine($"{SourceLabels[i]}    {s.bloom:P1}    {s.Total:N2}");
+            }
+            forage.text=lines.Append($"전체 화밀량    {sum:N2}\n당+물 · 엑셀 기준량").ToString(); return;
+        }
         var culture=CultureInfo.InvariantCulture;
         values[0].text=weather.TemperatureCelsius.ToString("0.0",culture)+" 도 (섭씨)";
         values[1].text=weather.RelativeHumidityPercent.ToString("0.0",culture)+" %";
@@ -106,3 +127,5 @@ public sealed class GameWeatherUI : MonoBehaviour
         values[7].text=weather.SoilWaterStorage.ToString("0.00",culture);
     }
 }
+
+

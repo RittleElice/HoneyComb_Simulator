@@ -10,6 +10,7 @@ public sealed class WeatherSimulator : IGameMinuteParticipant
     public ulong Seed { get; private set; }
     public long Minute { get; private set; }
     public WeatherSnapshot Current => new WeatherSnapshot(Minute,current);
+    public NectarSimulator Nectar { get; private set; } = new NectarSimulator();
     private WeatherBaseline baseline;
     private WeatherParameters parameters;
     private WeatherRandom random;
@@ -17,13 +18,24 @@ public sealed class WeatherSimulator : IGameMinuteParticipant
     private WeatherValues current=new WeatherValues(), scratch=new WeatherValues();
     private bool faulted;
     private WeatherSimulator() { }
-    public WeatherSimulator(ulong seed,WeatherBaseline baseline)
+    public WeatherSimulator(ulong seed,WeatherBaseline baseline,NectarParameters forage=null)
     {
-        Seed=seed; this.baseline=baseline ?? throw new ArgumentNullException(nameof(baseline));
+        Nectar=new NectarSimulator(forage); Seed=seed; this.baseline=baseline ?? throw new ArgumentNullException(nameof(baseline));
         random=new WeatherRandom(seed); parameters=WeatherParameters.Create(random);
         Minute=-1; Advance(0); // At clock minute zero expose the workbook's first calculated row, exactly once.
     }
     public void BindBaseline(WeatherBaseline data) { baseline=data ?? throw new ArgumentNullException(nameof(data)); }
+    public async Task RestoreLegacyNectarAsync(WeatherBaseline data)
+    {
+        if(Nectar!=null) return;
+        var replay=new WeatherSimulator(Seed,data);
+        var budget=System.Diagnostics.Stopwatch.StartNew();
+        while(replay.Minute<Minute) {
+            replay.Advance(replay.Minute+1);
+            if(budget.ElapsedMilliseconds>=4) { await Task.Yield(); budget.Restart(); }
+        }
+        Nectar=replay.Nectar;
+    }
     public Task CalculateMinuteAsync(long nextMinute,CancellationToken cancellation)
     { cancellation.ThrowIfCancellationRequested(); Advance(nextMinute); return Task.CompletedTask; }
     public void Advance(long nextMinute)
@@ -38,7 +50,7 @@ public sealed class WeatherSimulator : IGameMinuteParticipant
             scratch.Validate();
             ValidateBounds(nextMinute,scratch);
             windows.Commit(scratch.Rain_Emission,scratch.Rain_Edge_Pass1);
-            var old=current; current=scratch; scratch=old; Minute=nextMinute;
+            var old=current; current=scratch; scratch=old; Minute=nextMinute; Nectar.Advance(Current,Seed);
         }
         catch { faulted=true; throw; }
     }
@@ -52,13 +64,14 @@ public sealed class WeatherSimulator : IGameMinuteParticipant
     public void WriteSnapshot(BinaryWriter writer)
     {
         if(faulted || Minute<0) throw new InvalidDataException("Incomplete weather state cannot be saved.");
-        writer.Write(WeatherModelVersion.StateVersion);
+        writer.Write(2);
         writer.Write(WeatherModelVersion.Equations); writer.Write(WeatherModelVersion.BaselineSha256);
-        writer.Write(Seed); writer.Write(Minute); current.Write(writer); windows.Write(writer); random.Write(writer);
+        writer.Write(Seed); writer.Write(Minute); current.Write(writer); windows.Write(writer); random.Write(writer); Nectar.Write(writer);
     }
     public static WeatherSimulator ReadSnapshot(BinaryReader reader,long expectedMinute)
     {
-        if(reader.ReadInt32()!=WeatherModelVersion.StateVersion || reader.ReadString()!=WeatherModelVersion.Equations || reader.ReadString()!=WeatherModelVersion.BaselineSha256)
+        int version=reader.ReadInt32();
+        if((version!=1 && version!=2) || reader.ReadString()!=WeatherModelVersion.Equations || reader.ReadString()!=WeatherModelVersion.BaselineSha256)
             throw new InvalidDataException("지원하지 않는 날씨 모델 또는 기준표 버전입니다.");
         var result=new WeatherSimulator { Seed=reader.ReadUInt64(),Minute=reader.ReadInt64() };
         if(result.Minute<0 || result.Minute!=expectedMinute) throw new InvalidDataException("날씨와 게임 시간의 저장 시점이 다릅니다.");
@@ -66,6 +79,11 @@ public sealed class WeatherSimulator : IGameMinuteParticipant
         result.windows=WeatherWindows.Read(reader,result.Minute); result.random=WeatherRandom.Read(reader,result.Seed);
         // Derived initialization is reproducible; rebuilding parameters must not consume the restored streams.
         result.parameters=WeatherParameters.Create(new WeatherRandom(result.Seed));
+        if(version==2) result.Nectar.Read(reader); else result.Nectar=null;
         return result;
     }
 }
+
+
+
+
