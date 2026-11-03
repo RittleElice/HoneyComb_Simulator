@@ -72,13 +72,23 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
         energy = new float[count]; initialized = new bool[count]; dirty = new bool[count];
         cellCacheRevision = new int[count]; contentCapacity = new float[count]; depthConductivity = new float[count];
         capacity = new float[count]; conductivity = new float[count]; airVolume = new float[count]; waxMass = new float[count];
+        var frame = owner.GetContent<FrameData>();
+        if (frame != null)
+        {
+            frame.Front.ThermalInputsChanged += NotifyInputsChanged;
+            frame.Back.ThermalInputsChanged += NotifyInputsChanged;
+        }
         MarkAllDirty();
     }
+    internal event Action<EquipmentThermalState> InputsChanged;
+    private void NotifyInputsChanged() => InputsChanged?.Invoke(this);
     public void MarkDirty(int index)
     {
         if (index < 0 || index >= Count) throw new ArgumentOutOfRangeException(nameof(index));
         if (dirty[index]) return;
+        bool first = dirtyIndices.Count == 0;
         dirty[index] = true; dirtyIndices.Add(index);
+        if (first) NotifyInputsChanged();
     }
     public void MarkAllDirty() { for (int i = 0; i < Count; i++) MarkDirty(i); }
     public void RestoreEnergy(int index, float joules)
@@ -98,12 +108,12 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
         if (materials == null || !ThermalMath.Finite(outsideC) || outsideC < -273.15f) throw new ArgumentOutOfRangeException(nameof(outsideC));
         if (!ReferenceEquals(lastMaterials, materials)) { MarkAllDirty(); lastMaterials = materials; frontRevision = -1; }
         var frame = item.GetContent<FrameData>();
-        if (item.Kind == ItemKind.Frame && frame != null && (frame.Front.Revision != frontRevision || frame.Back.Revision != backRevision || balanceRevision != CombBalance.Revision))
+        if (item.Kind == ItemKind.Frame && frame != null && (frame.Front.ThermalRevision != frontRevision || frame.Back.ThermalRevision != backRevision || balanceRevision != CombBalance.Revision))
         {
             RebuildWax(frame);
             // Content can change without changing wax. Shared specific-heat tuning also invalidates C.
             MarkAllDirty();
-            frontRevision = frame.Front.Revision; backRevision = frame.Back.Revision; balanceRevision = CombBalance.Revision;
+            frontRevision = frame.Front.ThermalRevision; backRevision = frame.Back.ThermalRevision; balanceRevision = CombBalance.Revision;
         }
         Diagnostic = null;
         int computingIndex = -1;

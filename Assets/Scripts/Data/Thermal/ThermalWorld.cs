@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-public sealed class ThermalWorld : IGameMinuteParticipant
+public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
 {
     private object[] topologyStamp;
     private double appliedFraction = double.NaN, appliedExterior = double.NaN;
@@ -14,20 +14,100 @@ public sealed class ThermalWorld : IGameMinuteParticipant
     public int LocalTopologyUpdates { get; private set; }
     private ThermalPairCoefficients appliedPairs;
     private readonly List<ItemData> minuteItems = new List<ItemData>();
-    public void PrepareExchange() => PrepareExchange(Items(world).ToArray());
-    private void PrepareExchange(IReadOnlyList<ItemData> items)
+    private readonly HashSet<ItemSlot> watchedSlots = new HashSet<ItemSlot>();
+    private readonly HashSet<EquipmentThermalState> tracked = new HashSet<EquipmentThermalState>();
+    private readonly HashSet<EquipmentThermalState> dirty = new HashSet<EquipmentThermalState>();
+    private readonly List<EquipmentThermalState> refreshWork = new List<EquipmentThermalState>();
+    private readonly List<HiveData> watchedHives = new List<HiveData>();
+    private int watchedWidth, watchedHeight, balanceRevision;
+    private bool layoutDirty = true, topologyDirty = true, viewsDirty = true;
+
+    private void SlotChanged(ItemSlot _) => layoutDirty = true;
+    private void GridChanged(HiveSpatialGrid _) => layoutDirty = true;
+    private void StateChanged(EquipmentThermalState state) => dirty.Add(state);
+    private void Watch(ItemSlot slot)
     {
+        if (slot != null && watchedSlots.Add(slot)) slot.OnChanged += SlotChanged;
+    }
+    private void UnwatchLayout()
+    {
+        foreach (var slot in watchedSlots) slot.OnChanged -= SlotChanged;
+        watchedSlots.Clear();
+        foreach (var item in minuteItems)
+            if (item.SpatialGrid != null) item.SpatialGrid.Changed -= GridChanged;
+    }
+    private bool RootsMatch()
+    {
+        var apiary = world.Apiary;
+        if (watchedWidth != apiary.Grid.UnlockedWidth || watchedHeight != apiary.Grid.Height ||
+            watchedHives.Count != apiary.Hives.Count) return false;
+        for (int i = 0; i < watchedHives.Count; i++)
+            if (!ReferenceEquals(watchedHives[i], apiary.Hives[i])) return false;
+        return true;
+    }
+    private void EnsureLayout()
+    {
+        if (!layoutDirty && RootsMatch()) return;
+        UnwatchLayout();
+        minuteItems.Clear();
+        minuteItems.AddRange(Items(world));
+        watchedHives.Clear();
+        watchedHives.AddRange(world.Apiary.Hives);
+        watchedWidth = world.Apiary.Grid.UnlockedWidth;
+        watchedHeight = world.Apiary.Grid.Height;
+        foreach (var hive in watchedHives) Watch(hive.Slot);
+        for (int y = 0; y < watchedHeight; y++)
+            for (int x = 0; x < watchedWidth; x++) Watch(world.Apiary.GetItemSlot(x,y));
+        for (int i = 0; i < world.Inventory.Capacity; i++) Watch(world.Inventory.GetSlot(i));
+        Watch(world.Hand.Slot);
+        var present = new HashSet<EquipmentThermalState>();
+        var liveGrids = new HashSet<HiveSpatialGrid>();
+        foreach (var item in minuteItems)
+        {
+            if (item.SpatialGrid != null)
+            {
+                liveGrids.Add(item.SpatialGrid);
+                item.SpatialGrid.Changed += GridChanged;
+            }
+            if (item.EquipmentGrid == null) continue;
+            var state = item.ThermalState;
+            present.Add(state);
+            if (tracked.Add(state))
+            {
+                state.InputsChanged += StateChanged;
+                dirty.Add(state);
+            }
+        }
+        foreach (var state in tracked.Where(state => !present.Contains(state)).ToArray())
+        {
+            state.InputsChanged -= StateChanged;
+            tracked.Remove(state);
+            dirty.Remove(state);
+        }
+        foreach (var grid in views.Keys.Where(grid => !liveGrids.Contains(grid)).ToArray()) views.Remove(grid);
+        layoutDirty = false;
+        viewsDirty = true;
+        topologyDirty = true;
+    }
+    public void PrepareExchange()
+    {
+        EnsureLayout();
         double fraction=materials.MaximumExchangeFractionPerMinute, exterior=materials.ExteriorFilmCoefficientWPerM2K;
         var pairs=materials.Pairs;
         bool settingsChanged=fraction!=appliedFraction || exterior!=appliedExterior || !ReferenceEquals(pairs,appliedPairs);
-        var stamp = ThermalTopology.Signature(world, items);
+        if (!topologyDirty && Exchange != null && !settingsChanged)
+        {
+            Exchange.RefreshCoefficients();
+            return;
+        }
+        var stamp = ThermalTopology.Signature(world, minuteItems);
         if (Exchange == null || settingsChanged || !stamp.SequenceEqual(topologyStamp))
         {
-            if(!settingsChanged && Exchange != null && Exchange.TopologyBinding != null && Exchange.TopologyBinding.TryUpdate(world,Exchange,items))
+            if(!settingsChanged && Exchange != null && Exchange.TopologyBinding != null && Exchange.TopologyBinding.TryUpdate(world,Exchange,minuteItems))
                 LocalTopologyUpdates++;
             else
             {
-                var replacement = ThermalTopology.Build(world, fraction, exterior, pairs, items);
+                var replacement = ThermalTopology.Build(world, fraction, exterior, pairs, minuteItems);
                 Exchange?.Dispose();
                 Exchange = replacement; TopologyBuilds++;
             }
@@ -35,6 +115,7 @@ public sealed class ThermalWorld : IGameMinuteParticipant
             appliedPairs=pairs;
             appliedFraction=fraction; appliedExterior=exterior;
         }
+        topologyDirty = false;
         Exchange.RefreshCoefficients();
     }
     public Task CalculateMinuteAsync(long nextMinute, CancellationToken cancellation)
@@ -47,10 +128,8 @@ public sealed class ThermalWorld : IGameMinuteParticipant
                 throw new InvalidOperationException("Exterior forcing requires weather at the start of the minute");
             // Keep thermal before weather: T_air(n) forces [n,n+1), without advancing RNG on thermal failure.
             double outside=world.Weather.Current.TemperatureCelsius;
-            minuteItems.Clear();
-            minuteItems.AddRange(Items(world));
-            RefreshItems(minuteItems, null);
-            PrepareExchange(minuteItems);
+            Refresh();
+            PrepareExchange();
             SupplyItemHeating(minuteItems, 60);
             Exchange.StepPrepared(60, outside);
             return Task.CompletedTask;
@@ -58,7 +137,11 @@ public sealed class ThermalWorld : IGameMinuteParticipant
         catch (Exception e) { Failure = e.Message; throw; }
     }
     public double LastHeatingEnergyJ { get; private set; }
-    private void SupplyHeating(double seconds) => SupplyItemHeating(Items(world).ToArray(), seconds);
+    private void SupplyHeating(double seconds)
+    {
+        EnsureLayout();
+        SupplyItemHeating(minuteItems, seconds);
+    }
     private void SupplyItemHeating(IReadOnlyList<ItemData> items, double seconds)
     {
         LastHeatingEnergyJ=0;
@@ -80,14 +163,52 @@ public sealed class ThermalWorld : IGameMinuteParticipant
         if (!views.TryGetValue(grid, out var view)) { view = new HiveThermalView(grid); views.Add(grid, view); }
         return view;
     }
-    public void Refresh(float? fixedOutsideC = null) => RefreshItems(Items(world).ToArray(), fixedOutsideC);
-    private void RefreshItems(IReadOnlyList<ItemData> items, float? fixedOutsideC)
+    public void Refresh(float? fixedOutsideC = null)
     {
-        materials = materials.RefreshLiveSnapshot();
-        if (!fixedOutsideC.HasValue && world.Weather == null) throw new InvalidOperationException("Weather is required for new thermal cells.");
-        float t = fixedOutsideC ?? (float)world.Weather.Current.TemperatureCelsius;
-        foreach (var item in items) if (item.EquipmentGrid != null) item.ThermalState.Refresh(materials, t);
-        foreach (var item in items) if (item.SpatialGrid != null) View(item.SpatialGrid).Refresh(t);
+        EnsureLayout();
+        if (!fixedOutsideC.HasValue && world.Weather == null)
+            throw new InvalidOperationException("Weather is required for new thermal cells.");
+        float outside = fixedOutsideC ?? (float)world.Weather.Current.TemperatureCelsius;
+        var latest = materials.RefreshLiveSnapshot();
+        if (!ReferenceEquals(materials, latest)) dirty.UnionWith(tracked);
+        materials = latest;
+        if (balanceRevision != CombBalance.Revision)
+        {
+            foreach (var item in minuteItems)
+                if (item.Kind == ItemKind.Frame) dirty.Add(item.ThermalState);
+            balanceRevision = CombBalance.Revision;
+        }
+        if (dirty.Count != 0)
+        {
+            refreshWork.Clear();
+            refreshWork.AddRange(dirty);
+            foreach (var state in refreshWork)
+            {
+                state.Refresh(materials, outside);
+                dirty.Remove(state); // Refresh consumed all pending inputs for this owner.
+            }
+            refreshWork.Clear();
+        }
+        if (viewsDirty)
+        {
+            foreach (var item in minuteItems)
+                if (item.SpatialGrid != null) View(item.SpatialGrid).Refresh(outside);
+            viewsDirty = false;
+        }
+    }
+    public void Dispose()
+    {
+        UnwatchLayout();
+        foreach (var state in tracked) state.InputsChanged -= StateChanged;
+        tracked.Clear();
+        dirty.Clear();
+        refreshWork.Clear();
+        minuteItems.Clear();
+        watchedHives.Clear();
+        views.Clear();
+        Exchange?.Dispose();
+        Exchange = null;
+        layoutDirty = true;
     }
     public static IEnumerable<ItemData> Items(GameWorld world)
     {

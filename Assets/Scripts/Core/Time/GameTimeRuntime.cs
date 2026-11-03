@@ -40,7 +40,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
         if (world == null || world.Weather == null || world.Weather.Minute != world.CurrentGameMinute)
             throw new InvalidOperationException("Weather must be initialized before beginning a world.");
         world.PrepareThermal(ThermalMaterials.Load());
-        if (!ReferenceEquals(thermalWorld, world)) thermalWorld?.Thermal?.Exchange?.Dispose();
+        if (!ReferenceEquals(thermalWorld, world)) thermalWorld?.Thermal?.Dispose();
         thermalWorld = world;
         Clock = world.Clock; Scheduler = new SimulationScheduler(Clock);
         // Reject unsafe thermal steps before advancing weather or its random generator.
@@ -182,7 +182,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     private void OnDestroy()
     {
         lifetime.Cancel(); foreground?.TrySetCanceled();
-        thermalWorld?.Thermal?.Exchange?.Dispose();
+        thermalWorld?.Thermal?.Dispose();
         foreach (var wait in frameWaits.ToArray()) wait.TrySetCanceled();
         frameWaits.Clear(); RestoreEvents();
     }

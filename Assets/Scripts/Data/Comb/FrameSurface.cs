@@ -6,7 +6,16 @@ public sealed partial class FrameSurface
     private CellMaterialStore materials;
     private CombRegionThermalMass[] thermalRegions;
     private bool thermalDirty = true;
-    private void AdvanceRevision() { unchecked { Revision++; } thermalDirty = true; }
+    internal event Action ThermalInputsChanged;
+    internal int ThermalRevision { get; private set; }
+    private void AdvanceRevision(bool thermalChange = true)
+    {
+        unchecked { Revision++; }
+        if (!thermalChange) return;
+        unchecked { ThermalRevision++; }
+        thermalDirty = true;
+        ThermalInputsChanged?.Invoke();
+    }
 
     public event Action<FrameSurface, CellContentLoss> ContentLost;
     // Array payload only; excludes small object headers and the existing spatial/UI grids.
@@ -145,7 +154,8 @@ public sealed partial class FrameSurface
             loss = new CellContentLoss(index % Width, index / Width, before, reason, sugar, water, pollen, bee);
             materials?.Clear(index, before.Content);
         }
-        AdvanceRevision();
+        var after = cells[index];
+        AdvanceRevision(before.Construction != after.Construction || before.Type != after.Type || before.Content != after.Content);
         if (removed) ContentLost?.Invoke(this, loss);
     }
 
