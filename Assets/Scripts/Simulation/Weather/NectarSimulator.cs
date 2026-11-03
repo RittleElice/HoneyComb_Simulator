@@ -13,36 +13,50 @@ public sealed class NectarSimulator
         public double Total => sugar + water;
     }
     public NectarParameters Settings { get; private set; }
+    private double[] solarResponse;
+    private void CacheSolarResponse()
+    {
+        solarResponse=new double[Settings.Sources.Length];
+        for(int i=0;i<solarResponse.Length;i++)
+            solarResponse[i]=1-Math.Exp(-1/(60*Settings.Sources[i].CarbonResponseTime));
+    }
     public State[] Sources { get; private set; }
     public NectarSimulator(NectarParameters parameters=null)
     {
         Settings = parameters ?? new NectarParameters();
 
         Sources = new State[Settings.Sources.Length];
+        CacheSolarResponse();
     }
     static double Clamp(double x) => Math.Max(0,Math.Min(1,x));
     static double Rise(double x,double lo,double hi) => Clamp((x-lo)/(hi-lo));
     static double Dome(double x,double center,double width) => Math.Max(0,1-Math.Pow((x-center)/width,2));
     static double PerMinute(double rate) => 1-Math.Pow(1-Clamp(rate),1.0/60);
-    // Year one uses the workbook cached coefficient. Later years use a reproducible normal draw.
+    // Each source has an independent, reproducible annual draw, starting in year one.
     static double AnnualFactor(ulong seed,long year,int source)
     {
         ulong bits=unchecked(seed ^ ((ulong)year*11400714819323198485UL) ^ ((ulong)(source+1)*7046029254386353131UL));
         double Uniform() {
             unchecked { bits+=11400714819323198485UL; ulong z=bits; z=(z^(z>>30))*13787848793156543929UL; z=(z^(z>>27))*10723151780598845931UL; return (((z^(z>>31))>>11)+0.5)/9007199254740992.0; }
         }
+        if(year==0) return 0.9+0.2*Uniform();
         double normal=Math.Sqrt(-2*Math.Log(Uniform()))*Math.Cos(2*Math.PI*Uniform());
         return Math.Min(2,Math.Max(.5,1+.3*normal));
     }
     public void Advance(WeatherSnapshot w,ulong seed)
     {
+        double t=w.TemperatureCelsius, soil=w.SoilWaterStorage;
+        double light=Math.Max(0,w.SolarEnergy)*60;
+        double windRoot=Math.Sqrt(w.WindSpeed);
+        double saturationFactor=Math.Exp(17.27*t/(t+237.3));
+        double humidity=Clamp(w.RelativeHumidityPercent/100);
         bool first = w.Minute % 525600 == 0;
         for(int i=0;i<Sources.Length;i++)
         {
             var p=Settings.Sources[i];
-            if(first) Sources[i]=new State { yieldFactor=w.Minute==0?p.AnnualYieldFactor:AnnualFactor(seed,w.Minute/525600,i), development=new double[Math.Max(1,(int)Math.Round(60*p.PollenDevelopmentHours))] };
+            if(first) Sources[i]=new State { yieldFactor=AnnualFactor(seed,w.Minute/525600,i), development=new double[Math.Max(1,(int)Math.Round(60*p.PollenDevelopmentHours))] };
             var s=Sources[i];
-            double t=w.TemperatureCelsius, soil=w.SoilWaterStorage;
+
             s.gdd+=Math.Max(0,t-p.BaseGrowthTemperature)/1440;
             double opening=s.unopened*PerMinute(p.BaseBloomRate*Clamp((s.gdd-p.BloomStartGDD)/p.BloomActivationGDDRange)*Dome(t,p.OptimalBloomTemperature,p.BloomTemperatureRange));
             double wilting=s.bloom*PerMinute(p.BaseWiltingRate*(1+Math.Pow(Math.Abs(t-p.OptimalFlowerMaintenanceTemperature)/(t<p.OptimalFlowerMaintenanceTemperature?p.ColdWiltingTemperatureRange:p.HeatWiltingTemperatureRange),p.WiltingTemperatureExponent)));
@@ -50,15 +64,15 @@ public sealed class NectarSimulator
             s.unopened-=opening; s.bloom+=opening-wilting;
             double effective=s.bloom<=p.MinimumBloomingFlowerRatio?0:s.bloom;
             double site=Settings.SiteArea*Settings.SourceFactor*p.BaseNectarYieldRatio*s.yieldFactor;
-            double light=Math.Max(0,w.SolarEnergy)*60;
-            s.solar=first?light:s.solar+(1-Math.Exp(-1/(60*p.CarbonResponseTime)))*(light-s.solar);
+
+            s.solar=first?light:s.solar+solarResponse[i]*(light-s.solar);
             double carbon=p.MinimumCarbonFactor+(1-p.MinimumCarbonFactor)*s.solar/(s.solar+p.CarbonHalfSaturation);
             s.sugar+=site*effective*p.NectarProductionFactor*Dome(t,p.OptimalNectarTemperature,p.NectarTemperatureRange)*carbon*Rise(soil,p.SoilWaterZeroProduction,p.SoilWaterFullProduction)/60;
             s.water+=site*effective*p.WaterProductionFactor*Rise(t,p.MinimumWaterProductionTemperature,p.FullWaterProductionTemperature)*(1-Rise(t,p.HeatWaterProductionTemperature,p.MaximumWaterProductionTemperature))*Math.Pow(Rise(soil,p.WaterProductionSoilMinimum,p.WaterProductionSoilFull),p.WaterProductionSoilExponent)/60;
             double solute=18.01528/p.NectarSugarMolarMass*s.sugar;
             double fraction=s.water+solute==0?0:solute/(s.water+solute);
             double activity=(1-fraction)*Math.Exp(-p.NectarNorrishConstant*fraction*fraction);
-            s.water*=Math.Exp(-p.NectarEvaporationRate/60*(1+p.NectarEvaporationWindFactor*Math.Sqrt(w.WindSpeed))*0.61078*Math.Exp(17.27*t/(t+237.3))*Math.Max(0,activity-Clamp(w.RelativeHumidityPercent/100)));
+            s.water*=Math.Exp(-p.NectarEvaporationRate/60*(1+p.NectarEvaporationWindFactor*windRoot)*0.61078*saturationFactor*Math.Max(0,activity-humidity));
             double capacity=site*effective*p.NectarStorageFactor;
             if(s.Total>capacity) { double scale=capacity/s.Total; s.sugar*=scale; s.water*=scale; }
             double recent=s.count==0?1:s.developmentSum/s.count;
@@ -82,6 +96,7 @@ public sealed class NectarSimulator
     public void Read(BinaryReader r)
     {
         Settings=NectarParameters.Read(r);
+        CacheSolarResponse();
         for(int i=0;i<Sources.Length;i++)
         {
             var s=new State { yieldFactor=r.ReadDouble(),gdd=r.ReadDouble(),unopened=r.ReadDouble(),bloom=r.ReadDouble(),solar=r.ReadDouble(),sugar=r.ReadDouble(),water=r.ReadDouble(),pollen=r.ReadDouble(),developmentSum=r.ReadDouble(),cursor=r.ReadInt32(),count=r.ReadInt32() };

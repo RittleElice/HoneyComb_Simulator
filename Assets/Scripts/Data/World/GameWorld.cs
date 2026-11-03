@@ -11,6 +11,7 @@ public class GameWorld
     {
         if (Weather != null || weather == null || weather.Minute != CurrentGameMinute)
             throw new InvalidOperationException("Weather must match the world clock and may only be attached once.");
+        weather.BindApiaryArea(() => Apiary.Grid.UnlockedArea);
         Weather = weather;
     }
 
@@ -34,9 +35,10 @@ public class GameWorld
 
     public GameWorld(WeatherSimulator weather = null)
     {
-        if (weather != null) AttachWeather(weather);
+
         // 양봉장 초기화
         Apiary = new ApiaryData("양봉장", 8, 5);
+        if (weather != null) AttachWeather(weather);
 
         // 기존 벌통의 생물학적 데이터
         HiveData initialHive = new HiveData(1, 0, 0);

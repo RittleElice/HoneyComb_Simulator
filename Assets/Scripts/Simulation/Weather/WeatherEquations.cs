@@ -26,7 +26,7 @@ internal static class WeatherEquations
         }
         else
         {
-            c.Cloud_Slow = ((p.Cloud_Slow_p * previous.Cloud_Slow) + ((random.Normal(WeatherStream.CloudSlow) * p.Cloud_Slow_SD) * Math.Sqrt((1d - Math.Pow(p.Cloud_Slow_p, 2d)))));
+            c.Cloud_Slow = ((p.Cloud_Slow_p * previous.Cloud_Slow) + ((random.Normal(WeatherStream.CloudSlow) * p.Cloud_Slow_SD) * p.Cloud_Slow_p_InnovationFactor));
         }
         // Calculate!AB — Calculate_AB_028, Calculate_AB_068
         if (minute == 0)
@@ -35,7 +35,7 @@ internal static class WeatherEquations
         }
         else
         {
-            c.Vapor_Variation = ((p.Vapor_AR * previous.Vapor_Variation) + ((p.Vapor_SD * Math.Sqrt((1d - Math.Pow(p.Vapor_AR, 2d)))) * random.Normal(WeatherStream.VaporVariation)));
+            c.Vapor_Variation = ((p.Vapor_AR * previous.Vapor_Variation) + ((p.Vapor_SD * p.Vapor_AR_InnovationFactor) * random.Normal(WeatherStream.VaporVariation)));
         }
         // Calculate!AO — Calculate_AO_040
         c.Soil_Surface_HeatTransfer = (p.Soil_Surface_TransferFactor * ((((minute + 2d) == 2d) ? p.Surface_InitialTemperature : previous.Surface_Temperature) - (((minute + 2d) == 2d) ? p.Soil_InitialTemperature : previous.Soil_Temperature)));
@@ -46,7 +46,7 @@ internal static class WeatherEquations
         }
         else
         {
-            c.Cloud_Fast = ((p.Cloud_Fast_p * previous.Cloud_Fast) + ((random.Normal(WeatherStream.CloudFast) * p.Cloud_Fast_SD) * Math.Sqrt((1d - Math.Pow(p.Cloud_Fast_p, 2d)))));
+            c.Cloud_Fast = ((p.Cloud_Fast_p * previous.Cloud_Fast) + ((random.Normal(WeatherStream.CloudFast) * p.Cloud_Fast_SD) * p.Cloud_Fast_p_InnovationFactor));
         }
         // Calculate!F — Calculate_F_006, Calculate_F_060
         if (minute == 0)
@@ -64,7 +64,7 @@ internal static class WeatherEquations
         }
         else
         {
-            c.Rain_Supply_AdjustedBaseline = ((p.Rain_Supply_p * previous.Rain_Supply_AdjustedBaseline) + ((random.Normal(WeatherStream.RainSupply) * p.Rain_Supply_SD) * Math.Sqrt((1d - Math.Pow(p.Rain_Supply_p, 2d)))));
+            c.Rain_Supply_AdjustedBaseline = ((p.Rain_Supply_p * previous.Rain_Supply_AdjustedBaseline) + ((random.Normal(WeatherStream.RainSupply) * p.Rain_Supply_SD) * p.Rain_Supply_p_InnovationFactor));
         }
         // Calculate!P — Calculate_P_016, Calculate_P_066
         if (minute == 0)
@@ -73,7 +73,7 @@ internal static class WeatherEquations
         }
         else
         {
-            c.Rain_Intensity_Noise = ((p.Rain_Intensity_AR * previous.Rain_Intensity_Noise) + ((random.Normal(WeatherStream.RainIntensity) * p.Rain_Intensity_SD) * Math.Sqrt((1d - Math.Pow(p.Rain_Intensity_AR, 2d)))));
+            c.Rain_Intensity_Noise = ((p.Rain_Intensity_AR * previous.Rain_Intensity_Noise) + ((random.Normal(WeatherStream.RainIntensity) * p.Rain_Intensity_SD) * p.Rain_Intensity_AR_InnovationFactor));
         }
         // Calculate!AC — Calculate_AC_029
         c.Vapor_Rain_Supply_AdjustedBaseline = (c.Vapor_Baseline * Math.Exp((((c.Vapor_Variation + (c.Rain_Supply_AdjustedBaseline * p.Vapor_SupplyFactor)) * Math.Pow((10d / c.Vapor_Baseline), p.Vapor_VariationExponent)) - ((0.5d * (Math.Pow((p.Vapor_SupplyFactor * p.Rain_Supply_SD), 2d) + Math.Pow(p.Vapor_SD, 2d))) * Math.Pow((10d / c.Vapor_Baseline), (2d * p.Vapor_VariationExponent))))));

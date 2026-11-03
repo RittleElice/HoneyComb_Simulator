@@ -20,7 +20,7 @@ public sealed class NectarSettings : ScriptableObject
     [ContextMenu("화밀/파라미터 검증")]
     public void ValidateSettings()
     {
-        if(parameters?.Sources?.Length!=8 || !(parameters.SiteArea>=0) || !(parameters.SourceFactor>=0))
+        if(parameters?.Sources?.Length!=8 || !(parameters.SourceFactor>=0))
             throw new InvalidOperationException("면적, 밀원 배율 및 밀원 8종 설정을 확인하세요.");
         foreach(var p in parameters.Sources)
         {

@@ -3,10 +3,13 @@ using System;
 // Exact Ver.2.0 parameter expressions; random initial values are regenerated from the seed.
 internal sealed class WeatherParameters
 {
+    public double Cloud_Slow_p_InnovationFactor;
     public double Cloud_Slow_p; // Parameter!A2
     public double Wind_Day_AR; // Parameter!B2
+    public double Rain_Supply_p_InnovationFactor;
     public double Rain_Supply_p; // Parameter!C2
     public double Snow_Temperature; // Parameter!D2
+    public double Vapor_AR_InnovationFactor;
     public double Vapor_AR; // Parameter!E2
     public double Solar_CloudFactor; // Parameter!F2
     public double Soil_InitialEnergy; // Parameter!G2
@@ -19,6 +22,7 @@ internal sealed class WeatherParameters
     public double Solar_CloudExponent; // Parameter!F4
     public double Soil_HeatCapacity; // Parameter!G4
     public double SoilWater_InitialStorage; // Parameter!H4
+    public double Cloud_Fast_p_InnovationFactor;
     public double Cloud_Fast_p; // Parameter!A6
     public double Wind_Hour_AR; // Parameter!B6
     public double Rain_Supply_AdjustedBaseline_Initial_rand; // Parameter!C6
@@ -107,6 +111,7 @@ internal sealed class WeatherParameters
     public double Air_RadiationFactor; // Parameter!G34
     public double Rain_Transition_Minutes; // Parameter!C36
     public double Air_RadiationReferenceTemperature; // Parameter!G36
+    public double Rain_Intensity_AR_InnovationFactor;
     public double Rain_Intensity_AR; // Parameter!C38
     public double Air_VaporCoolingFactor; // Parameter!G38
     public double Rain_Intensity_SD; // Parameter!C40
@@ -238,6 +243,11 @@ internal sealed class WeatherParameters
         p.Soil_InitialEnergy = (p.Soil_HeatCapacity * p.Soil_InitialTemperature);
         p.Wind_Hour_Initial = ((random.Normal(WeatherStream.WindMinute) * p.Wind_Hour_SD) / Math.Sqrt((1d - Math.Pow(p.Wind_Hour_AR, 2d))));
         p.Rain_Intensity_Smoothed_Initial_rand = ((((1d - p.Rain_Intensity_Smooth) / (1d - (p.Rain_Intensity_Smooth * p.Rain_Intensity_AR))) * p.Rain_Intensity_Initial_rand) + (Math.Sqrt((p.Rain_Intensity_Variance - (Math.Pow(((1d - p.Rain_Intensity_Smooth) / (1d - (p.Rain_Intensity_Smooth * p.Rain_Intensity_AR))), 2d) * Math.Pow(p.Rain_Intensity_SD, 2d)))) * random.Normal(WeatherStream.RainInitialSmooth)));
+        p.Cloud_Slow_p_InnovationFactor = Math.Sqrt((1d - Math.Pow(p.Cloud_Slow_p, 2d)));
+        p.Vapor_AR_InnovationFactor = Math.Sqrt((1d - Math.Pow(p.Vapor_AR, 2d)));
+        p.Cloud_Fast_p_InnovationFactor = Math.Sqrt((1d - Math.Pow(p.Cloud_Fast_p, 2d)));
+        p.Rain_Supply_p_InnovationFactor = Math.Sqrt((1d - Math.Pow(p.Rain_Supply_p, 2d)));
+        p.Rain_Intensity_AR_InnovationFactor = Math.Sqrt((1d - Math.Pow(p.Rain_Intensity_AR, 2d)));
         return p;
     }
 }

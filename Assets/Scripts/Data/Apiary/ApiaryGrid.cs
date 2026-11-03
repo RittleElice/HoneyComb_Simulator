@@ -14,6 +14,8 @@ public class ApiaryGrid
     public int UnlockedWidth { get; private set; }
 
     // 다음 해금 대상 열
+    public double UnlockedArea => (double)UnlockedWidth * Height;
+
     public int LockedColumnX => UnlockedWidth;
 
     private ItemSlot[,] itemSlots;

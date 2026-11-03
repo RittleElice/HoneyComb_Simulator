@@ -22,7 +22,10 @@ public static class WeatherAssetLoader
         if(asset) asset.ValidateSettings();
         var parameters=asset ? JsonUtility.FromJson<NectarParameters>(JsonUtility.ToJson(asset.parameters)) : new NectarParameters();
         if(parameters.Sources?.Length!=8) throw new InvalidOperationException("밀원 8종 설정을 확인하세요.");
-        return new WeatherSimulator(seed,LoadBaseline(),parameters);
+        byte[] seedBytes=new byte[sizeof(ulong)];
+        using(var random=System.Security.Cryptography.RandomNumberGenerator.Create())
+            random.GetBytes(seedBytes);
+        return new WeatherSimulator(seed,LoadBaseline(),parameters,BitConverter.ToUInt64(seedBytes,0));
     }
     public static async Task PrepareLoadedWorldAsync(GameWorld world)
     {
@@ -30,6 +33,7 @@ public static class WeatherAssetLoader
         if(world.Weather!=null) { world.Weather.BindBaseline(data); await world.Weather.RestoreLegacyNectarAsync(data); return; }
         // Schema 1 saves predate weather. Replay a fixed migration seed without changing any existing world data.
         var weather=new WeatherSimulator(WeatherSimulator.DefaultSeed,data);
+        weather.BindApiaryArea(() => world.Apiary.Grid.UnlockedArea);
         var budget=Stopwatch.StartNew();
         while(weather.Minute<world.CurrentGameMinute)
         {

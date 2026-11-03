@@ -2,7 +2,8 @@ using System;
 using System.IO;
 [Serializable] public sealed class NectarParameters
 {
-    public double SiteArea = 15, SourceFactor = 100;
+    [NonSerialized] public double SiteArea = 15; // Workbook fallback for standalone simulations.
+    public double SourceFactor = 100;
     [Serializable] public class Source
     {
         public string Name;
