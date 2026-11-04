@@ -66,6 +66,20 @@ public sealed class ThermalExchange : IDisposable
     private readonly float[] cachedCapacities;
     public long CapacityCacheBytes => 4L * cachedCapacities.Length;
     private readonly int[] revisions;
+    private readonly Dictionary<EquipmentThermalState, int> ownerOrdinals = new Dictionary<EquipmentThermalState, int>();
+    private readonly SortedSet<int> pendingOwners = new SortedSet<int>();
+    private bool watchingOwners;
+    private void OwnerCacheChanged(EquipmentThermalState owner) => pendingOwners.Add(ownerOrdinals[owner]);
+    private void WatchOwners()
+    {
+        if (watchingOwners) return;
+        for (int k = 0; k < owners.Length; k++)
+        {
+            owners[k].CacheChanged += OwnerCacheChanged;
+            pendingOwners.Add(k); // Also catches edits while buffers were released.
+        }
+        watchingOwners = true;
+    }
     private readonly EquipmentThermalState[] owners;
     // Explicit tooling opt-ins. Normal minute updates perform neither audits nor timing.
     public bool DiagnosticsEnabled { get; set; }
@@ -125,6 +139,10 @@ public sealed class ThermalExchange : IDisposable
     public void Dispose()
     {
         ReleaseEnergy();
+        if (watchingOwners)
+            foreach (var owner in owners) owner.CacheChanged -= OwnerCacheChanged;
+        watchingOwners = false;
+        pendingOwners.Clear();
         if (nativeFixedRows.IsCreated) nativeFixedRows.Dispose();
         if (nativeOffsets.IsCreated) nativeOffsets.Dispose();
         if (nativeNeighbours.IsCreated) nativeNeighbours.Dispose();
@@ -221,7 +239,7 @@ public sealed class ThermalExchange : IDisposable
         var ownerList = new List<EquipmentThermalState>();
         foreach(var cell in cells) if(ownerSet.Add(cell.Owner)) ownerList.Add(cell.Owner);
         owners = ownerList.ToArray(); revisions = new int[owners.Length];
-        for(int i=0;i<revisions.Length;i++) revisions[i]=-1;
+        for(int i=0;i<revisions.Length;i++) { revisions[i]=-1; ownerOrdinals.Add(owners[i], i); }
         var unique = new HashSet<(EquipmentThermalState, int)>();
         for (int i = 0; i < cells.Length; i++)
         {
@@ -331,6 +349,7 @@ public sealed class ThermalExchange : IDisposable
         for(int f=0;f<faces.Length;f++)UpdateFace(f);
         for(int i=0;i<cells.Length;i++)SumCell(i);
         for(int k=0;k<owners.Length;k++)revisions[k]=owners[k].CacheRevision;
+        pendingOwners.Clear();
         LastChangedCells=cells.Length;LastRawFacesUpdated=LastEffectiveFacesUpdated=faces.Length;CoefficientBuilds++;
         changedCells.Clear();rawWork.Clear();finalWork.Clear();
     }
@@ -338,13 +357,15 @@ public sealed class ThermalExchange : IDisposable
     private void RefreshCoefficients(double seconds)
     {
         if(!Positive(seconds))throw new ArgumentOutOfRangeException(nameof(seconds));
+        WatchOwners();
         if(CoefficientBuilds==0||seconds!=coefficientSeconds){coefficientSeconds=seconds;InitializeCoefficients();return;}
-        for(int k=0;k<owners.Length;k++){
+        foreach(int k in pendingOwners){
             var owner=owners[k];if(revisions[k]==owner.CacheRevision)continue;
             var indices=ownerIndices[owner];
             for(int j=0;j<indices.Length;j++)if(indices[j]>=0&&owner.CellCacheRevision(j)>revisions[k])changedCells.Add(indices[j]);
         }
-        for(int k=0;k<owners.Length;k++)revisions[k]=owners[k].CacheRevision;
+        foreach(int k in pendingOwners)revisions[k]=owners[k].CacheRevision;
+        pendingOwners.Clear();
         LastChangedCells=changedCells.Values.Count;LastRawFacesUpdated=LastEffectiveFacesUpdated=0;
         if(changedCells.Values.Count==0)return;
         foreach(int i in changedCells.Values){UpdateCell(i);finalWork.Add(i);for(int p=offsets[i];p<offsets[i+1];p++)rawWork.Add(rowFaces[p]);}

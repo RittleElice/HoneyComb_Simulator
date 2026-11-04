@@ -87,6 +87,7 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
         MarkAllDirty();
     }
     internal event Action<EquipmentThermalState> InputsChanged;
+    internal event Action<EquipmentThermalState> CacheChanged;
     private void NotifyInputsChanged() => InputsChanged?.Invoke(this);
     public void MarkDirty(int index)
     {
@@ -138,9 +139,11 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
                 airVolume[i] = a; capacity[i] = c; conductivity[i] = k;
                 SetEnergy(i, e); initialized[i] = true;
             }
-            if (dirtyIndices.Count > 0) CacheRevision++;
+            bool cacheChanged = dirtyIndices.Count > 0;
+            if (cacheChanged) CacheRevision++;
             foreach (int i in dirtyIndices) dirty[i] = false;
             dirtyIndices.Clear();
+            if (cacheChanged) CacheChanged?.Invoke(this);
         }
         catch (Exception e) { Diagnostic = "Equipment " + item.Id + ", cell " + computingIndex + ": " + e.Message; throw new InvalidOperationException(Diagnostic, e); }
     }
