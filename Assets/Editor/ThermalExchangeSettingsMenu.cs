@@ -12,9 +12,10 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
     }
     private void DrawSettings(){
         EditorGUILayout.LabelField("사각뿔 6개 열교환",EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox("각 면은 열용량의 1/6을 사용해 인접 면과 60초간 지수 교환한 뒤 합쳐집니다. 내부·외기는 재질 열전도율과 중심에서 면까지의 거리로 계산합니다. 외기는 날씨 온도를 유지하는 공기이며, 외부 거리도 내부의 중심→면 거리와 같습니다. 별도 교환 제한이나 재질 조합 계수는 없습니다.",MessageType.Info);
+        EditorGUILayout.HelpBox("각 면에 열용량의 1/6을 배분하고, 면적×재질 조합 계수로 60초간 지수 교환한 뒤 합칩니다. 열전도율·두께 저항·분당 교환 제한은 사용하지 않습니다. 외기는 날씨 온도를 유지하며 내부 공기와 별도 계수를 사용합니다.",MessageType.Info);
         var comb=Resources.Load<CombBalanceSettings>("CombBalanceSettings");
         if(comb==null){EditorGUILayout.HelpBox("소방 설정 파일이 없습니다.",MessageType.Error);return;}
+        DrawTransfers();
         DrawMaterials();
         EditorGUILayout.Space();EditorGUILayout.LabelField("소방 내용물 열용량",EditorStyles.boldLabel);
         var so=new SerializedObject(comb);so.Update();var values=so.FindProperty("values");
@@ -25,28 +26,37 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
         if(GUILayout.Button("소방 용량 등 전체 설정 열기"))Selection.activeObject=comb;
         DrawHeatingPanels();
         EditorGUILayout.Space();
-        if(GUILayout.Button("재질·소방 설정을 프로젝트 기본값으로 저장")){
+        if(GUILayout.Button("열 설정을 프로젝트 기본값으로 저장")){
             AssetDatabase.SaveAssetIfDirty(comb);
+            var transfer=Resources.Load<PyramidTransferSettings>("Thermal/PyramidTransferSettings");if(transfer!=null)AssetDatabase.SaveAssetIfDirty(transfer);
             foreach(ThermalMaterialKind kind in System.Enum.GetValues(typeof(ThermalMaterialKind))){
                 var material=Resources.Load<ThermalMaterialAsset>("Thermal/"+kind);
                 if(material!=null)AssetDatabase.SaveAssetIfDirty(material);
             }
         }
     }
+    private void DrawTransfers(){
+        var asset=Resources.Load<PyramidTransferSettings>("Thermal/PyramidTransferSettings");if(asset==null){EditorGUILayout.HelpBox("열교환 계수 설정이 없습니다.",MessageType.Error);return;}
+        var so=new SerializedObject(asset);so.Update();
+        string[] names={"AirAir","AirWood","AirComb","AirInsulation","WoodWood","WoodComb","WoodInsulation","CombComb","CombInsulation","InsulationInsulation","AirOutside","WoodOutside","CombOutside","InsulationOutside"};
+        string[] labels={"공기 ↔ 공기","공기 ↔ 목재","공기 ↔ 소방 복합층","공기 ↔ 단열재","목재 ↔ 목재","목재 ↔ 소방 복합층","목재 ↔ 단열재","소방 ↔ 소방","소방 ↔ 단열재","단열재 ↔ 단열재","공기 ↔ 외기","목재 ↔ 외기","소방 ↔ 외기","단열재 ↔ 외기"};
+        bool valid=true;for(int i=0;i<names.Length;i++){if(i==0||i==10){EditorGUILayout.Space();EditorGUILayout.LabelField(i==0?"내부 재질 조합 · W/(m²·K)":"외기 접촉 · W/(m²·K)",EditorStyles.boldLabel);}var p=so.FindProperty(names[i]);p.doubleValue=DragParameter(labels[i],p.doubleValue,0,1000,1);valid &= ThermalExchange.Finite(p.doubleValue)&&p.doubleValue>=0;}
+        if(valid)so.ApplyModifiedProperties();else EditorGUILayout.HelpBox("계수는 유한한 0 이상이어야 합니다.",MessageType.Error);
+        EditorGUILayout.HelpBox("0은 해당 조합의 교환을 끕니다. 편집은 다음 열 계산부터 반영되며, 아래 저장 버튼으로 프로젝트 기본값에 저장합니다. 초기값은 게임용 시작값이며 실측 보정값이 아닙니다.",MessageType.Info);
+    }
     private void DrawMaterials(){
-        string[] labels={"공기 (외기에도 적용)","목재","밀랍","단열재"};
+        string[] labels={"공기","목재","밀랍","단열재"};
         for(int i=0;i<labels.Length;i++){
             var material=Resources.Load<ThermalMaterialAsset>("Thermal/"+(ThermalMaterialKind)i);
             if(material==null)continue;
             EditorGUILayout.Space();EditorGUILayout.LabelField(labels[i],EditorStyles.boldLabel);
             var so=new SerializedObject(material);so.Update();
-            var cv=so.FindProperty("EffectiveVolumetricHeatCapacityJPerM3K");var conductivity=so.FindProperty("ConductivityWPerMK");
+            var cv=so.FindProperty("EffectiveVolumetricHeatCapacityJPerM3K");
             double nextC=DragParameter("유효 체적 열용량 (J/m³·K)",cv.floatValue,0,10000000,1000);
-            double nextK=DragParameter("열전도율 (W/m·K)",conductivity.floatValue,.000001,10,.01);
-            if(ThermalExchange.Finite(nextC)&&nextC>=0&&nextC<=float.MaxValue&&ThermalExchange.Finite(nextK)&&nextK>0&&nextK<=float.MaxValue){cv.floatValue=(float)nextC;conductivity.floatValue=(float)nextK;if(so.ApplyModifiedProperties())ThermalMaterials.NotifyAssetsChanged();}
-            else EditorGUILayout.HelpBox("열용량은 유한한 0 이상, 열전도율은 유한한 양수여야 합니다.",MessageType.Error);
+            if(ThermalExchange.Finite(nextC)&&nextC>=0&&nextC<=float.MaxValue){cv.floatValue=(float)nextC;if(so.ApplyModifiedProperties())ThermalMaterials.NotifyAssetsChanged();}
+            else EditorGUILayout.HelpBox("열용량은 유한한 0 이상이어야 합니다.",MessageType.Error);
         }
-        EditorGUILayout.HelpBox("편집은 다음 열 계산부터 반영됩니다. 열용량 0은 밀도×비열을 사용합니다. 열용량 변경 시 에너지를 유지하므로 온도가 달라질 수 있습니다. 공기 열전도율은 내부 공기와 외기 양쪽에 적용됩니다.",MessageType.Info);
+        EditorGUILayout.HelpBox("편집은 다음 열 계산부터 반영됩니다. 열용량 0은 밀도×비열을 사용합니다. 열용량 변경 시 에너지를 유지하므로 온도가 달라질 수 있습니다.",MessageType.Info);
     }
     // Keep exact typed values, including those outside the drag range, until the slider is actually moved.
     public static double DragParameter(string label,double value,double minimum,double maximum,double scale){

@@ -51,7 +51,7 @@ public sealed class ThermalExchange : IDisposable
         { Cell=cell; Direction=direction; AreaM2=area; HalfM=half; }
     }
     private readonly Boundary[] boundaries;
-    private readonly double exteriorAirConductivity;
+    private readonly ThermalTransferCoefficients transfers;
     private readonly double[] exterior, rawExterior;
     public int BoundaryCount => boundaries.Length;
     public Boundary GetBoundary(int i) => boundaries[i];
@@ -205,12 +205,10 @@ public sealed class ThermalExchange : IDisposable
     public Cell GetCell(int i) => cells[i];
     public Face GetFace(int i) => faces[i];
     public double SumConductance(int i) => sums[i];
-    public ThermalExchange(Cell[] source, Face[] connections, Boundary[] exteriorBoundaries = null, double exteriorAirConductivityWPerMK = .1)
+    public ThermalExchange(Cell[] source, Face[] connections, Boundary[] exteriorBoundaries = null, ThermalTransferCoefficients transfers = null)
     {
         cells = (Cell[])source.Clone(); faces = (Face[])connections.Clone();
-        if (!Finite(exteriorAirConductivityWPerMK) || exteriorAirConductivityWPerMK < 0)
-            throw new ArgumentOutOfRangeException(nameof(exteriorAirConductivityWPerMK));
-        exteriorAirConductivity = exteriorAirConductivityWPerMK;
+        this.transfers=transfers??ThermalTransferCoefficients.Default;
         boundaries = exteriorBoundaries == null ? Array.Empty<Boundary>() : (Boundary[])exteriorBoundaries.Clone();
         var boundaryKeys = new HashSet<(int,int)>();
         foreach (var b in boundaries)
@@ -281,15 +279,15 @@ public sealed class ThermalExchange : IDisposable
     private double FaceConductance(Face f)
     {
         var a=cells[f.A];var b=cells[f.B];
-        double g=Conductance(f.AreaM2,f.HalfAM,a.Owner.Conductivity(a.Index,f.Axis),f.HalfBM,b.Owner.Conductivity(b.Index,f.Axis));
+        double g=f.AreaM2*transfers.Between(a.Owner.ExchangeMaterial(a.Index),b.Owner.ExchangeMaterial(b.Index));
         double ca=FacePyramidCapacity(f.A,f.Axis,f.AreaM2),cb=FacePyramidCapacity(f.B,f.Axis,f.AreaM2),reduced=ca*cb/(ca+cb);
         return reduced*Relaxation(coefficientSeconds*g/reduced)/coefficientSeconds;
     }
     private double BoundaryConductance(Boundary b,out double raw)
     {
         var c=cells[b.Cell];double capacity=FacePyramidCapacity(b.Cell,b.Direction/2,b.AreaM2);
-        // Fixed weather reservoir. Exterior air uses the same centre-to-face distance as the cell.
-        raw=exteriorAirConductivity==0?0:Conductance(b.AreaM2,b.HalfM,c.Owner.Conductivity(c.Index,b.Direction/2),b.HalfM,exteriorAirConductivity);
+        // Fixed-temperature weather reservoir; independently tuned material-to-exterior coefficients.
+        raw=b.AreaM2*transfers.Outside(c.Owner.ExchangeMaterial(c.Index));
         return capacity*Relaxation(coefficientSeconds*raw/capacity)/coefficientSeconds;
     }
     private string Detail(int i,string reason)=>reason+"; "+cells[i].Label;

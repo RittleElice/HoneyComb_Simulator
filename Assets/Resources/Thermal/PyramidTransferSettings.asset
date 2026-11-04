@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1de327d6fadb48389d2d72c6adafe6a6, type: 3}
+  m_Name: PyramidTransferSettings
+  m_EditorClassIdentifier: 
+  AirAir: 1000
+  AirWood: 1000
+  AirComb: 1000
+  AirInsulation: 0.1
+  WoodWood: 1000
+  WoodComb: 1000
+  WoodInsulation: 0.1
+  CombComb: 1000
+  CombInsulation: 0.1
+  InsulationInsulation: 0.1
+  AirOutside: 1000
+  WoodOutside: 10
+  CombOutside: 10
+  InsulationOutside: 0.1

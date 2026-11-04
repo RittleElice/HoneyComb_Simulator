@@ -16,11 +16,8 @@ public static class ThermalTopology
     }
     private static int EmptySlotMask(HiveSpatialGrid grid)
     {
-        if (grid.Box.InteriorSlots == null) return 0;
-        int mask = 0;
-        for (int slot = 0; slot < HiveGridLayout.SlotCount; slot++)
-            if (grid.Box.InteriorSlots.GetSlot(slot).IsEmpty) mask |= 1 << slot;
-        return mask;
+        // Keep every empty-slot air cell independent for thermal exchange.
+        return 0;
     }
     private static bool IsGrouped(int mask, HiveGridLayout layout, int x, int y, int z)
     {
@@ -31,7 +28,7 @@ public static class ThermalTopology
     }
     // Six neighbours are valid only because all placed cell bounds are conforming.
     // CSR still stores the full adjacency, avoiding a silent six-entry truncation.
-    public static ThermalExchange Build(GameWorld world, double exteriorAirConductivity = .1, IReadOnlyList<ItemData> items = null)
+    public static ThermalExchange Build(GameWorld world, ThermalTransferCoefficients transfers = null, IReadOnlyList<ItemData> items = null)
     {
         items ??= ThermalWorld.Items(world).ToArray();
         var cells = new List<ThermalExchange.Cell>(); var faces = new List<ThermalExchange.Face>();
@@ -129,7 +126,7 @@ public static class ThermalTopology
         roots.Add(world.Hand.Value);
         var seen=new HashSet<MovableItem>();
         foreach(var root in roots) AddStacks(root,seen,grids,faces,boundaries);
-        var exchange = new ThermalExchange(cells.ToArray(),faces.ToArray(),boundaries.Values.OrderBy(b=>b.Cell).ThenBy(b=>b.Direction).ToArray(),exteriorAirConductivity);
+        var exchange = new ThermalExchange(cells.ToArray(),faces.ToArray(),boundaries.Values.OrderBy(b=>b.Cell).ThenBy(b=>b.Direction).ToArray(),transfers);
         exchange.TopologyBinding = new Binding(world,grids,items);
         return exchange;
     }

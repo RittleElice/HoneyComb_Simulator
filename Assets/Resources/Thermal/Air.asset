@@ -17,9 +17,9 @@ MonoBehaviour:
   DensityKgPerM3: 1.2
   SpecificHeatJPerKgK: 1004
   ConductivityWPerMK: 0.0254
-  EffectiveVolumetricHeatCapacityJPerM3K: 1204.8
+  EffectiveVolumetricHeatCapacityJPerM3K: 4400000
   Sources: "https://shepherd.caltech.edu/Ae101/old/guide/guide.pdf p11 (PDF p15), nominal 20 C and 1 bar"
-  Assumptions: "Dry air near 20 C and atmospheric pressure: rho=1.2 kg/m3, cp=1004 J/(kg K), rho*cp=1204.8 J/(m3 K); k=0.0254 W/(m K), rounded reference. No gameplay heat-capacity multiplier and no enhanced mixing. Constant-pressure sensible-energy approximation; no explicit convection or ventilation."
+  Assumptions: "Gameplay effective volumetric heat capacity 4400000 J/(m3 K), tuned for qualitative hive heating, lid and partition effects, and power-off cooling in the 60-second six-pyramid model with a 30 W panel. Not a measured air property or validated beehive airflow model. Density and specific heat retain reference values. Stored energy is preserved when capacity changes."
   Uncertain: 1
 
 

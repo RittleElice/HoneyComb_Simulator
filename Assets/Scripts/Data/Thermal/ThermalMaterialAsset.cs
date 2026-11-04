@@ -10,7 +10,7 @@ public sealed class ThermalMaterialAsset : ScriptableObject
     public float ReferenceTemperatureC = 20;
     public float DensityKgPerM3;
     public float SpecificHeatJPerKgK;
-    public float ConductivityWPerMK;
+    [HideInInspector] public float ConductivityWPerMK; // Legacy material metadata; not used by heat exchange.
     [Tooltip("유효 체적 열용량 [J/(m³·K)]. 0이면 밀도 × 비열을 사용합니다.")]
     [Min(0)] public float EffectiveVolumetricHeatCapacityJPerM3K;
     [TextArea(2, 8)] public string Sources;
@@ -45,6 +45,8 @@ public sealed class ThermalMaterials
     public ThermalMaterials RefreshLiveSnapshot() => live && loadedRevision != assetRevision ? Load() : this;
     private readonly ThermalMaterialValue[] values;
     private bool live;
+    private PyramidTransferSettings transferSettings;
+    public ThermalTransferCoefficients Transfers=>transferSettings!=null?transferSettings.Read():ThermalTransferCoefficients.Default;
     public ThermalMaterialValue this[ThermalMaterialKind kind] => values[(int)kind];
     public ThermalMaterials(ThermalMaterialValue[] source)
     {
@@ -62,6 +64,8 @@ public sealed class ThermalMaterials
                 throw new InvalidOperationException("Missing/invalid thermal material: " + (ThermalMaterialKind)i);
             result[i] = asset.Read();
         }
-        return new ThermalMaterials(result) { live = true, loadedRevision = assetRevision };
+        var transfer=Resources.Load<PyramidTransferSettings>("Thermal/PyramidTransferSettings");
+        if(transfer==null)throw new InvalidOperationException("Missing pyramid transfer settings");
+        return new ThermalMaterials(result) { live = true, loadedRevision = assetRevision, transferSettings=transfer };
     }
 }

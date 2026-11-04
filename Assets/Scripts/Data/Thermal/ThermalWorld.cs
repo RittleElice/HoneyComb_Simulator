@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
 {
     private object[] topologyStamp;
-    private double appliedExterior = double.NaN;
+    private ThermalTransferCoefficients appliedTransfers;
     public ThermalExchange Exchange { get; private set; }
     public string Failure { get; private set; }
     public int TopologyBuilds { get; private set; }
@@ -91,8 +91,8 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
     public void PrepareExchange()
     {
         EnsureLayout();
-        double exterior=materials[ThermalMaterialKind.Air].Conductivity;
-        bool settingsChanged=exterior!=appliedExterior;
+        var transfers=materials.Transfers;
+        bool settingsChanged=!ReferenceEquals(transfers,appliedTransfers);
         if (!topologyDirty && Exchange != null && !settingsChanged)
         {
             Exchange.RefreshCoefficients();
@@ -105,12 +105,12 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
                 LocalTopologyUpdates++;
             else
             {
-                var replacement = ThermalTopology.Build(world, exterior, minuteItems);
+                var replacement = ThermalTopology.Build(world, transfers, minuteItems);
                 Exchange?.Dispose();
                 Exchange = replacement; TopologyBuilds++;
             }
             topologyStamp = stamp;
-            appliedExterior=exterior;
+            appliedTransfers=transfers;
         }
         topologyDirty = false;
         Exchange.RefreshCoefficients();

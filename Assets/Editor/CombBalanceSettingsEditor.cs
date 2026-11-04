@@ -31,7 +31,7 @@ public sealed class CombBalanceSettingsEditor : Editor
         Field("PollenSpecificHeatJPerKgK", "화분 비열");
         Field("BroodHeatCapacityJPerK", "봉충 소방 1개의 열용량 (J/K)");
         EditorGUILayout.HelpBox("봉충은 벌 질량 모델 연결 전의 고정 대푯값입니다. 구형 FillRatio만 있는 소방은 질량을 추정하지 않아 내용물 열용량에서 제외됩니다.", MessageType.None);
-        EditorGUILayout.LabelField("격자 재질 — 유효 체적 열용량·열전도율", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("격자 재질 — 유효 체적 열용량", EditorStyles.boldLabel);
         string[] materialNames = { "공기", "목재", "밀랍", "보온재", "설탕 재질", "물 재질", "화분 재질" };
         for (int i = 0; i < materialNames.Length; i++)
         {
@@ -47,13 +47,6 @@ public sealed class CombBalanceSettingsEditor : Editor
                 if (ThermalMath.Finite(value) && value >= 0)
                 { property.floatValue = value; materialObject.ApplyModifiedProperties(); SceneView.RepaintAll(); }
                 else Debug.LogWarning("유효 체적 열용량은 0 이상의 유한한 값이어야 합니다.");
-            }
-            materialObject.Update();
-            var conductivity=materialObject.FindProperty("ConductivityWPerMK");
-            float k=(float)ThermalExchangeSettingsMenu.DragParameter("열전도율 (W/m·K)",conductivity.floatValue,0.000001,10,0.01);
-            if(k!=conductivity.floatValue){
-                if(ThermalMath.Positive(k)){conductivity.floatValue=k;materialObject.ApplyModifiedProperties();SceneView.RepaintAll();}
-                else Debug.LogWarning("열전도율은 유한한 양수여야 합니다.");
             }
             EditorGUILayout.Space(4);
         }
