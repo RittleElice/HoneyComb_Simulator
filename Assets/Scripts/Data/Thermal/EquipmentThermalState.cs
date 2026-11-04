@@ -25,6 +25,12 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
         var g=item.EquipmentGrid;
         return g.GetCell(index%g.SizeX,index/g.SizeX%g.SizeY,index/(g.SizeX*g.SizeY))?.Material ?? HiveMaterial.Air;
     }
+    public double FaceAreaM2(int index, int axis, bool grouped)
+    {
+        var g=item.EquipmentGrid;int x=index%g.SizeX,y=index/g.SizeX%g.SizeY,z=index/(g.SizeX*g.SizeY);
+        double dx=(g.X[x+1]-g.X[x])*.001,dy=(g.Y[y+(grouped?HiveGridLayout.SlotDepthCells:1)]-g.Y[y])*.001,dz=(g.Z[z+1]-g.Z[z])*.001;
+        return axis==0?dy*dz:axis==1?dx*dz:dx*dy;
+    }
     public int Count => energy.Length;
     // A retained read-only view follows the owner even across moves and buffer release.
     public IReadOnlyList<float> EnergyJ => this;

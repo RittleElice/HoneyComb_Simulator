@@ -7,12 +7,11 @@ using System.Threading.Tasks;
 public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
 {
     private object[] topologyStamp;
-    private double appliedFraction = double.NaN, appliedExterior = double.NaN;
+    private double appliedExterior = double.NaN;
     public ThermalExchange Exchange { get; private set; }
     public string Failure { get; private set; }
     public int TopologyBuilds { get; private set; }
     public int LocalTopologyUpdates { get; private set; }
-    private ThermalPairCoefficients appliedPairs;
     private readonly List<ItemData> minuteItems = new List<ItemData>();
     private readonly HashSet<ItemSlot> watchedSlots = new HashSet<ItemSlot>();
     private readonly HashSet<EquipmentThermalState> tracked = new HashSet<EquipmentThermalState>();
@@ -92,9 +91,8 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
     public void PrepareExchange()
     {
         EnsureLayout();
-        double fraction=materials.MaximumExchangeFractionPerMinute, exterior=materials.ExteriorFilmCoefficientWPerM2K;
-        var pairs=materials.Pairs;
-        bool settingsChanged=fraction!=appliedFraction || exterior!=appliedExterior || !ReferenceEquals(pairs,appliedPairs);
+        double exterior=materials[ThermalMaterialKind.Air].Conductivity;
+        bool settingsChanged=exterior!=appliedExterior;
         if (!topologyDirty && Exchange != null && !settingsChanged)
         {
             Exchange.RefreshCoefficients();
@@ -107,13 +105,12 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
                 LocalTopologyUpdates++;
             else
             {
-                var replacement = ThermalTopology.Build(world, fraction, exterior, pairs, minuteItems);
+                var replacement = ThermalTopology.Build(world, exterior, minuteItems);
                 Exchange?.Dispose();
                 Exchange = replacement; TopologyBuilds++;
             }
             topologyStamp = stamp;
-            appliedPairs=pairs;
-            appliedFraction=fraction; appliedExterior=exterior;
+            appliedExterior=exterior;
         }
         topologyDirty = false;
         Exchange.RefreshCoefficients();

@@ -42,25 +42,13 @@ public sealed class ThermalMaterials
     private int loadedRevision;
     public static void NotifyAssetsChanged() => System.Threading.Interlocked.Increment(ref assetRevision);
     // Detached test/save snapshots remain immutable. Loaded live settings refresh only after edits.
-    public ThermalMaterials RefreshLiveSnapshot() => liveSettings != null && loadedRevision != assetRevision ? Load() : this;
+    public ThermalMaterials RefreshLiveSnapshot() => live && loadedRevision != assetRevision ? Load() : this;
     private readonly ThermalMaterialValue[] values;
-    private readonly double maximumFraction, exteriorFilm;
-    private ThermalExchangeSettings liveSettings;
-    public ThermalPairCoefficients Pairs => liveSettings != null ? liveSettings.ReadPairs() : pairs;
-    private readonly ThermalPairCoefficients pairs;
-    public double MaximumExchangeFractionPerMinute => liveSettings != null ? liveSettings.ValidFraction : maximumFraction;
-    public double ExteriorFilmCoefficientWPerM2K => liveSettings != null ? liveSettings.ValidExterior : exteriorFilm;
+    private bool live;
     public ThermalMaterialValue this[ThermalMaterialKind kind] => values[(int)kind];
-    public ThermalMaterials(ThermalMaterialValue[] source, double maximumExchangeFractionPerMinute = 0.1, double exteriorFilmCoefficientWPerM2K = 5, ThermalPairCoefficients pairs = null)
+    public ThermalMaterials(ThermalMaterialValue[] source)
     {
         if (source == null || source.Length != 7) throw new ArgumentException("Seven materials required.");
-        if (!ThermalExchange.Finite(maximumExchangeFractionPerMinute) || maximumExchangeFractionPerMinute <= 0 || maximumExchangeFractionPerMinute > ThermalExchangeSettings.MaxFraction)
-            throw new ArgumentOutOfRangeException(nameof(maximumExchangeFractionPerMinute));
-        if (!ThermalExchange.Finite(exteriorFilmCoefficientWPerM2K) || exteriorFilmCoefficientWPerM2K < 0)
-            throw new ArgumentOutOfRangeException(nameof(exteriorFilmCoefficientWPerM2K));
-        this.pairs=pairs;
-        exteriorFilm = exteriorFilmCoefficientWPerM2K;
-        maximumFraction = maximumExchangeFractionPerMinute;
         values = (ThermalMaterialValue[])source.Clone();
         foreach (var v in values) new ThermalMaterialValue(v.Density, v.SpecificHeat, v.Conductivity, v.EffectiveVolumetricHeatCapacityJPerM3K);
     }
@@ -74,8 +62,6 @@ public sealed class ThermalMaterials
                 throw new InvalidOperationException("Missing/invalid thermal material: " + (ThermalMaterialKind)i);
             result[i] = asset.Read();
         }
-        var settings = Resources.Load<ThermalExchangeSettings>("Thermal/ExchangeSettings");
-        if (settings == null) throw new InvalidOperationException("Missing thermal exchange settings");
-        return new ThermalMaterials(result, settings.ValidFraction, settings.ValidExterior) { liveSettings = settings, loadedRevision = assetRevision };
+        return new ThermalMaterials(result) { live = true, loadedRevision = assetRevision };
     }
 }
