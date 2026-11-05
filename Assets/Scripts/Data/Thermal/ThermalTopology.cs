@@ -114,34 +114,24 @@ public static class ThermalTopology
         roots.Add(world.Hand.Value);
         var seen=new HashSet<MovableItem>();
         var joins = new List<(int lower,int upper)>();
-        foreach(var entry in grids)AddFrameRailAir(entry.Key,entry.Value,joins);
+        foreach(var entry in grids)AddEmptySlotEndAir(entry.Key,entry.Value,joins);
         foreach(var root in roots) AddStacks(root,seen,grids,faces,boundaries,joins);
         if(joins.Count>0) MergeAir(cells,faces,boundaries,joins,grids);
         var exchange = new ThermalExchange(cells.ToArray(),faces.ToArray(),boundaries.Values.OrderBy(b=>b.Cell).ThenBy(b=>b.Direction).ToArray(),transfers);
         if(joins.Count==0) exchange.TopologyBinding = new Binding(world,grids,items);
         return exchange;
     }
-    private static int FrameMask(HiveSpatialGrid grid)
+    // Extend an empty comb bay only at its two ends. The top end can then
+    // connect across an open stack interface to the next empty bay's bottom end.
+    private static void AddEmptySlotEndAir(HiveSpatialGrid grid,int[] map,List<(int lower,int upper)> joins)
     {
-        var slots=grid.Box.InteriorSlots;
-        if(slots==null)return 0;
-        int mask=0;
-        for(int i=0;i<slots.Capacity;i++)
-            if(slots.GetSlot(i).Item?.Kind==ItemKind.Frame)mask|=1<<i;
-        return mask;
-    }
-
-    // Only air at the height of a frame's wooden top or bottom rail participates.
-    // The two inner frame layers still contain their own equipment material.
-    private static void AddFrameRailAir(HiveSpatialGrid grid,int[] map,List<(int lower,int upper)> joins)
-    {
-        int frames=FrameMask(grid);
-        if(frames==0)return;
+        int empty=EmptySlotMask(grid);
+        if(empty==0)return;
         var layout=grid.Layout;
         int bottom=layout.SlotBottom;
         int top=bottom+HiveGridLayout.FrameSizeZ-1;
         for(int slot=0;slot<HiveGridLayout.SlotCount;slot++){
-            if((frames & (1<<slot))==0)continue;
+            if((empty & (1<<slot))==0)continue;
             for(int layer=0;layer<HiveGridLayout.SlotDepthCells;layer++){
                 int y=1+slot*HiveGridLayout.SlotDepthCells+layer;
                 for(int x=1;x<HiveGridLayout.SizeX-1;x++){
@@ -226,7 +216,7 @@ public static class ThermalTopology
     {
         private readonly HiveSpatialGrid[] grids;
         private readonly int[][] cellMaps;
-        private readonly int[] revisions, emptyMasks, frameMasks;
+        private readonly int[] revisions, emptyMasks;
         private readonly ItemData[] topItems;
         private readonly ItemData[] detached;
         private readonly List<(HiveSpatialGrid,HiveSpatialGrid)> pairs;
@@ -234,7 +224,7 @@ public static class ThermalTopology
         public Binding(GameWorld world,Dictionary<HiveSpatialGrid,int[]> maps, IReadOnlyList<ItemData> items)
         {
             grids=items.Where(i=>i.SpatialGrid!=null).Select(i=>i.SpatialGrid).ToArray();
-            frameMasks=grids.Select(FrameMask).ToArray();
+            
             topItems=grids.Select(g=>g.TopBoundaryEquipment).ToArray();
             cellMaps=grids.Select(g=>maps[g]).ToArray();emptyMasks=grids.Select(EmptySlotMask).ToArray();revisions=grids.Select(g=>g.Revision).ToArray();
             detached=Detached(items);pairs=Pairs(world);
@@ -266,7 +256,7 @@ public static class ThermalTopology
             replacements.Clear();
             for(int g=0;g<grids.Length;g++){
                 var grid=grids[g];if(revisions[g]==grid.Revision)continue;
-                if (grid.TopBoundaryEquipment!=topItems[g] || EmptySlotMask(grid) != emptyMasks[g] || FrameMask(grid)!=frameMasks[g]) return false;
+                if (grid.TopBoundaryEquipment!=topItems[g] || EmptySlotMask(grid) != emptyMasks[g]) return false;
                 var l=grid.Layout;
                 for(int i=0;i<grid.CellCount;i++){
                     var source=grid.GetCell(i).SourceCell;var owner=source?.Equipment.ThermalState??grid.Box.ThermalState;int local=source?.Index??i;

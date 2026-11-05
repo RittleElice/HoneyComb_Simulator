@@ -156,49 +156,57 @@ public static class PyramidThermalTests
             Near(lowerState.EnergyJ[l],19,0,"legacy top energy sum");
         }
     }
-    private static void FrameRailAir(ThermalMaterials m)
+    private static void EmptySlotEndAir(ThermalMaterials m)
     {
-        var w=new GameWorld(WeatherAssetLoader.Create(42));var box=w.Apiary.GetItemSlot(0,0).Item;
-        var grid=box.SpatialGrid;var layout=grid.Layout;var owner=box.ThermalState;
-        var frame=new ItemData(97000,"frame",ItemKind.Frame,new FrameData());
-        var slot=box.InteriorSlots.GetSlot(0);Check(slot.TryInsert(frame),"install frame for rail air");
-        w.PrepareThermal(m);var world=w.Thermal;
+        var w=new GameWorld(WeatherAssetLoader.Create(42));
+        var root=w.Apiary.GetItemSlot(0,0);
+        var lower=root.Item;
+        var upper=new ItemData(97000,"super",ItemKind.Super);
+        var temp=new ItemSlot();temp.TryInsert(upper);Check(root.TryCombineFrom(temp),"stack boxes");
+        w.PrepareThermal(m);
         void Tick(){
-            world.Refresh();world.PrepareExchange();world.Exchange.DiagnosticsEnabled=true;
-            double energy=Energy(world.Exchange).Sum();world.Exchange.Step(60,5);
-            Near(Energy(world.Exchange).Sum()-energy,world.Exchange.ExternalEnergyJ,Math.Abs(energy)*2e-6+1e-4,"rail air energy budget");
+            w.Thermal.Refresh();w.Thermal.PrepareExchange();
+            var exchange=w.Thermal.Exchange;exchange.DiagnosticsEnabled=true;
+            double before=Energy(exchange).Sum();
+            exchange.Step(60,5);
+            Near(Energy(exchange).Sum()-before,exchange.ExternalEnergyJ,Math.Abs(before)*2e-6+1e-4,"empty slot energy budget");
         }
-        void Verify(int slotId,bool framePresent,bool excluder){
-            int first=1+slotId*HiveGridLayout.SlotDepthCells;
-            int beams=0,joinedBottom=0,joinedTop=0;
-            foreach(bool upper in new[]{false,true}){
-                int z=layout.SlotBottom+(upper?HiveGridLayout.FrameSizeZ-1:0);
-                for(int x=1;x<HiveGridLayout.SizeX-1;x++)for(int y=first;y<first+4;y++){
-                    int member=layout.Index(x,y,z),adjacent=layout.Index(x,y,z+(upper?1:-1));
-                    var source=grid.GetCell(member).SourceCell;
-                    var memberOwner=source?.Equipment.ThermalState??owner;
-                    int sourceIndex=source?.Index??member;
-                    bool joined=memberOwner.TryGetSharedAir(sourceIndex,out int a,out _) &&
-                        owner.TryGetSharedAir(adjacent,out int b,out _) && a==b;
-                    bool eligible=framePresent && source==null && (!upper || !excluder);
-                    Check(joined==eligible,"rail member ownership and top barrier");
-                    if(source?.Material==HiveMaterial.Wood)beams++;
-                    if(joined){Near(memberOwner.TemperatureC(sourceIndex),owner.TemperatureC(adjacent),.0001,"shared rail temperature");
-                        if(upper)joinedTop++;else joinedBottom++;}
-                }
+        int Shared(ItemData box,int index){
+            var source=box.SpatialGrid.GetCell(index).SourceCell;
+            var state=(source?.Equipment??box).ThermalState;
+            return state.TryGetSharedAir(source?.Index??index,out int row,out _)?row:-1;
+        }
+        void Verify(int slot,bool lowerEmpty,bool upperEmpty,bool open){
+            var lo=lower.SpatialGrid.Layout;var hi=upper.SpatialGrid.Layout;
+            for(int x=1;x<HiveGridLayout.SizeX-1;x++)for(int layer=0;layer<4;layer++){
+                int y=1+slot*4+layer;
+                int railA=Shared(lower,lo.Index(x,y,lo.SizeZ-2));
+                int top=Shared(lower,lo.Index(x,y,lo.SizeZ-1));
+                int bottom=Shared(upper,hi.Index(x,y,0));
+                int railB=Shared(upper,hi.Index(x,y,1));
+                Check((top>=0 && top==bottom)==open,"stack opening");
+                Check((railA>=0 && railA==top)==(lowerEmpty && open),"lower top rail only when bay is empty");
+                Check((railB>=0 && railB==bottom)==upperEmpty,"upper bottom rail only when bay is empty");
+                Check(Shared(lower,lo.Index(x,y,lo.SizeZ-3))!=top || top<0,"middle section not joined to seam");
             }
-            if(framePresent)Check(beams==28 && joinedBottom==22 && joinedTop==(excluder?0:22),"rail perimeter coverage");
         }
-        Tick();Verify(0,true,false);int openCount=world.Exchange.CellCount;
-        Check(box.TopSlot.TryInsert(new ItemData(97001,"queen",ItemKind.QueenExcluder)),"install rail barrier");
-        Tick();Verify(0,true,true);Check(world.Exchange.CellCount==openCount+22,"upper rail split");
-        box.TopSlot.TakeValue();Tick();Verify(0,true,false);
-        Check(slot.TryMoveTo(box.InteriorSlots.GetSlot(3)),"move frame for rail air");
-        Tick();Verify(0,false,false);Verify(3,true,false);
-        box.InteriorSlots.GetSlot(3).TakeValue();Tick();Verify(3,false,false);
-        world.Dispose();
+        var frame=new ItemData(97001,"frame",ItemKind.Frame,new FrameData());
+        var board=new ItemData(97002,"insulation",ItemKind.InsulationBoard);
+        Tick();Verify(0,true,true,true);
+        Check(lower.InteriorSlots.GetSlot(0).TryInsert(frame),"insert lower frame");
+        Tick();Verify(0,false,true,true);Verify(1,true,true,true);
+        Check(upper.InteriorSlots.GetSlot(0).TryInsert(board),"insert upper board");
+        Tick();Verify(0,false,false,true);
+        Check(lower.InteriorSlots.GetSlot(0).TryMoveTo(lower.InteriorSlots.GetSlot(1)),"move lower frame");
+        Tick();Verify(0,true,false,true);Verify(1,false,true,true);
+        upper.InteriorSlots.GetSlot(0).TakeValue();
+        Tick();Verify(0,true,true,true);
+        Check(lower.TopSlot.TryInsert(new ItemData(97003,"queen",ItemKind.QueenExcluder)),"block upper passage");
+        Tick();Verify(0,true,true,false);
+        lower.TopSlot.TakeValue();Tick();Verify(0,true,true,true);
+        w.Thermal.Dispose();
     }
-    public static string RunAll(){checks=0;var m=ThermalMaterials.Load();Analytic(m);Exterior(m);Local(m);StackAir(m);FrameRailAir(m);Live();ThermalExchange.ReleaseAllBuffers();return "PASS "+checks+" checks: analytic, exterior, slot topology, content edits, movement, save/load, live material changes";}
+    public static string RunAll(){checks=0;var m=ThermalMaterials.Load();Analytic(m);Exterior(m);Local(m);StackAir(m);EmptySlotEndAir(m);Live();ThermalExchange.ReleaseAllBuffers();return "PASS "+checks+" checks: analytic, exterior, slot topology, content edits, movement, save/load, live material changes";}
     [MenuItem("Tools/HoneyComb/검증/Run Pyramid Thermal Tests")]
     public static void RunBatch(){Directory.CreateDirectory("outputs/pyramid-thermal");try{string result=RunAll();File.WriteAllText("outputs/pyramid-thermal/results.txt",result);Debug.Log(result);if(Application.isBatchMode)EditorApplication.Exit(0);}catch(Exception e){ThermalExchange.ReleaseAllBuffers();File.WriteAllText("outputs/pyramid-thermal/error.txt",e.ToString());Debug.LogException(e);if(Application.isBatchMode)EditorApplication.Exit(1);else throw;}}
 }

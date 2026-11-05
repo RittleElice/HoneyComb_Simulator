@@ -62,7 +62,7 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
             // Capture on the main thread at a complete minute boundary. IO uses only detached bytes.
             started=Time.realtimeSinceStartupAsDouble;
             byte[] payload=WorldSaveCodec.Encode(GameBootstrap.Instance.TimeSystem.CaptureTimeline(GameBootstrap.Instance.GameWorld));
-            requested=false; Status="저장 중…";
+            requested=false; Status="저장 중...";
             write=Task.Run(()=>store.Save(payload)); var task=write;
             try { await task; } catch { } Complete(task);
         }
@@ -102,7 +102,7 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
     public async Task<WorldSaveSnapshot> LoadAsync()
     {
         if(IsLoading || IsSaving) throw new InvalidOperationException("저장 작업이 진행 중입니다.");
-        IsLoading=true; Status="저장 불러오는 중…";
+        IsLoading=true; Status="저장 불러오는 중...";
         try
         {
             bool recovered=false; var snapshot=await Task.Run(()=>store.Load(out recovered));
