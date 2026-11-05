@@ -65,8 +65,8 @@ public sealed class GameTimeUIHost : MonoBehaviour
         }
         if (blocker != null)
         {
-            blocker.SetActive(runtime.Blocked);
-            if (runtime.Blocked)
+            blocker.SetActive(runtime.ShowProgressOverlay);
+            if (runtime.ShowProgressOverlay)
             {
                 var scheduler = runtime.Scheduler;
                 double fraction = scheduler.Total == 0 ? 0 : (double)scheduler.Completed / scheduler.Total;

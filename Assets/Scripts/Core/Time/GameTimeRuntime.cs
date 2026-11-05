@@ -13,6 +13,9 @@ public sealed class GameTimeRuntime : MonoBehaviour
     public SimulationScheduler Scheduler { get; private set; }
     public static bool InputBlocked => GameBootstrap.Instance != null && GameBootstrap.Instance.TimeSystem != null && GameBootstrap.Instance.TimeSystem.Blocked;
     public bool Blocked => suspended || operation || pendingMinutes > 0 || failure != null || (GameBootstrap.Instance?.SaveSystem?.IsLoading ?? false);
+    // A live minute may wait for a checkpoint while gameplay input is locked.
+    public bool ShowProgressOverlay => progressOperation || pendingMinutes > 0 || failure != null ||
+        (GameBootstrap.Instance?.SaveSystem?.IsLoading ?? false);
     public bool HasWorld { get; private set; }
     public bool DurableRecoveryAvailable => GameBootstrap.Instance?.SaveSystem?.CanSnapshot ?? false;
     public string Failure => failure;
@@ -21,7 +24,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     private CancellationTokenSource lifetime = new CancellationTokenSource();
     private TaskCompletionSource<bool> foreground;
     private readonly List<TaskCompletionSource<bool>> frameWaits = new List<TaskCompletionSource<bool>>();
-    private bool suspended, paused, unfocused, operation;
+    private bool suspended, paused, unfocused, operation, progressOperation;
     private long pendingMinutes, operationTarget;
     private double nextTick;
     private string failure;
@@ -68,7 +71,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     private async void StartOperation(long target, bool showProgress = false)
     {
         if (operation) return;
-        operation = true; operationTarget = target;
+        operation = true; progressOperation = showProgress; operationTarget = target;
         try
         {
             // Bulk work paints progress first. Instant live ticks must not flash an overlay or cancel a gesture.
@@ -86,7 +89,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
         catch (Exception e) { Fail(e); }
         finally
         {
-            operation = false; operationTarget = 0;
+            operation = false; progressOperation = false; operationTarget = 0;
             // No backlog: a full fresh interval after completion, independent of Unity timeScale.
             nextTick = Time.realtimeSinceStartupAsDouble + 5 / speed;
             RefreshInputLock();
