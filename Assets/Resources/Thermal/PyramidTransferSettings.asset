@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1de327d6fadb48389d2d72c6adafe6a6, type: 3}
   m_Name: PyramidTransferSettings
   m_EditorClassIdentifier: 
-  AirAir: 1000
+  AirAir: 2000
   AirWood: 1000
   AirComb: 1000
   AirInsulation: 0.1
@@ -22,7 +22,7 @@ MonoBehaviour:
   CombComb: 1000
   CombInsulation: 0.1
   InsulationInsulation: 0.1
-  AirOutside: 1000
+  AirOutside: 2000
   WoodOutside: 10
   CombOutside: 10
   InsulationOutside: 0.1

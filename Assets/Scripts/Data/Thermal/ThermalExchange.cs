@@ -14,24 +14,25 @@ public sealed class ThermalExchange : IDisposable
         public readonly EquipmentThermalState Owner;
         public readonly int Index;
         public readonly string Label;
-        public readonly bool IsSlotAir;
+        public readonly bool IsSlotGroup;
+        public bool IsSlotAir => IsSlotGroup && Owner.ExchangeMaterial(Index) == HiveMaterial.Air;
         public Cell(EquipmentThermalState owner, int index, string label, bool isSlotAir = false)
-        { Owner = owner; Index = index; Label = label; IsSlotAir = isSlotAir; }
-        public int MemberCount => IsSlotAir ? HiveGridLayout.SlotDepthCells : 1;
+        { Owner = owner; Index = index; Label = label; IsSlotGroup = isSlotAir; }
+        public int MemberCount => IsSlotGroup ? HiveGridLayout.SlotDepthCells : 1;
         public int MemberIndex(int layer) => Index + layer * HiveGridLayout.SizeX;
         public float HeatCapacityJPerK => Sum(Owner.HeatCapacityJPerK);
         public float EnergyJ => Sum(Owner.EnergyJ);
         private float Sum(IReadOnlyList<float> values)
         {
-            if (!IsSlotAir) return values[Index];
-            double total = 0;
+            if (!IsSlotGroup) return values[Index];
+            float total = 0;
             for (int k = 0; k < MemberCount; k++) total += values[MemberIndex(k)];
             return (float)total;
         }
-        // All four members are the same air material and share the X/Z area.
+        // All four members have the same material and share the X/Z area.
         internal float MemberEnergy(float total, int member)
         {
-            if (!IsSlotAir) return total;
+            if (!IsSlotGroup) return total;
             int layer = (member - Index) / HiveGridLayout.SizeX;
             return (float)(total * HiveGridLayout.SlotLayerEnergyShare(layer));
         }
@@ -39,20 +40,20 @@ public sealed class ThermalExchange : IDisposable
     public readonly struct Face
     {
         public readonly int A, B, Axis;
-        public readonly double AreaM2, HalfAM, HalfBM;
+        public readonly float AreaM2, HalfAM, HalfBM;
         public Face(int a, int b, double area, double halfA, double halfB, int axis = 0)
-        { A = a; B = b; AreaM2 = area; HalfAM = halfA; HalfBM = halfB; Axis = axis; }
+        { A = a; B = b; AreaM2 = (float)area; HalfAM = (float)halfA; HalfBM = (float)halfB; Axis = axis; }
     }
     public readonly struct Boundary
     {
         public readonly int Cell, Direction; // -/+ X, -/+ Y, -/+ Z = 0..5
-        public readonly double AreaM2, HalfM;
+        public readonly float AreaM2, HalfM;
         public Boundary(int cell, int direction, double area, double half)
-        { Cell=cell; Direction=direction; AreaM2=area; HalfM=half; }
+        { Cell=cell; Direction=direction; AreaM2=(float)area; HalfM=(float)half; }
     }
     private readonly Boundary[] boundaries;
     private readonly ThermalTransferCoefficients transfers;
-    private readonly double[] exterior, rawExterior;
+    private readonly float[] exterior, rawExterior;
     public int BoundaryCount => boundaries.Length;
     public Boundary GetBoundary(int i) => boundaries[i];
     public double ExteriorConductance(int i) => exterior[i];
@@ -61,7 +62,7 @@ public sealed class ThermalExchange : IDisposable
     private readonly Cell[] cells;
     private readonly Face[] faces;
     private readonly int[] offsets, neighbours;
-    private readonly double[] coefficients, sums;
+    private readonly float[] coefficients, sums;
     // Exact float capacities in solver-cell order; refreshed with the coefficient revision.
     private readonly float[] cachedCapacities;
     public long CapacityCacheBytes => 4L * cachedCapacities.Length;
@@ -88,13 +89,13 @@ public sealed class ThermalExchange : IDisposable
     private const int PlaneStride = RowStride * HiveGridLayout.SizeY;
     private NativeArray<int> nativeOffsets, nativeNeighbours;
     private NativeArray<byte> nativeFixedRows;
-    private NativeArray<double> nativeG, nativeExterior, nativeT, nativeEnergy, nativeNext, nativeNextT;
+    private NativeArray<float> nativeG, nativeExterior, nativeT, nativeEnergy, nativeNext, nativeNextT;
     private NativeArray<float> nativeCapacity;
     internal ThermalTopology.Binding TopologyBinding;
     private readonly Dictionary<EquipmentThermalState,int[]> ownerIndices = new Dictionary<EquipmentThermalState,int[]>();
     private readonly int[] rowFaces, faceSlotA, faceSlotB, boundaryOffsets, rowBoundaries;
-    private readonly double[] rawFaces, rawBoundaries;
-    private double coefficientSeconds=60;
+    private readonly float[] rawFaces, rawBoundaries;
+    private float coefficientSeconds=60;
     private readonly WorkSet changedCells, rawWork, finalWork;
     public int LastChangedCells { get; private set; }
     public int LastRawFacesUpdated { get; private set; }
@@ -104,14 +105,14 @@ public sealed class ThermalExchange : IDisposable
     public int BufferAllocations { get; private set; }
     public int CoefficientUploads { get; private set; }
     public bool HasBuffers => nativeOffsets.IsCreated;
-    public long BufferBytes => HasBuffers ? 4L * (offsets.Length + neighbours.Length) + 8L * (coefficients.Length + 5L * cells.Length) + 5L * cells.Length : 0;
+    public long BufferBytes => HasBuffers ? 4L * (offsets.Length + neighbours.Length) + 4L * (coefficients.Length + 5L * cells.Length) + 5L * cells.Length : 0;
     // Between completed minutes nativeEnergy holds the last committed float energy.
     // Equipment reads and writes its active rows through its stable owner-local mapping.
     private bool energyBound;
     internal float ReadEnergy(int row, int member) => cells[row].MemberEnergy((float)nativeEnergy[row], member);
     internal void SetEnergy(int row, int member, float value)
     {
-        if (cells[row].IsSlotAir)
+        if (cells[row].IsSlotGroup)
         {
             // A per-cell external write is applied to its physical owner before re-mixing.
             ReleaseEnergy();
@@ -119,7 +120,7 @@ public sealed class ThermalExchange : IDisposable
             return;
         }
         nativeEnergy[row] = value;
-        nativeT[row] = (double)value / nativeCapacity[row];
+        nativeT[row] = value / nativeCapacity[row];
     }
     private void ReleaseEnergy()
     {
@@ -192,13 +193,13 @@ public sealed class ThermalExchange : IDisposable
                     nativeFixedRows[i] = (byte)(HasFixedNeighbours(i) ? 1 : 0);
                 nativeOffsets = new NativeArray<int>(offsets, Allocator.Persistent);
                 nativeNeighbours = new NativeArray<int>(neighbours, Allocator.Persistent);
-                nativeG = new NativeArray<double>(coefficients.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-                nativeExterior = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-                nativeT = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-                nativeNextT = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeG = new NativeArray<float>(coefficients.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeExterior = new NativeArray<float>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeT = new NativeArray<float>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeNextT = new NativeArray<float>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 nativeCapacity = new NativeArray<float>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-                nativeEnergy = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-                nativeNext = new NativeArray<double>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeEnergy = new NativeArray<float>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                nativeNext = new NativeArray<float>(cells.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 activeBuffers.Add(this);
                 BufferAllocations++;
             }
@@ -232,7 +233,7 @@ public sealed class ThermalExchange : IDisposable
         foreach (var b in boundaries)
             if (b.Cell < 0 || b.Cell >= cells.Length || b.Direction < 0 || b.Direction > 5 || !Positive(b.AreaM2) || !Positive(b.HalfM) || !boundaryKeys.Add((b.Cell,b.Direction)))
                 throw new ArgumentException("Invalid/duplicate exterior boundary");
-        exterior = new double[cells.Length]; rawExterior = new double[cells.Length];
+        exterior = new float[cells.Length]; rawExterior = new float[cells.Length];
         cachedCapacities = new float[cells.Length];
         offsets = new int[cells.Length + 1];
         var ownerSet = new HashSet<EquipmentThermalState>();
@@ -256,9 +257,9 @@ public sealed class ThermalExchange : IDisposable
         }
         for (int i = 1; i < offsets.Length; i++) offsets[i] += offsets[i-1];
         for (int i = 0; i < cells.Length; i++) MaximumDegree = Math.Max(MaximumDegree, offsets[i+1]-offsets[i]);
-        neighbours = new int[2*faces.Length]; coefficients = new double[neighbours.Length]; sums = new double[cells.Length];
+        neighbours = new int[2*faces.Length]; coefficients = new float[neighbours.Length]; sums = new float[cells.Length];
         rowFaces = new int[neighbours.Length]; faceSlotA = new int[faces.Length]; faceSlotB = new int[faces.Length];
-        rawFaces = new double[faces.Length]; rawBoundaries = new double[boundaries.Length];
+        rawFaces = new float[faces.Length]; rawBoundaries = new float[boundaries.Length];
         changedCells = new WorkSet(cells.Length); rawWork = new WorkSet(faces.Length);
         finalWork = new WorkSet(cells.Length);
         var cursor = (int[])offsets.Clone();
@@ -286,26 +287,26 @@ public sealed class ThermalExchange : IDisposable
         if (!Positive(g)) throw new InvalidOperationException("Non-finite face conductance");
         return g;
     }
-    public double FacePyramidCapacity(int row,int axis,double contactArea)
+    public float FacePyramidCapacity(int row,int axis,float contactArea)
     {
-        var c=cells[row];double fraction=contactArea/c.Owner.FaceAreaM2(c.Index,axis,c.IsSlotAir);
+        var c=cells[row];float fraction=contactArea/(float)c.Owner.FaceAreaM2(c.Index,axis,c.IsSlotGroup);
         if(!Positive(fraction)||fraction>1+1e-6)throw new InvalidOperationException("Contact exceeds pyramid face: "+c.Label);
         return c.HeatCapacityJPerK*fraction/6;
     }
     // Stable evaluation of 1-exp(-x), including very weak connections.
-    private static double Relaxation(double x) => x<1e-5 ? x*(1-x*(.5-x*(1d/6-x/24))) : 1-Math.Exp(-x);
-    private double FaceConductance(Face f)
+    private static float Relaxation(float x) => x < 0.01f ? x * (1f - x * (0.5f - x * (1f / 6f - x / 24f))) : 1f - MathF.Exp(-x);
+    private float FaceConductance(Face f)
     {
         var a=cells[f.A];var b=cells[f.B];
-        double g=f.AreaM2*transfers.Between(a.Owner.ExchangeMaterial(a.Index),b.Owner.ExchangeMaterial(b.Index));
-        double ca=FacePyramidCapacity(f.A,f.Axis,f.AreaM2),cb=FacePyramidCapacity(f.B,f.Axis,f.AreaM2),reduced=ca*cb/(ca+cb);
+        float g=f.AreaM2*(float)transfers.Between(a.Owner.ExchangeMaterial(a.Index),b.Owner.ExchangeMaterial(b.Index));
+        float ca=FacePyramidCapacity(f.A,f.Axis,f.AreaM2),cb=FacePyramidCapacity(f.B,f.Axis,f.AreaM2),reduced=ca*cb/(ca+cb);
         return reduced*Relaxation(coefficientSeconds*g/reduced)/coefficientSeconds;
     }
-    private double BoundaryConductance(Boundary b,out double raw)
+    private float BoundaryConductance(Boundary b,out float raw)
     {
-        var c=cells[b.Cell];double capacity=FacePyramidCapacity(b.Cell,b.Direction/2,b.AreaM2);
+        var c=cells[b.Cell];float capacity=FacePyramidCapacity(b.Cell,b.Direction/2,b.AreaM2);
         // Fixed-temperature weather reservoir; independently tuned material-to-exterior coefficients.
-        raw=b.AreaM2*transfers.Outside(c.Owner.ExchangeMaterial(c.Index));
+        raw=b.AreaM2*(float)transfers.Outside(c.Owner.ExchangeMaterial(c.Index));
         return capacity*Relaxation(coefficientSeconds*raw/capacity)/coefficientSeconds;
     }
     private string Detail(int i,string reason)=>reason+"; "+cells[i].Label;
@@ -329,18 +330,18 @@ public sealed class ThermalExchange : IDisposable
     {
         cachedCapacities[i]=cells[i].HeatCapacityJPerK;
         if(!Positive(cachedCapacities[i]))throw new InvalidOperationException(Detail(i,"Invalid capacity"));
-        double sum=0,raw=0;
-        for(int p=boundaryOffsets[i];p<boundaryOffsets[i+1];p++){int id=rowBoundaries[p];sum+=BoundaryConductance(boundaries[id],out double g);rawBoundaries[id]=g;raw+=g;}
+        float sum=0,raw=0;
+        for(int p=boundaryOffsets[i];p<boundaryOffsets[i+1];p++){int id=rowBoundaries[p];sum+=BoundaryConductance(boundaries[id],out float g);rawBoundaries[id]=g;raw+=g;}
         exterior[i]=sum;rawExterior[i]=raw;
     }
     private void UpdateFace(int id)
     {
-        double g=FaceConductance(faces[id]);rawFaces[id]=g;
+        float g=FaceConductance(faces[id]);rawFaces[id]=g;
         coefficients[faceSlotA[id]]=coefficients[faceSlotB[id]]=g;
     }
     private void SumCell(int i)
     {
-        double sum=exterior[i];for(int p=offsets[i];p<offsets[i+1];p++)sum+=coefficients[p];sums[i]=sum;
+        float sum=exterior[i];for(int p=offsets[i];p<offsets[i+1];p++)sum+=coefficients[p];sums[i]=sum;
         if(!Finite(sum)||coefficientSeconds*sum>cachedCapacities[i]*(1+1e-6))throw new InvalidOperationException(Detail(i,"Overlapping pyramid capacity"));
     }
     private void InitializeCoefficients()
@@ -356,9 +357,9 @@ public sealed class ThermalExchange : IDisposable
     public void RefreshCoefficients()=>RefreshCoefficients(coefficientSeconds);
     private void RefreshCoefficients(double seconds)
     {
-        if(!Positive(seconds))throw new ArgumentOutOfRangeException(nameof(seconds));
+        if(!Positive((float)seconds))throw new ArgumentOutOfRangeException(nameof(seconds));
         WatchOwners();
-        if(CoefficientBuilds==0||seconds!=coefficientSeconds){coefficientSeconds=seconds;InitializeCoefficients();return;}
+        if(CoefficientBuilds==0||(float)seconds!=coefficientSeconds){coefficientSeconds=(float)seconds;InitializeCoefficients();return;}
         foreach(int k in pendingOwners){
             var owner=owners[k];if(revisions[k]==owner.CacheRevision)continue;
             var indices=ownerIndices[owner];
@@ -384,9 +385,9 @@ public sealed class ThermalExchange : IDisposable
     [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard, CompileSynchronously = true)]
     private struct ConvertTemperatures : IJobParallelFor
     {
-        [ReadOnly] public NativeArray<double> Energy;
+        [ReadOnly] public NativeArray<float> Energy;
         [ReadOnly] public NativeArray<float> Capacity;
-        [WriteOnly] public NativeArray<double> Temperature;
+        [WriteOnly] public NativeArray<float> Temperature;
         public void Execute(int i) => Temperature[i] = Energy[i] / Capacity[i];
     }
     [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard, CompileSynchronously = true)]
@@ -394,15 +395,15 @@ public sealed class ThermalExchange : IDisposable
     {
         [ReadOnly] public NativeArray<int> Offsets, Neighbours;
         [ReadOnly] public NativeArray<byte> FixedRows;
-        [ReadOnly] public NativeArray<double> G, T, Energy, Exterior;
+        [ReadOnly] public NativeArray<float> G, T, Energy, Exterior;
         [ReadOnly] public NativeArray<float> Capacity;
-        [WriteOnly] public NativeArray<double> Next, NextT;
-        public double Seconds, OutsideC;
+        [WriteOnly] public NativeArray<float> Next, NextT;
+        public float Seconds, OutsideC;
         public void Execute(int i)
         {
-            double watts = Exterior[i] * (OutsideC - T[i]);
+            float watts = Exterior[i] * (OutsideC - T[i]);
             int start = Offsets[i];
-            double temperature = T[i];
+            float temperature = T[i];
             if (FixedRows[i] != 0)
             {
                 watts += G[start]     * (T[i - PlaneStride] - temperature);
@@ -417,7 +418,7 @@ public sealed class ThermalExchange : IDisposable
                 for (int p = start; p < Offsets[i + 1]; p++)
                     watts += G[p] * (T[Neighbours[p]] - temperature);
             }
-            double committedEnergy = (float)(Energy[i] + Seconds * watts);
+            float committedEnergy = Energy[i] + Seconds * watts;
             Next[i] = committedEnergy;
             NextT[i] = committedEnergy / Capacity[i];
         }
@@ -431,7 +432,7 @@ public sealed class ThermalExchange : IDisposable
     // ThermalWorld has already refreshed state, topology and coefficients.
     internal void StepPrepared(double seconds, double? outsideC)
     {
-        if(seconds!=coefficientSeconds)RefreshCoefficients(seconds);
+        if((float)seconds!=coefficientSeconds)RefreshCoefficients(seconds);
         bool measure=MeasurePerformance || DiagnosticsEnabled;
         var total = measure ? Stopwatch.StartNew() : null; Diagnostic = null;
         try
@@ -467,12 +468,12 @@ public sealed class ThermalExchange : IDisposable
                     for(int i=0;i<cells.Length;i++)
                     {
                         if(!Finite(t[i]) || t[i]<-273.15) throw new InvalidOperationException(Detail(i,"Invalid old temperature"));
-                        externalEnergy=Add(externalEnergy,seconds*exterior[i]*(ambient-t[i]),ref externalCorrection);
+                        externalEnergy=Add(externalEnergy,seconds*nativeExterior[i]*(ambient-t[i]),ref externalCorrection);
                     }
                     ExternalEnergyJ=externalEnergy;
                 }
                 var jobTime = measure ? Stopwatch.StartNew() : null;
-                new Gather {Offsets=o,Neighbours=n,FixedRows=nativeFixedRows,G=g,T=t,Energy=e,Next=next,NextT=nativeNextT,Capacity=nativeCapacity,Seconds=seconds,Exterior=ext,OutsideC=ambient}.Schedule(cells.Length,64,temperaturesReady).Complete();
+                new Gather {Offsets=o,Neighbours=n,FixedRows=nativeFixedRows,G=g,T=t,Energy=e,Next=next,NextT=nativeNextT,Capacity=nativeCapacity,Seconds=(float)seconds,Exterior=ext,OutsideC=(float)ambient}.Schedule(cells.Length,64,temperaturesReady).Complete();
                 LastJobMilliseconds = jobTime?.Elapsed.TotalMilliseconds ?? 0;
                 // Publish only after the complete job succeeds.
                 nativeT = nativeNextT;
