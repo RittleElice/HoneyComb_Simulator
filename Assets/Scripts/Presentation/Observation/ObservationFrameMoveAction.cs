@@ -121,7 +121,7 @@ public static class ObservationFrameMoveAction
             return false;
 
         if (!(source.Value is ItemData item) ||
-            item.Kind != ItemKind.Frame)
+            item.Category != SlotCategory.InteriorSlot)
             return false;
 
         // 중간에 장비가 있으면 이동 거부

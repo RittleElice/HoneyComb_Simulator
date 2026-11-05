@@ -75,7 +75,7 @@ public class ObservationSelectionController : MonoBehaviour
         ItemData frame = box.Frames.GetSlot(index)?.Item;
 
         return frame != null &&
-               frame.Kind == ItemKind.Frame;
+               frame.Category == SlotCategory.InteriorSlot;
     }
 
     private void ResetPointer()
@@ -159,7 +159,7 @@ public class ObservationSelectionController : MonoBehaviour
         ItemSlot source = box.Frames.GetSlot(index);
         ItemData frame = source?.Item;
 
-        if (frame == null || frame.Kind != ItemKind.Frame)
+        if (frame == null || frame.Category != SlotCategory.InteriorSlot)
             return;
 
         dragObservedSlot = observedSlot;
@@ -642,7 +642,7 @@ public class ObservationSelectionController : MonoBehaviour
             if (selected)
             {
                 Debug.Log(
-                    $"[Observation] 소비장 슬롯 선택: " +
+                    $"[Observation] 내부 슬롯 선택: " +
                     $"{Selection.PartIndex + 1}층, " +
                     $"{Selection.FrameSlotIndex + 1}번");
             }
