@@ -23,24 +23,6 @@ public static class ThermalTopology
             if (slots.GetSlot(slot).IsEmpty) mask |= 1 << slot;
         return mask;
     }
-    private static bool CanGroup(HiveSpatialGrid grid, int mask, int x, int y, int z)
-    {
-        if (mask == 0 || y < 1 || y >= 1 + HiveGridLayout.SlotCount * HiveGridLayout.SlotDepthCells) return false;
-        int slot = (y - 1) / HiveGridLayout.SlotDepthCells;
-        if ((mask & (1 << slot)) == 0) return false;
-        int first = grid.Layout.Index(x, 1 + slot * HiveGridLayout.SlotDepthCells, z);
-        var material = grid.GetCell(first).Material;
-        if (material != HiveMaterial.Air && material != HiveMaterial.Wood) return false;
-        for (int k = 0; k < HiveGridLayout.SlotDepthCells; k++)
-        {
-            var cell = grid.GetCell(first + k * HiveGridLayout.SizeX);
-            if (cell.Material != material) return false;
-            var source = cell.SourceCell;
-            if (source != null && (!ReferenceEquals(source.Equipment,grid.Box) ||
-                source.Index != first + k * HiveGridLayout.SizeX)) return false;
-        }
-        return true;
-    }
     // Six neighbours are valid only because all placed cell bounds are conforming.
     // CSR still stores the full adjacency, avoiding a silent six-entry truncation.
     public static ThermalExchange Build(GameWorld world, ThermalTransferCoefficients transfers = null, IReadOnlyList<ItemData> items = null)
@@ -54,21 +36,13 @@ public static class ThermalTopology
         {
             var grid = item.SpatialGrid; if (grid == null) continue;
             var map = new int[grid.CellCount]; grids.Add(grid,map); var l = grid.Layout;
-            int emptyMask = EmptySlotMask(grid);
-            for (int i=0;i<map.Length;i++)
+            foreach (var cell in grid.ActiveCells())
             {
+                int i = cell.firstIndex;
                 var source = grid.GetCell(i).SourceCell;
                 var owner = source?.Equipment.ThermalState ?? item.ThermalState; int local = source?.Index ?? i;
                 l.Coordinates(i,out int x,out int y,out int z);
-                bool grouped = CanGroup(grid, emptyMask, x, y, z);
-                if (grouped)
-                {
-                    if ((y - 1) % HiveGridLayout.SlotDepthCells != 0)
-                    {
-                        map[i] = map[i - HiveGridLayout.SizeX];
-                        continue;
-                    }
-                }
+                bool grouped = cell.depthCells > 1;
                 if (source != null)
                 {
                     var eg = source.Equipment.EquipmentGrid;
@@ -77,6 +51,7 @@ public static class ThermalTopology
                         throw new InvalidOperationException("Nonconforming placed cell: equipment "+source.Equipment.Id+" local "+local+" grid "+i+"; six-neighbour topology invalid");
                 }
                 map[i] = Add(cells,indices,owner,local,"box "+item.Id+" cell "+i+" ("+x+","+y+","+z+") owner "+(source?.Equipment.Id ?? item.Id)+":"+local,grouped);
+                for (int layer=1;layer<cell.depthCells;layer++) map[i + layer * HiveGridLayout.SizeX] = map[i];
             }
             AddExterior(map,l.X,l.Y,l.Z,boundaries);
             var mergedFaces = new Dictionary<(int,int),int>();
@@ -138,10 +113,112 @@ public static class ThermalTopology
         for(int i=0;i<world.Inventory.Capacity;i++) roots.Add(world.Inventory.GetSlot(i).Value);
         roots.Add(world.Hand.Value);
         var seen=new HashSet<MovableItem>();
-        foreach(var root in roots) AddStacks(root,seen,grids,faces,boundaries);
+        var joins = new List<(int lower,int upper)>();
+        foreach(var entry in grids)AddFrameRailAir(entry.Key,entry.Value,joins);
+        foreach(var root in roots) AddStacks(root,seen,grids,faces,boundaries,joins);
+        if(joins.Count>0) MergeAir(cells,faces,boundaries,joins,grids);
         var exchange = new ThermalExchange(cells.ToArray(),faces.ToArray(),boundaries.Values.OrderBy(b=>b.Cell).ThenBy(b=>b.Direction).ToArray(),transfers);
-        exchange.TopologyBinding = new Binding(world,grids,items);
+        if(joins.Count==0) exchange.TopologyBinding = new Binding(world,grids,items);
         return exchange;
+    }
+    private static int FrameMask(HiveSpatialGrid grid)
+    {
+        var slots=grid.Box.InteriorSlots;
+        if(slots==null)return 0;
+        int mask=0;
+        for(int i=0;i<slots.Capacity;i++)
+            if(slots.GetSlot(i).Item?.Kind==ItemKind.Frame)mask|=1<<i;
+        return mask;
+    }
+
+    // Only air at the height of a frame's wooden top or bottom rail participates.
+    // The two inner frame layers still contain their own equipment material.
+    private static void AddFrameRailAir(HiveSpatialGrid grid,int[] map,List<(int lower,int upper)> joins)
+    {
+        int frames=FrameMask(grid);
+        if(frames==0)return;
+        var layout=grid.Layout;
+        int bottom=layout.SlotBottom;
+        int top=bottom+HiveGridLayout.FrameSizeZ-1;
+        for(int slot=0;slot<HiveGridLayout.SlotCount;slot++){
+            if((frames & (1<<slot))==0)continue;
+            for(int layer=0;layer<HiveGridLayout.SlotDepthCells;layer++){
+                int y=1+slot*HiveGridLayout.SlotDepthCells+layer;
+                for(int x=1;x<HiveGridLayout.SizeX-1;x++){
+                    JoinIfAir(x,y,bottom-1);
+                    if(grid.TopBoundaryEquipment==null)JoinIfAir(x,y,top);
+                }
+            }
+        }
+        void JoinIfAir(int x,int y,int z){
+            int a=layout.Index(x,y,z),b=layout.Index(x,y,z+1);
+            if(grid.GetCell(a).Material==HiveMaterial.Air && grid.GetCell(b).Material==HiveMaterial.Air)
+                joins.Add((map[a],map[b]));
+        }
+    }
+    // Join only contacting air rows. A wide Y row can touch four narrow rows.
+    // Keep every equipment member address for reads, save/load and separation.
+    private static void MergeAir(List<ThermalExchange.Cell> cells,List<ThermalExchange.Face> faces,
+        Dictionary<(int,int),ThermalExchange.Boundary> boundaries,List<(int lower,int upper)> joins,
+        Dictionary<HiveSpatialGrid,int[]> grids)
+    {
+        var parents=new Dictionary<int,int>();
+        int Root(int row){
+            if(!parents.ContainsKey(row))parents.Add(row,row);
+            int root=row;
+            while(parents[root]!=root)root=parents[root];
+            while(row!=root){int next=parents[row];parents[row]=root;row=next;}
+            return root;
+        }
+        foreach(var pair in joins){int lo=Root(pair.lower),hi=Root(pair.upper);if(lo!=hi)parents[hi]=lo;}
+        var layouts=grids.Keys.ToDictionary(g=>g.Box.ThermalState,g=>g.Layout);
+        var sets=new Dictionary<int,List<(EquipmentThermalState,int,double)>>();
+        var mergedRows=new Dictionary<int,int>();
+        var compact=new List<ThermalExchange.Cell>(cells.Count);
+        var remap=new int[cells.Count];
+        for(int i=0;i<cells.Count;i++){
+            if(!parents.ContainsKey(i)){remap[i]=compact.Count;compact.Add(cells[i]);continue;}
+            int root=Root(i);
+            if(!sets.TryGetValue(root,out var parts)){
+                sets[root]=parts=new List<(EquipmentThermalState,int,double)>();
+                mergedRows[root]=compact.Count;compact.Add(default);
+            }
+            remap[i]=mergedRows[root];
+            var cell=cells[i];
+            for(int k=0;k<cell.MemberCount;k++){
+                int member=cell.MemberIndex(k);
+                parts.Add((cell.Owner,member,layouts[cell.Owner].VolumeMm3(member)));
+            }
+        }
+        foreach(var entry in sets){
+            var stack=new ThermalExchange.Cell.StackMembers(entry.Value);
+            compact[mergedRows[entry.Key]]=new ThermalExchange.Cell(stack,"shared air / "+cells[entry.Key].Label);
+        }
+        var parallelFaces=new Dictionary<(int,int,int),int>();
+        int write=0;
+        for(int i=0;i<faces.Count;i++){
+            var face=faces[i];int a=remap[face.A],b=remap[face.B];if(a==b)continue;
+            var key=(a,b,face.Axis);
+            if(compact[a].IsMergedAir || compact[b].IsMergedAir){
+                if(compact[a].IsMergedAir)compact[a].Stack.FaceAreas[face.Axis]+=face.AreaM2*.5;
+                if(compact[b].IsMergedAir)compact[b].Stack.FaceAreas[face.Axis]+=face.AreaM2*.5;
+                if(parallelFaces.TryGetValue(key,out int existing)){
+                    faces[existing]=new ThermalExchange.Face(a,b,faces[existing].AreaM2+face.AreaM2,face.HalfAM,face.HalfBM,face.Axis);
+                    continue;
+                }
+                parallelFaces.Add(key,write);
+            }
+            faces[write++]=new ThermalExchange.Face(a,b,face.AreaM2,face.HalfAM,face.HalfBM,face.Axis);
+        }
+        faces.RemoveRange(write,faces.Count-write);
+        var exterior=boundaries.Values.ToArray();boundaries.Clear();
+        foreach(var face in exterior){
+            int row=remap[face.Cell];double area=face.AreaM2;
+            if(compact[row].IsMergedAir)compact[row].Stack.FaceAreas[face.Direction/2]+=area*.5;
+            if(boundaries.TryGetValue((row,face.Direction),out var old))area+=old.AreaM2;
+            boundaries[(row,face.Direction)]=new ThermalExchange.Boundary(row,face.Direction,area,face.HalfM);
+        }
+        cells.Clear();cells.AddRange(compact);
     }
     // Fixed geometric lattice: slot moves only change the equipment that owns a cell.
     // Membership/stack changes retain the full builder as an explicit structural fallback.
@@ -149,13 +226,16 @@ public static class ThermalTopology
     {
         private readonly HiveSpatialGrid[] grids;
         private readonly int[][] cellMaps;
-        private readonly int[] revisions, emptyMasks;
+        private readonly int[] revisions, emptyMasks, frameMasks;
+        private readonly ItemData[] topItems;
         private readonly ItemData[] detached;
         private readonly List<(HiveSpatialGrid,HiveSpatialGrid)> pairs;
         private readonly List<KeyValuePair<int,ThermalExchange.Cell>> replacements = new List<KeyValuePair<int,ThermalExchange.Cell>>();
         public Binding(GameWorld world,Dictionary<HiveSpatialGrid,int[]> maps, IReadOnlyList<ItemData> items)
         {
             grids=items.Where(i=>i.SpatialGrid!=null).Select(i=>i.SpatialGrid).ToArray();
+            frameMasks=grids.Select(FrameMask).ToArray();
+            topItems=grids.Select(g=>g.TopBoundaryEquipment).ToArray();
             cellMaps=grids.Select(g=>maps[g]).ToArray();emptyMasks=grids.Select(EmptySlotMask).ToArray();revisions=grids.Select(g=>g.Revision).ToArray();
             detached=Detached(items);pairs=Pairs(world);
         }
@@ -186,7 +266,7 @@ public static class ThermalTopology
             replacements.Clear();
             for(int g=0;g<grids.Length;g++){
                 var grid=grids[g];if(revisions[g]==grid.Revision)continue;
-                if (EmptySlotMask(grid) != emptyMasks[g]) return false;
+                if (grid.TopBoundaryEquipment!=topItems[g] || EmptySlotMask(grid) != emptyMasks[g] || FrameMask(grid)!=frameMasks[g]) return false;
                 var l=grid.Layout;
                 for(int i=0;i<grid.CellCount;i++){
                     var source=grid.GetCell(i).SourceCell;var owner=source?.Equipment.ThermalState??grid.Box.ThermalState;int local=source?.Index??i;
@@ -230,7 +310,7 @@ public static class ThermalTopology
         if(map.ContainsKey((owner,index))) throw new InvalidOperationException("Duplicate active owner: "+label);
         int result=cells.Count; map.Add((owner,index),result); cells.Add(new ThermalExchange.Cell(owner,index,label,grouped)); return result;
     }
-    private static void AddStacks(MovableItem root,HashSet<MovableItem> seen,Dictionary<HiveSpatialGrid,int[]> grids,List<ThermalExchange.Face> faces,Dictionary<(int,int),ThermalExchange.Boundary> boundaries)
+    private static void AddStacks(MovableItem root,HashSet<MovableItem> seen,Dictionary<HiveSpatialGrid,int[]> grids,List<ThermalExchange.Face> faces,Dictionary<(int,int),ThermalExchange.Boundary> boundaries,List<(int lower,int upper)> joins)
     {
         if(root==null || !seen.Add(root)) return;
         if(root is ItemAssemblyData assembly)
@@ -241,19 +321,19 @@ public static class ThermalTopology
                 var upper=part.SpatialGrid;
                 if(upper!=null)
                 {
-                    if(lower!=null) Join(lower,upper,grids,faces,boundaries);
+                    if(lower!=null) Join(lower,upper,grids,faces,boundaries,joins);
                     lower=upper;
                 }
-                AddStacks(part,seen,grids,faces,boundaries);
+                AddStacks(part,seen,grids,faces,boundaries,joins);
             }
         }
         else if(root is ItemData item)
         {
-            if(item.TopSlot!=null) AddStacks(item.TopSlot.Value,seen,grids,faces,boundaries);
-            if(item.InteriorSlots!=null) for(int i=0;i<item.InteriorSlots.Capacity;i++) AddStacks(item.InteriorSlots.GetSlot(i).Value,seen,grids,faces,boundaries);
+            if(item.TopSlot!=null) AddStacks(item.TopSlot.Value,seen,grids,faces,boundaries,joins);
+            if(item.InteriorSlots!=null) for(int i=0;i<item.InteriorSlots.Capacity;i++) AddStacks(item.InteriorSlots.GetSlot(i).Value,seen,grids,faces,boundaries,joins);
         }
     }
-    private static void Join(HiveSpatialGrid lower,HiveSpatialGrid upper,Dictionary<HiveSpatialGrid,int[]> grids,List<ThermalExchange.Face> faces,Dictionary<(int,int),ThermalExchange.Boundary> boundaries)
+    private static void Join(HiveSpatialGrid lower,HiveSpatialGrid upper,Dictionary<HiveSpatialGrid,int[]> grids,List<ThermalExchange.Face> faces,Dictionary<(int,int),ThermalExchange.Boundary> boundaries,List<(int lower,int upper)> joins)
     {
         var a=lower.Layout; var b=upper.Layout;
         if(!a.X.SequenceEqual(b.X)||!a.Y.SequenceEqual(b.Y)) throw new InvalidOperationException("Nonconforming stack interface "+lower.Box.Id+" / "+upper.Box.Id+"; six-direction index invalid. Overlap-face construction required; no partial graph accepted.");
@@ -268,6 +348,10 @@ public static class ThermalTopology
             if ((lowerRows.Add(lo) && !boundaries.Remove((lo,5))) ||
                 (upperRows.Add(hi) && !boundaries.Remove((hi,4))))
                 throw new InvalidOperationException("Stack face already occluded");
+            if(lower.TopBoundaryEquipment==null && !b.IsLid &&
+                lower.GetCell(x,y,a.SizeZ-1).Material==HiveMaterial.Air &&
+                upper.GetCell(x,y,0).Material==HiveMaterial.Air)
+                joins.Add((lo,hi));
             double area=(a.X[x+1]-a.X[x])*(a.Y[y+1]-a.Y[y])*1e-6;
             if(interfaceFaces.TryGetValue((lo,hi),out int id))
                 faces[id]=new ThermalExchange.Face(lo,hi,faces[id].AreaM2+area,halfA,halfB,2);

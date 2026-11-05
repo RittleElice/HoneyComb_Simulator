@@ -48,16 +48,25 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
         ActiveExchange = exchange;
         activeIndices = indices;
     }
+    public bool TryGetStackAir(int index,out int row,out ThermalExchange.Cell cell)
+        => TryGetSharedAir(index,out row,out cell) && cell.IsStackAir;
+
+    public bool TryGetSharedAir(int index,out int row,out ThermalExchange.Cell cell)
+    {
+        row=activeIndices==null?-1:activeIndices[index];
+        cell=row>=0?ActiveExchange.GetCell(row):default;
+        return row>=0 && cell.IsMergedAir;
+    }
     internal float ReadEnergy(int index)
     {
         int row = activeIndices == null ? -1 : activeIndices[index];
-        return row < 0 ? energy[index] : ActiveExchange.ReadEnergy(row, index);
+        return row < 0 ? energy[index] : ActiveExchange.ReadEnergy(row, this, index);
     }
     private void SetEnergy(int index, float value)
     {
         int row = activeIndices == null ? -1 : activeIndices[index];
         if (row < 0) energy[index] = value;
-        else ActiveExchange.SetEnergy(row, index, value);
+        else ActiveExchange.SetEnergy(row, this, index, value);
     }
     internal float[] HeatCapacityBuffer => capacity;
     public IReadOnlyList<float> HeatCapacityJPerK => capacity;
@@ -228,8 +237,20 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
     }
     internal void ReadSnapshot(BinaryReader r)
     {
-        if (r.ReadInt32() != Count) throw new InvalidDataException("Thermal geometry length mismatch");
-        for (int i = 0; i < Count; i++) if (r.ReadBoolean()) { float e = r.ReadSingle(); if (!ThermalMath.Finite(e)) throw new InvalidDataException("Invalid saved energy"); RestoreEnergy(i, e); }
+        int savedCount = r.ReadInt32();
+        int plane = HiveGridLayout.SizeX * HiveGridLayout.SizeY;
+        bool oldTop = (item.Kind == ItemKind.BroodBox || item.Kind == ItemKind.Super) && savedCount == Count + plane;
+        if (savedCount != Count && !oldTop) throw new InvalidDataException("Thermal geometry length mismatch");
+        for (int i = 0; i < savedCount; i++)
+        {
+            if (!r.ReadBoolean()) continue;
+            float value = r.ReadSingle();
+            if (!ThermalMath.Finite(value)) throw new InvalidDataException("Invalid saved energy");
+            // The two former 5 mm slices occupy the same space as the new 10 mm slice.
+            int dest = i >= Count ? i - plane : i;
+            if (i >= Count && initialized[dest]) value += ReadEnergy(dest);
+            RestoreEnergy(dest, value);
+        }
         MarkAllDirty();
     }
 }

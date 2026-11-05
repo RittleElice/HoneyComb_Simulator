@@ -30,10 +30,20 @@ public readonly struct HiveGridEdge
 // Composed placement view. Solid cells reference equipment-owned local cells.
 public sealed class HiveSpatialGrid
 {
-    private readonly HiveGridCell[] cells;
+    // Each slot owns compact columns. Offsets delimit one cell for homogeneous empty
+    // columns, or four cells for occupied columns and material transitions.
+    private sealed class SlotBand
+    {
+        public readonly int[] Offsets;
+        public readonly HiveGridCell[] Cells;
+        public SlotBand(int[] offsets, HiveGridCell[] cells) { Offsets = offsets; Cells = cells; }
+    }
+    private readonly SlotBand[] slots;
+    public int ActiveCellCount { get; private set; }
     public ItemData Box { get; }
     public HiveGridLayout Layout { get; }
-    public int CellCount => cells.Length;
+    // Stable physical address space used by saved equipment and the grid inspector.
+    public int CellCount => Layout.CellCount;
     public int Revision { get; private set; }
     public event Action<HiveSpatialGrid> Changed;
     public ItemData TopBoundaryEquipment => Box.TopSlot?.Item;
@@ -45,15 +55,10 @@ public sealed class HiveSpatialGrid
             throw new ArgumentException("Only hive boxes and lids have a spatial grid.");
         Layout = box.Kind == ItemKind.Lid ? HiveGridLayout.Lid :
             box.Kind == ItemKind.BroodBox ? HiveGridLayout.Brood : HiveGridLayout.Super;
-        cells = new HiveGridCell[Layout.CellCount];
-        for (int z = 0; z < Layout.SizeZ; z++)
-        for (int y = 0; y < HiveGridLayout.SizeY; y++)
-        for (int x = 0; x < HiveGridLayout.SizeX; x++)
-        {
-            cells[Layout.Index(x, y, z)] = new HiveGridCell(box.EquipmentGrid.GetCell(x,y,z));
-        }
+        ActiveCellCount = Layout.CellCount;
         if (Layout.IsLid) return;
-        for (int i = 0; i < 10; i++)
+        slots = new SlotBand[HiveGridLayout.SlotCount];
+        for (int i = 0; i < HiveGridLayout.SlotCount; i++)
         {
             RefreshSlot(i);
             box.InteriorSlots.GetSlot(i).OnChanged += OnSlotChanged;
@@ -61,11 +66,51 @@ public sealed class HiveSpatialGrid
         box.TopSlot.OnChanged += OnTopChanged;
     }
 
-    public HiveGridCell GetCell(int x, int y, int z) => cells[Layout.Index(x, y, z)];
+    private bool IsSlotY(int y) => slots != null && y >= 1 &&
+        y < 1 + HiveGridLayout.SlotCount * HiveGridLayout.SlotDepthCells;
+
+    internal bool IsGroupedColumn(int x, int y, int z)
+    {
+        if (!IsSlotY(y)) return false;
+        var band = slots[(y - 1) / HiveGridLayout.SlotDepthCells];
+        int column = x + HiveGridLayout.SizeX * z;
+        return band.Offsets[column + 1] - band.Offsets[column] == 1;
+    }
+
+    // The active cell's first physical address and its Y span are stable until this slot changes.
+    public (int firstIndex, int depthCells) ActiveCellAt(int index)
+    {
+        Layout.Coordinates(index, out int x, out int y, out int z);
+        if (!IsGroupedColumn(x,y,z)) return (index,1);
+        int layer = (y - 1) % HiveGridLayout.SlotDepthCells;
+        return (index - layer * HiveGridLayout.SizeX,HiveGridLayout.SlotDepthCells);
+    }
+
+    public IEnumerable<(int firstIndex, int depthCells)> ActiveCells()
+    {
+        for (int z = 0; z < Layout.SizeZ; z++)
+        for (int y = 0; y < HiveGridLayout.SizeY; y++)
+        for (int x = 0; x < HiveGridLayout.SizeX; x++)
+        {
+            bool grouped = IsGroupedColumn(x,y,z);
+            if (grouped && (y - 1) % HiveGridLayout.SlotDepthCells != 0) continue;
+            yield return (Layout.Index(x,y,z),grouped ? HiveGridLayout.SlotDepthCells : 1);
+        }
+    }
+
+    public HiveGridCell GetCell(int x, int y, int z) => GetCell(Layout.Index(x,y,z));
     public HiveGridCell GetCell(int index)
     {
-        if (index < 0 || index >= cells.Length) throw new ArgumentOutOfRangeException(nameof(index));
-        return cells[index];
+        Layout.Coordinates(index, out int x, out int y, out int z);
+        if (!IsSlotY(y)) return new HiveGridCell(Box.EquipmentGrid.GetCell(x,y,z));
+        var band = slots[(y - 1) / HiveGridLayout.SlotDepthCells];
+        int column = x + HiveGridLayout.SizeX * z;
+        int start = band.Offsets[column];
+        if (band.Offsets[column + 1] - start != 1)
+            return band.Cells[start + (y - 1) % HiveGridLayout.SlotDepthCells];
+        // A grouped wood cell still exposes the requested equipment-local source address.
+        var representative = band.Cells[start];
+        return representative.SourceCell == null ? representative : new HiveGridCell(Box.EquipmentGrid.GetCell(x,y,z));
     }
 
     // Read current contents/settings. Placement Revision alone is NOT a thermal cache key.
@@ -79,7 +124,7 @@ public sealed class HiveSpatialGrid
 
     private void OnSlotChanged(ItemSlot slot)
     {
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < HiveGridLayout.SlotCount; i++)
             if (ReferenceEquals(slot, Box.InteriorSlots.GetSlot(i))) { RefreshSlot(i); break; }
         Notify();
     }
@@ -88,18 +133,42 @@ public sealed class HiveSpatialGrid
 
     private void RefreshSlot(int slot)
     {
-        ItemData item = Box.InteriorSlots.GetSlot(slot).Item;
-        EquipmentSpatialGrid local = item?.EquipmentGrid;
-        for (int z = 0; z < HiveGridLayout.FrameSizeZ; z++)
-        for (int y = 0; y < HiveGridLayout.SlotDepthCells; y++)
-        for (int x = 0; x < HiveGridLayout.SizeX - 2; x++)
+        var item = Box.InteriorSlots.GetSlot(slot).Item;
+        var local = item?.EquipmentGrid;
+        bool empty = Box.InteriorSlots.GetSlot(slot).IsEmpty;
+        int depth = HiveGridLayout.SlotDepthCells;
+        int firstY = 1 + slot * depth;
+        int columns = HiveGridLayout.SizeX * Layout.SizeZ;
+        var offsets = new int[columns + 1];
+        var active = new List<HiveGridCell>(item == null ? columns : columns * depth);
+        var members = new HiveGridCell[depth];
+        for (int z = 0; z < Layout.SizeZ; z++)
+        for (int x = 0; x < HiveGridLayout.SizeX; x++)
         {
-            EquipmentSpatialCell source = local != null && x >= 1 && x < 1 + local.SizeX &&
-                y >= local.SlotFirstY && y < local.SlotFirstY + local.SizeY ?
-                local.GetCell(x - 1, y - local.SlotFirstY, z) : null;
-            cells[Layout.Index(x + 1, 1 + slot * HiveGridLayout.SlotDepthCells + y, Layout.SlotBottom + z)] =
-                new HiveGridCell(source);
+            int frameZ = z - Layout.SlotBottom;
+            bool interior = x > 0 && x < HiveGridLayout.SizeX - 1 &&
+                frameZ >= 0 && frameZ < HiveGridLayout.FrameSizeZ;
+            bool grouped = empty;
+            for (int layer = 0; layer < depth; layer++)
+            {
+                var source = interior ? null : Box.EquipmentGrid.GetCell(x, firstY + layer, z);
+                if (interior && local != null && x >= 2 && x < 2 + local.SizeX &&
+                    layer >= local.SlotFirstY && layer < local.SlotFirstY + local.SizeY)
+                    source = local.GetCell(x - 2,layer - local.SlotFirstY,frameZ);
+                var cell = new HiveGridCell(source);
+                members[layer] = cell;
+                grouped &= cell.Material == members[0].Material &&
+                    (cell.Material == HiveMaterial.Wood || cell.Material == HiveMaterial.Air) &&
+                    (source == null || (ReferenceEquals(source.Equipment,Box) &&
+                        source.Index == Layout.Index(x,firstY + layer,z)));
+            }
+            if (grouped) active.Add(members[0]);
+            else active.AddRange(members);
+            offsets[x + HiveGridLayout.SizeX * z + 1] = active.Count;
         }
+        var previous = slots[slot];
+        slots[slot] = new SlotBand(offsets,active.ToArray());
+        ActiveCellCount += active.Count - (previous?.Cells.Length ?? columns * depth);
     }
 
     // Direction order: -X,+X,-Y,+Y,-Z,+Z. Exterior neighbours return -1.
@@ -119,7 +188,7 @@ public sealed class HiveSpatialGrid
     // Enumerates each geometric face once. Solid faces remain neighbours, not air-flow paths.
     public IEnumerable<HiveGridEdge> Edges()
     {
-        for (int i = 0; i < cells.Length; i++)
+        for (int i = 0; i < CellCount; i++)
         {
             Layout.Coordinates(i, out int x, out int y, out int z);
             double dx = Layout.X[x + 1] - Layout.X[x], dy = Layout.Y[y + 1] - Layout.Y[y], dz = Layout.Z[z + 1] - Layout.Z[z];
@@ -133,7 +202,7 @@ public sealed class HiveSpatialGrid
                 EquipmentSpatialFace boundary = axis == 2 && z == Layout.SizeZ - 2 && x > 0 && x < HiveGridLayout.SizeX - 1 && y > 0 && y < HiveGridLayout.SizeY - 1 ?
                     TopBoundaryEquipment?.EquipmentGrid.GetFace(x - 1,y - 1) : null;
                 yield return new HiveGridEdge(i, n, axis == 0 ? dy * dz : axis == 1 ? dx * dz : dx * dy, (width + next) * 0.5, boundary,
-                    cells[i].Material == HiveMaterial.Air && cells[n].Material == HiveMaterial.Air);
+                    GetCell(i).Material == HiveMaterial.Air && GetCell(n).Material == HiveMaterial.Air);
             }
         }
     }

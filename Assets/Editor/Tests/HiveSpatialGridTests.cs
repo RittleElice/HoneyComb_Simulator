@@ -14,8 +14,8 @@ public static class HiveSpatialGridTests
     public static void RunAll()
     {
         checks = 0;
-        Geometry(ItemKind.BroodBox, 4620, 263, 12868);
-        Geometry(ItemKind.Super, 3696, 238, 10202);
+        Geometry(ItemKind.BroodBox, 4158, 263, 11535);
+        Geometry(ItemKind.Super, 3234, 238, 8869);
         OccupancyAndEvents();
         Stack();
         LidLayer();
@@ -48,7 +48,7 @@ public static class HiveSpatialGridTests
             }
         }
         Check(Math.Abs(volume - 496 * 390 * height) < .001, "total volume");
-        Check(air == (kind == ItemKind.BroodBox ? 3280 : 2880), "empty interior air");
+        Check(air == (kind == ItemKind.BroodBox ? 2920 : 2520), "empty interior air");
         int actual = 0; var unique = new HashSet<long>();
         foreach (var edge in grid.Edges())
         {
@@ -103,10 +103,17 @@ public static class HiveSpatialGridTests
         Check(events == previous, "failed operation no update");
         var queen = Item(ItemKind.QueenExcluder);
         Check(box.TopSlot.TryInsert(queen), "excluder insertion");
-        int faces = 0;
+        int faces = 0, openFaces = 0, blockedFaces = 0;
         foreach (var edge in grid.Edges())
             if (edge.HasQueenExcluder)
-            { faces++; Check(edge.AllowsAir && edge.AllowsWorkers && !edge.AllowsQueen && ReferenceEquals(edge.BoundaryEquipment,queen), "permeability"); }
+            {
+                faces++;
+                bool air=grid.GetCell(edge.A).Material==HiveMaterial.Air && grid.GetCell(edge.B).Material==HiveMaterial.Air;
+                Check(edge.AllowsAir==air && edge.AllowsWorkers==air && !edge.AllowsQueen &&
+                    ReferenceEquals(edge.BoundaryEquipment,queen),"excluder permeability follows adjacent materials");
+                if(air)openFaces++;else blockedFaces++;
+            }
+        Check(openFaces>0 && blockedFaces>0,"excluder spans air and installed equipment");
         Check(faces == 360 && events == previous + 1, "excluder faces and event");
         box.TopSlot.Take();
         foreach (var edge in grid.Edges()) Check(!edge.HasQueenExcluder, "excluder removal");
@@ -124,7 +131,7 @@ public static class HiveSpatialGridTests
         Check(lower.TryCombineFrom(upper), "combine");
         Check(observer.Boxes.Count == 2 && observer.HasOpenTop, "stack view");
         int faces = 0;
-        foreach (var face in observer.Interfaces()) { faces++; Check(face.AreaMm2 > 0 && face.DistanceMm == 6.5, "stack face"); }
+        foreach (var face in observer.Interfaces()) { faces++; Check(face.AreaMm2 > 0 && face.DistanceMm == 9, "stack face"); }
         Check(faces == 462, "stack face total");
         upper.TryInsert(Item(ItemKind.Lid)); lower.TryCombineFrom(upper);
         Check(!observer.HasOpenTop && observer.Lid.Kind == ItemKind.Lid, "lid boundary");
@@ -146,7 +153,7 @@ public static class HiveSpatialGridTests
         Check(ReferenceEquals(own,frame.EquipmentGrid), "stable equipment grid");
         var brood = Item(ItemKind.BroodBox); var super = Item(ItemKind.Super);
         var space = brood.SpatialGrid; var otherSpace = super.SpatialGrid;
-        Check(brood.EquipmentGrid.CellCount == 1340 && super.EquipmentGrid.CellCount == 816, "boxes own only shell");
+        Check(brood.EquipmentGrid.CellCount == 1238 && super.EquipmentGrid.CellCount == 714, "boxes own only shell");
         Check(brood.EquipmentGrid.GetCell(3,3,5) == null, "box does not own interior air");
         Check(ReferenceEquals(space.GetCell(0,0,0).SourceCell,brood.EquipmentGrid.GetCell(0,0,0)), "shell placed by reference");
         for (int slot = 0; slot < 10; slot++)
@@ -227,10 +234,10 @@ public static class HiveSpatialGridTests
             foreach (var face in observer.Interfaces())
             {
                 count++;
-                Check(ReferenceEquals(face.Upper,grid) && face.DistanceMm == 12.5, "lid contact distance");
-                Check(face.UpperCell >= 0 && face.UpperCell < 546, "lid contact index");
+                Check(ReferenceEquals(face.Upper,grid) && face.DistanceMm == 15, "lid contact distance");
+                Check(face.UpperCell >= 0 && face.UpperCell < grid.CellCount, "lid contact index");
             }
-            Check(count == 462 && brood.SpatialGrid.CellCount + grid.CellCount == 5082, "brood and lid totals");
+            Check(count == 462 && brood.SpatialGrid.CellCount + grid.CellCount == 4620, "brood and lid totals");
             Check(lower.TrySplitTo(1,detached) && observer.LidGrid == null && observer.HasOpenTop, "remove lid");
             count = 0; foreach (var face in observer.Interfaces()) count++;
             Check(count == 0 && ReferenceEquals(detached.Item.SpatialGrid,grid), "detach preserves lid removes faces");

@@ -22,6 +22,8 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         public bool Ready;
         public string Status;
         public double NextSample;
+        public int SliceRevision = -1;
+        public ulong YStarts;
     }
     private readonly Dictionary<HiveSpatialGrid,Pane> panes=new Dictionary<HiveSpatialGrid,Pane>();
     private GameWorld sampledWorld;
@@ -72,6 +74,37 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         }
         sampleReady=pane.Ready;sampleStatus=pane.Status;
     }
+    internal static ulong ActiveYStarts(HiveSpatialGrid grid)
+    {
+        ulong mask=0;
+        foreach(var cell in grid.ActiveCells())
+        {
+            grid.Layout.Coordinates(cell.firstIndex,out _,out int y,out _);
+            mask |= 1UL << y;
+        }
+        return mask;
+    }
+    private int SelectYSlice(List<HiveSpatialGrid> grids)
+    {
+        ulong starts=0;
+        foreach(var grid in grids)
+        {
+            if(!panes.TryGetValue(grid,out var pane)){pane=new Pane();panes.Add(grid,pane);}
+            if(pane.SliceRevision!=grid.Revision)
+            {
+                pane.YStarts=ActiveYStarts(grid);
+                pane.SliceRevision=grid.Revision;
+            }
+            starts|=pane.YStarts;
+        }
+        int count=0,selected=0;
+        for(int y=0;y<HiveGridLayout.SizeY;y++)
+            if((starts & (1UL<<y))!=0){if(y<=slice)selected=count;count++;}
+        selected=EditorGUILayout.IntSlider("Y 단면 (조립체 전체 기준)",selected+1,1,count)-1;
+        for(int y=0;y<HiveGridLayout.SizeY;y++)
+            if((starts & (1UL<<y))!=0 && selected--==0)return y;
+        return 0;
+    }
     private void OnGUI()
     {
         if(GUILayout.Button("새 격자 창 열기")) Open();
@@ -101,8 +134,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         displayMode=GUILayout.Toolbar(displayMode,new[]{"재질","온도"});
         axis=GUILayout.Toolbar(axis,new[]{"YZ (X 고정)","XZ (Y 고정)","XY (Z 고정)"});
         int largestZ=grids.Sum(g=>g.Layout.SizeZ);
-        slice=EditorGUILayout.IntSlider("단면 위치 (조립체 전체 기준)",slice,0,(axis==0?HiveGridLayout.SizeX:axis==1?HiveGridLayout.SizeY:largestZ)-1);
-        EditorGUILayout.LabelField($"선택 칸 전체: 상자·뚜껑 {grids.Count}개 / {grids.Sum(g=>g.CellCount):N0} 격자");
+        slice=axis==1?SelectYSlice(grids):EditorGUILayout.IntSlider("단면 위치 (조립체 전체 기준)",slice,0,(axis==0?HiveGridLayout.SizeX:largestZ)-1);
         double totalHeight=grids.Sum(g=>g.Layout.Z[g.Layout.SizeZ]);
         EditorGUILayout.LabelField($"조립체: 496 × 390 × {totalHeight} mm / 아래에서 위로 연결",EditorStyles.wordWrappedLabel);
         var ready=new HashSet<HiveSpatialGrid>();
@@ -113,6 +145,10 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             if(sampleReady && monitor.Matches(grid)) ready.Add(grid);
             else status=sampleStatus;
         }
+        int count=grids.Sum(g=>g.ActiveCellCount);
+        if(ready.Count==grids.Count)
+            count=count-grids.Sum(g=>panes[g].Monitor.SharedLocalCount)+grids.SelectMany(g=>panes[g].Monitor.SharedIds).Distinct().Count();
+        EditorGUILayout.LabelField($"선택 칸 전체: 상자·뚜껑 {grids.Count}개 / {count:N0}개 {(ready.Count==grids.Count?"계산 셀":"부품 공간 셀")}");
         if(status!=null) EditorGUILayout.HelpBox(status,MessageType.Info);
         double low=rangeLow,high=rangeHigh;
         if(displayMode==1)
@@ -166,6 +202,26 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         }
         EditorGUILayout.EndScrollView();
     }
+    internal static bool TrySliceCell(HiveSpatialGrid grid,int axis,int slice,int h,int v,out int index,out int layers,out Rect mm)
+    {
+        int x=axis==0?slice:h, y=axis==0?h:axis==1?slice:v, z=axis==2?slice:v;
+        int physical=grid.Layout.Index(x,y,z);
+        (index,layers)=grid.ActiveCellAt(physical);
+        mm=default;
+        // In XZ the slice can pass through any member. In XY/YZ paint only the first.
+        if(axis!=1 && physical!=index) return false;
+        grid.Layout.Coordinates(index,out x,out y,out z);
+        var l=grid.Layout;
+        var horizontal=axis==0?l.Y:l.X;
+        var vertical=axis==2?l.Y:l.Z;
+        int left=axis==0?y:x, bottom=axis==2?y:z;
+        int right=left+(axis==0?layers:1), top=bottom+(axis==2?layers:1);
+        mm=new Rect((float)horizontal[left],(float)(vertical[vertical.Count-1]-vertical[top]),
+            (float)(horizontal[right]-horizontal[left]),(float)(vertical[top]-vertical[bottom]));
+        return true;
+    }
+    private static string YRange(int y,int layers) => layers==1?y.ToString():$"{y}–{y+layers-1}";
+
     private void DrawGrid(HiveSpatialGrid grid,Rect area,int slice,bool thermal,double low,double high,int firstZ)
     {
         monitor=panes[grid].Monitor;
@@ -173,15 +229,28 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         const float scale=1.25f;
         for(int v=0;v<vertical.Count-1;v++)for(int h=0;h<horizontal.Count-1;h++)
         {
-            int x=axis==0?slice:h,y=axis==0?h:axis==1?slice:v,z=axis==2?slice:v,index=grid.Layout.Index(x,y,z);
+            if(!TrySliceCell(grid,axis,slice,h,v,out int index,out int layers,out Rect mm))continue;
+            grid.Layout.Coordinates(index,out int x,out int y,out int z);
             var cell=grid.GetCell(index);
             Color material=cell.Material==HiveMaterial.Air?new Color(.3f,.55f,.75f):cell.Material==HiveMaterial.Wood?new Color(.5f,.28f,.1f):cell.Material==HiveMaterial.Comb?Color.yellow:new Color(.7f,.3f,.8f);
             Color color=displayMode==0?material:thermal?TemperatureColor(monitor.Temperatures[index],low,high):Color.gray;
-            var rect=new Rect(area.x+(float)horizontal[h]*scale,area.y+(float)(vertical[vertical.Count-1]-vertical[v+1])*scale,(float)(horizontal[h+1]-horizontal[h])*scale-1,(float)(vertical[v+1]-vertical[v])*scale-1);
+            var rect=new Rect(area.x+mm.x*scale,area.y+mm.y*scale,mm.width*scale-1,mm.height*scale-1);
+            bool stackAir=thermal && monitor.SharedRows[index]>=0;
+            if(stackAir && axis!=2){
+                int below=grid.Neighbour(index,4);
+                if(below>=0 && monitor.SharedRows[below]==monitor.SharedRows[index])rect.height+=1;
+                else if(z==0 && grid.Box.ExistingThermalState.TryGetStackAir(index,out _,out _))rect.height+=1;
+            }
             EditorGUI.DrawRect(rect,color);
-            string tip=$"{grid.Box.Name} / 전체 ({x}, {y}, {firstZ+z}) / 부품 내부 Z {z} {cell.Material}\n{cell.Equipment?.Name ?? "공기"}";
+            string tip=$"{grid.Box.Name} / 전체 ({x}, {YRange(y,layers)}, {firstZ+z}) / 부품 내부 Z {z} {cell.Material}\n{cell.Equipment?.Name ?? "공기"}";
+            if(stackAir)tip+="\n인접 공간과 합쳐진 공기 셀";
             if(thermal) tip+=$"\n온도 {monitor.Temperatures[index]:F3} °C\n열용량 {monitor.Capacities[index]:F5} J/K\n열에너지 {monitor.Energies[index]:F5} J";
-            else tip+=$"\n미리보기 열용량 {grid.GetHeatCapacityJPerK(index):F4} J/K";
+            else
+            {
+                double capacity=0;
+                for(int k=0;k<layers;k++)capacity+=grid.GetHeatCapacityJPerK(index+k*HiveGridLayout.SizeX);
+                tip+=$"\n미리보기 열용량 {capacity:F4} J/K";
+            }
             GUI.Label(rect,new GUIContent("",tip));
             if(thermal && selectedGrid==grid && monitor.Selected==index) DrawBorder(rect,Color.white);
             if(thermal && Event.current.type==EventType.MouseDown && Event.current.button==0 && rect.Contains(Event.current.mousePosition))
@@ -220,7 +289,8 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
     {
         if(monitor.Selected<0){EditorGUILayout.HelpBox("격자를 클릭하면 온도 변화 기록이 시작됩니다.",MessageType.Info);return;}
         int i=monitor.Selected;grid.Layout.Coordinates(i,out int x,out int y,out int z);var cell=grid.GetCell(i);
-        EditorGUILayout.Space();EditorGUILayout.LabelField($"선택 격자 ({x}, {y}, {z}) / {cell.Material} / {cell.Equipment?.Name ?? "공기"}",EditorStyles.boldLabel);
+        EditorGUILayout.Space();EditorGUILayout.LabelField($"선택 계산 셀 ({x}, {YRange(y,grid.ActiveCellAt(i).depthCells)}, {z}) / {cell.Material} / {cell.Equipment?.Name ?? "공기"}",EditorStyles.boldLabel);
+        if(monitor.SharedRows[i]>=0)EditorGUILayout.LabelField("공유 공기 셀 · 연결된 공간의 합계");
         EditorGUILayout.LabelField($"온도 {monitor.Temperatures[i]:F3} °C   |   열에너지 {monitor.Energies[i]:F5} J",EditorStyles.wordWrappedLabel);
         EditorGUILayout.LabelField($"열용량 {monitor.Capacities[i]:F5} J/K   (내용물 {monitor.ContentCapacities[i]:F5} J/K)",EditorStyles.wordWrappedLabel);
         if(monitor.TryRate(out double rate,out long elapsed))EditorGUILayout.LabelField($"{(elapsed==1?"직전 1분 변화":"직전 "+elapsed+"분 구간 평균 변화")}  {rate:+0.000;-0.000;0.000} °C/분");

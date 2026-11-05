@@ -16,25 +16,54 @@ public sealed class ThermalExchange : IDisposable
         public readonly string Label;
         public readonly bool IsSlotGroup;
         public bool IsSlotAir => IsSlotGroup && Owner.ExchangeMaterial(Index) == HiveMaterial.Air;
-        public Cell(EquipmentThermalState owner, int index, string label, bool isSlotAir = false)
-        { Owner = owner; Index = index; Label = label; IsSlotGroup = isSlotAir; }
-        public int MemberCount => IsSlotGroup ? HiveGridLayout.SlotDepthCells : 1;
-        public int MemberIndex(int layer) => Index + layer * HiveGridLayout.SizeX;
-        public float HeatCapacityJPerK => Sum(Owner.HeatCapacityJPerK);
-        public float EnergyJ => Sum(Owner.EnergyJ);
-        private float Sum(IReadOnlyList<float> values)
+        internal sealed class StackMembers
         {
-            if (!IsSlotGroup) return values[Index];
-            float total = 0;
-            for (int k = 0; k < MemberCount; k++) total += values[MemberIndex(k)];
-            return (float)total;
+            internal readonly (EquipmentThermalState owner,int index,double volume)[] Parts;
+            internal readonly double Volume;
+            internal readonly bool CrossesStack;
+            internal readonly double[] FaceAreas = new double[3];
+            internal StackMembers(List<(EquipmentThermalState owner,int index,double volume)> parts)
+            {
+                Parts = parts.ToArray();
+                foreach(var part in Parts)
+                {
+                    Volume += part.volume;
+                    if(!ReferenceEquals(part.owner,Parts[0].owner))CrossesStack=true;
+                }
+            }
         }
-        // All four members have the same material and share the X/Z area.
-        internal float MemberEnergy(float total, int member)
+        internal readonly StackMembers Stack;
+        public bool IsMergedAir => Stack != null;
+        public bool IsStackAir => Stack != null && Stack.CrossesStack;
+        public Cell(EquipmentThermalState owner, int index, string label, bool isSlotAir = false)
+        { Owner = owner; Index = index; Label = label; IsSlotGroup = isSlotAir; Stack=null; }
+        internal Cell(StackMembers stack, string label) : this(stack.Parts[0].owner, stack.Parts[0].index, label)
+        { Stack=stack; }
+        public int MemberCount => Stack?.Parts.Length ?? (IsSlotGroup ? HiveGridLayout.SlotDepthCells : 1);
+        public EquipmentThermalState MemberOwner(int layer) => Stack == null ? Owner : Stack.Parts[layer].owner;
+        public int MemberIndex(int layer) => Stack == null ? Index + layer * HiveGridLayout.SizeX : Stack.Parts[layer].index;
+        public float HeatCapacityJPerK => Sum(false);
+        public float EnergyJ => Sum(true);
+        private float Sum(bool energy)
         {
-            if (!IsSlotGroup) return total;
-            int layer = (member - Index) / HiveGridLayout.SizeX;
-            return (float)(total * HiveGridLayout.SlotLayerEnergyShare(layer));
+            if(!IsSlotGroup && Stack==null)return energy?Owner.EnergyJ[Index]:Owner.HeatCapacityJPerK[Index];
+            float total=0;
+            for(int k=0;k<MemberCount;k++){
+                var owner=MemberOwner(k);int index=MemberIndex(k);
+                total+=energy?owner.EnergyJ[index]:owner.HeatCapacityJPerK[index];
+            }
+            return total;
+        }
+        internal float MemberEnergy(float total, EquipmentThermalState owner,int member)
+        {
+            if(Stack!=null){
+                foreach(var part in Stack.Parts)if(ReferenceEquals(part.owner,owner) && part.index==member)
+                    return (float)(total*part.volume/Stack.Volume);
+                throw new InvalidOperationException("Unknown stack member");
+            }
+            if(!IsSlotGroup)return total;
+            int layer=(member-Index)/HiveGridLayout.SizeX;
+            return (float)(total*HiveGridLayout.SlotLayerEnergyShare(layer));
         }
     }
     public readonly struct Face
@@ -109,14 +138,14 @@ public sealed class ThermalExchange : IDisposable
     // Between completed minutes nativeEnergy holds the last committed float energy.
     // Equipment reads and writes its active rows through its stable owner-local mapping.
     private bool energyBound;
-    internal float ReadEnergy(int row, int member) => cells[row].MemberEnergy((float)nativeEnergy[row], member);
-    internal void SetEnergy(int row, int member, float value)
+    internal float ReadEnergy(int row, EquipmentThermalState owner,int member) => cells[row].MemberEnergy(nativeEnergy[row], owner,member);
+    internal void SetEnergy(int row, EquipmentThermalState owner,int member, float value)
     {
-        if (cells[row].IsSlotGroup)
+        if (cells[row].IsSlotGroup || cells[row].IsMergedAir)
         {
             // A per-cell external write is applied to its physical owner before re-mixing.
             ReleaseEnergy();
-            cells[row].Owner.CommitExchangeEnergy(member, value);
+            owner.CommitExchangeEnergy(member, value);
             return;
         }
         nativeEnergy[row] = value;
@@ -131,7 +160,8 @@ public sealed class ThermalExchange : IDisposable
             for (int k = 0; k < cell.MemberCount; k++)
             {
                 int member = cell.MemberIndex(k);
-                cell.Owner.CommitExchangeEnergy(member, ReadEnergy(i, member));
+                var owner=cell.MemberOwner(k);
+                owner.CommitExchangeEnergy(member, ReadEnergy(i,owner,member));
             }
         }
         foreach (var owner in owners) owner.BindEnergy(null, null);
@@ -238,7 +268,7 @@ public sealed class ThermalExchange : IDisposable
         offsets = new int[cells.Length + 1];
         var ownerSet = new HashSet<EquipmentThermalState>();
         var ownerList = new List<EquipmentThermalState>();
-        foreach(var cell in cells) if(ownerSet.Add(cell.Owner)) ownerList.Add(cell.Owner);
+        foreach(var cell in cells) for(int k=0;k<cell.MemberCount;k++){var owner=cell.MemberOwner(k);if(ownerSet.Add(owner))ownerList.Add(owner);}
         owners = ownerList.ToArray(); revisions = new int[owners.Length];
         for(int i=0;i<revisions.Length;i++) { revisions[i]=-1; ownerOrdinals.Add(owners[i], i); }
         var unique = new HashSet<(EquipmentThermalState, int)>();
@@ -248,10 +278,18 @@ public sealed class ThermalExchange : IDisposable
                 throw new InvalidOperationException("Duplicate or invalid thermal owner: " + cells[i].Label);
         }
         var pairs = new HashSet<(int, int)>();
+        var mergedFaces = new HashSet<(int, int, int)>();
         foreach (var f in faces)
         {
             if (f.A < 0 || f.B < 0 || f.A >= cells.Length || f.B >= cells.Length || f.A == f.B ||
-                f.Axis<0 || f.Axis>2 || !Positive(f.AreaM2) || !Positive(f.HalfAM) || !Positive(f.HalfBM) || !pairs.Add((Math.Min(f.A,f.B),Math.Max(f.A,f.B))))
+                f.Axis<0 || f.Axis>2 || !Positive(f.AreaM2) || !Positive(f.HalfAM) || !Positive(f.HalfBM))
+                throw new InvalidOperationException("Invalid thermal face");
+            // A shared volume can meet one neighbour on multiple sides. MergeAir has
+            // already summed patches with the same endpoints and positive direction.
+            bool distinct = cells[f.A].IsMergedAir || cells[f.B].IsMergedAir
+                ? mergedFaces.Add((f.A,f.B,f.Axis))
+                : pairs.Add((Math.Min(f.A,f.B),Math.Max(f.A,f.B)));
+            if (!distinct)
                 throw new InvalidOperationException("Invalid/duplicate thermal face");
             offsets[f.A+1]++; offsets[f.B+1]++;
         }
@@ -276,7 +314,7 @@ public sealed class ThermalExchange : IDisposable
         foreach(var owner in owners) {var indices=new int[owner.Count];for(int j=0;j<indices.Length;j++)indices[j]=-1;ownerIndices.Add(owner,indices);}
         for (int i = 0; i < cells.Length; i++)
             for (int k = 0; k < cells[i].MemberCount; k++)
-                ownerIndices[cells[i].Owner][cells[i].MemberIndex(k)] = i;
+                ownerIndices[cells[i].MemberOwner(k)][cells[i].MemberIndex(k)] = i;
     }
     public static bool Finite(double v) => !double.IsNaN(v) && !double.IsInfinity(v);
     private static bool Positive(double v) => Finite(v) && v > 0;
@@ -289,7 +327,7 @@ public sealed class ThermalExchange : IDisposable
     }
     public float FacePyramidCapacity(int row,int axis,float contactArea)
     {
-        var c=cells[row];float fraction=contactArea/(float)c.Owner.FaceAreaM2(c.Index,axis,c.IsSlotGroup);
+        var c=cells[row];float fraction=contactArea/(float)(c.Stack!=null ? c.Stack.FaceAreas[axis] : c.Owner.FaceAreaM2(c.Index,axis,c.IsSlotGroup));
         if(!Positive(fraction)||fraction>1+1e-6)throw new InvalidOperationException("Contact exceeds pyramid face: "+c.Label);
         return c.HeatCapacityJPerK*fraction/6;
     }

@@ -47,7 +47,7 @@ public sealed class HiveGridLayout
         if (brood) z.AddRange(new double[] { 15, 10 });
         z.AddRange(new double[] { 8, 10 });
         for (int i = 0; i < CombRows; i++) z.Add(200.0 / CombRows);
-        z.AddRange(new double[] { 10, 5, 5 });
+        z.AddRange(new double[] { 10, 10 });
         X = Boundaries(x); Y = Boundaries(y); Z = Boundaries(z);
         if (X[SizeX] != 496 || Y[SizeY] != 390 || Math.Abs(Z[SizeZ] - (brood ? 263 : 238)) > 1e-9)
             throw new InvalidOperationException("Hive dimension totals disagree with the specification.");
