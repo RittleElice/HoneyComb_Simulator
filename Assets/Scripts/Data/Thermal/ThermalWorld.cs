@@ -58,6 +58,8 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
         for (int y = 0; y < watchedHeight; y++)
             for (int x = 0; x < watchedWidth; x++) Watch(world.Apiary.GetItemSlot(x,y));
         for (int i = 0; i < world.Inventory.Capacity; i++) Watch(world.Inventory.GetSlot(i));
+        for (int i = 0; i < world.Warehouse.Capacity; i++) Watch(world.Warehouse.GetSlot(i));
+        for (int i = 0; i < world.Trash.Capacity; i++) Watch(world.Trash.GetSlot(i));
         Watch(world.Hand.Slot);
         var present = new HashSet<EquipmentThermalState>();
         var liveGrids = new HashSet<HiveSpatialGrid>();
@@ -214,6 +216,8 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
         for (int y = 0; y < world.Apiary.Grid.Height; y++) for (int x = 0; x < world.Apiary.Grid.UnlockedWidth; x++)
             foreach (var i in Walk(world.Apiary.GetItemSlot(x,y).Value, seen)) yield return i;
         for (int j = 0; j < world.Inventory.Capacity; j++) foreach (var i in Walk(world.Inventory.GetSlot(j).Value, seen)) yield return i;
+        for (int j = 0; j < world.Warehouse.Capacity; j++) foreach (var i in Walk(world.Warehouse.GetSlot(j).Value, seen)) yield return i;
+        for (int j = 0; j < world.Trash.Capacity; j++) foreach (var i in Walk(world.Trash.GetSlot(j).Value, seen)) yield return i;
         foreach (var i in Walk(world.Hand.Value, seen)) yield return i;
     }
     private static IEnumerable<ItemData> Walk(MovableItem value, HashSet<MovableItem> seen)

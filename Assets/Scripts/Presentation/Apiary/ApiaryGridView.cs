@@ -42,6 +42,7 @@ public class ApiaryGridView : MonoBehaviour
             return;
         }
 
+        gameObject.AddComponent<EquipmentTabs>();
         grid = bootstrap.GameWorld.Apiary.Grid;
         Rebuild();
     }

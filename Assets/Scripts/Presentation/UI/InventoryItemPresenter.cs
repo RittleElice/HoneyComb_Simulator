@@ -21,6 +21,18 @@ public class InventoryItemPresenter : MonoBehaviour
 
     private InventoryData inventory;
     private HandData hand;
+    private InventoryData displayedBag;
+    private bool readOnly;
+    public void ConfigureGrid(InventoryItemPresenter template, Transform container, InventoryData bag, bool viewOnly)
+    {
+        slotPrefab = template.slotPrefab;
+        itemPrefab = template.itemPrefab;
+        prefabRegistry = template.prefabRegistry;
+        slotFillRatio = template.slotFillRatio;
+        slotContainer = container;
+        displayedBag = bag;
+        readOnly = viewOnly;
+    }
 
     private readonly List<GameObject> slotObjects =
         new List<GameObject>();
@@ -67,7 +79,7 @@ public class InventoryItemPresenter : MonoBehaviour
         }
         GameBootstrap bootstrap = GameBootstrap.Instance;
         InventoryData source = bootstrap != null && bootstrap.GameWorld != null
-            ? bootstrap.GameWorld.Inventory
+            ? displayedBag ?? bootstrap.GameWorld.Inventory
             : null;
 
         if (refreshPending || !ReferenceEquals(inventory, source))
@@ -84,7 +96,7 @@ public class InventoryItemPresenter : MonoBehaviour
     {
         GameBootstrap bootstrap = GameBootstrap.Instance;
         InventoryData source = bootstrap != null && bootstrap.GameWorld != null
-            ? bootstrap.GameWorld.Inventory
+            ? displayedBag ?? bootstrap.GameWorld.Inventory
             : null;
 
         if (source == null)
@@ -127,6 +139,7 @@ public class InventoryItemPresenter : MonoBehaviour
                 int index = i;
                 Button button = ActionButtonManager.Create(slotPrefab.GetComponent<Button>(), slotContainer, ActionButtonId.InventorySlot);
                 GameObject slotObject = button.gameObject;
+                button.interactable = !readOnly;
                 slotObjects.Add(slotObject);
                 itemViews.Add(null);
                 cachedItems.Add(null);
@@ -145,7 +158,7 @@ public class InventoryItemPresenter : MonoBehaviour
 
     private void OnSlotClicked(int index)
     {
-        if (!isActiveAndEnabled || !BindInventory() || hand == null)
+        if (readOnly || GameTimeRuntime.InputBlocked || !isActiveAndEnabled || !BindInventory() || hand == null)
             return;
 
         ItemSlot selectedSlot = inventory.GetSlot(index);
@@ -158,6 +171,7 @@ public class InventoryItemPresenter : MonoBehaviour
             controller.ClearSelection();
 
         hand.Swap(selectedSlot);
+        GameBootstrap.Instance?.SaveSystem?.RequestSave();
         Refresh();
 
     }

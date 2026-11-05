@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 
 [DisallowMultipleComponent]
@@ -59,7 +59,7 @@ public sealed class ActionButtonPositioner : MonoBehaviour
                 if (grid.cellSize != entry.size) grid.cellSize = entry.size;
                 if (grid.spacing != entry.gridSpacing) grid.spacing = entry.gridSpacing;
                 if (grid.constraint != GridLayoutGroup.Constraint.FixedColumnCount) grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-                int columns = Mathf.Max(1, entry.gridColumns);
+                int columns = grid is EquipmentSlotGrid equipment ? equipment.Columns : Mathf.Max(1, entry.gridColumns);
                 if (grid.constraintCount != columns) grid.constraintCount = columns;
             }
             return; // GridLayoutGroup exclusively owns each slot's position.

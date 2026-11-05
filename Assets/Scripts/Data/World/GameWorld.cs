@@ -26,6 +26,84 @@ public class GameWorld
     public ApiaryData Apiary { get; private set; }
 
     public InventoryData Inventory { get; }
+    public InventoryData Warehouse { get; } = new InventoryData(100);
+    public int LastShopId { get; internal set; }
+
+    public bool TryAcquire(ItemKind kind, out string message)
+    {
+        string name = ShopName(kind);
+        if (name == null) { message = "등록되지 않은 장비입니다."; return false; }
+        ItemSlot target = FreeSlot(Inventory);
+        if (target == null) { message = "소지품이 가득 찼습니다."; return false; }
+        int highest = LastShopId;
+        foreach (ItemData item in ThermalWorld.Items(this)) highest = Math.Max(highest, item.Id);
+        if (highest == int.MaxValue) { message = "사용 가능한 장비 번호가 없습니다."; return false; }
+        var created = new ItemData(highest + 1, name, kind, kind == ItemKind.Frame ? new FrameData() : null);
+        LastShopId = created.Id;
+        bool added = target.TryInsert(created);
+        message = added ? name + " 장비를 소지품에 넣었습니다." : "빈 슬롯을 사용할 수 없습니다.";
+        return added;
+    }
+
+    public static string ShopName(ItemKind kind)
+    {
+        switch (kind)
+        {
+            case ItemKind.BroodBox: return "단상";
+            case ItemKind.Super: return "계상";
+            case ItemKind.Lid: return "뚜껑";
+            case ItemKind.Frame: return "소비장";
+            case ItemKind.DividerBoard: return "격리판";
+            case ItemKind.QueenExcluder: return "격왕판";
+            case ItemKind.InsulationBoard: return "단열판";
+            case ItemKind.HeatingPanel: return "벌통 가온판";
+            default: return null;
+        }
+    }
+
+    private static ItemSlot FreeSlot(InventoryData bag)
+    {
+        for (int i = 0; i < bag.Capacity; i++)
+            if (bag.GetSlot(i).IsEmpty) return bag.GetSlot(i);
+        return null;
+    }
+
+    public InventoryData Trash { get; } = new InventoryData(12);
+
+    public bool TryEmptyTrash(out string message)
+    {
+        int count = 0;
+        for (int i = 0; i < Trash.Capacity; i++)
+        {
+            var value = Trash.GetSlot(i).Value;
+            if (value == null) continue;
+            if (!(value is ItemData item) || item.Content is HiveData || item.TopSlot?.Value != null ||
+                HasContents(item.InteriorSlots))
+            {
+                message = "조립체나 내용물이 있는 장비, 등록된 벌통을 먼저 꺼내세요.";
+                return false;
+            }
+            count++;
+        }
+        for (int i = 0; i < Trash.Capacity; i++)
+        {
+            var item = Trash.GetSlot(i).Item;
+            if (item == null) continue;
+            LastShopId = Math.Max(LastShopId, item.Id);
+            Trash.GetSlot(i).Take();
+        }
+        message = count == 0 ? "쓰레기통이 비어 있습니다." : count + "개 장비를 삭제했습니다.";
+        return count > 0;
+    }
+
+    private static bool HasContents(InventoryData slots)
+    {
+        if (slots == null) return false;
+        for (int i = 0; i < slots.Capacity; i++)
+            if (!slots.GetSlot(i).IsEmpty) return true;
+        return false;
+    }
+
     public HandData Hand { get; }
 
     internal GameWorld(GameClock clock, ApiaryData apiary, InventoryData inventory, HandData hand)

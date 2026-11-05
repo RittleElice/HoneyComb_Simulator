@@ -10,6 +10,8 @@ public static class ThermalTopology
         foreach(var hive in world.Apiary.Hives) result.Add(hive.Slot.Value);
         for(int y=0;y<world.Apiary.Grid.Height;y++) for(int x=0;x<world.Apiary.Grid.UnlockedWidth;x++) result.Add(world.Apiary.GetItemSlot(x,y).Value);
         for(int i=0;i<world.Inventory.Capacity;i++) result.Add(world.Inventory.GetSlot(i).Value);
+        for(int i=0;i<world.Warehouse.Capacity;i++) result.Add(world.Warehouse.GetSlot(i).Value);
+        for(int i=0;i<world.Trash.Capacity;i++) result.Add(world.Trash.GetSlot(i).Value);
         result.Add(world.Hand.Value);
         foreach(var item in items ?? ThermalWorld.Items(world)) { result.Add(item); if(item.SpatialGrid!=null) result.Add(item.SpatialGrid.Revision); }
         return result.ToArray();
@@ -111,6 +113,8 @@ public static class ThermalTopology
         foreach(var hive in world.Apiary.Hives) roots.Add(hive.Slot.Value);
         for(int y=0;y<world.Apiary.Grid.Height;y++) for(int x=0;x<world.Apiary.Grid.UnlockedWidth;x++) roots.Add(world.Apiary.GetItemSlot(x,y).Value);
         for(int i=0;i<world.Inventory.Capacity;i++) roots.Add(world.Inventory.GetSlot(i).Value);
+        for(int i=0;i<world.Warehouse.Capacity;i++) roots.Add(world.Warehouse.GetSlot(i).Value);
+        for(int i=0;i<world.Trash.Capacity;i++) roots.Add(world.Trash.GetSlot(i).Value);
         roots.Add(world.Hand.Value);
         var seen=new HashSet<MovableItem>();
         var joins = new List<(int lower,int upper)>();
@@ -246,7 +250,10 @@ public static class ThermalTopology
             };
             foreach(var h in world.Apiary.Hives)visit(h.Slot.Value);
             for(int y=0;y<world.Apiary.Grid.Height;y++)for(int x=0;x<world.Apiary.Grid.UnlockedWidth;x++)visit(world.Apiary.GetItemSlot(x,y).Value);
-            for(int i=0;i<world.Inventory.Capacity;i++)visit(world.Inventory.GetSlot(i).Value);visit(world.Hand.Value);
+            for(int i=0;i<world.Inventory.Capacity;i++)visit(world.Inventory.GetSlot(i).Value);
+            for(int i=0;i<world.Warehouse.Capacity;i++)visit(world.Warehouse.GetSlot(i).Value);
+            for(int i=0;i<world.Trash.Capacity;i++)visit(world.Trash.GetSlot(i).Value);
+            visit(world.Hand.Value);
             return result;
         }
         public bool TryUpdate(GameWorld world,ThermalExchange exchange, IReadOnlyList<ItemData> items = null)
