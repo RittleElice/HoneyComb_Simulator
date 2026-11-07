@@ -92,12 +92,12 @@ public static class HiveSpatialGridTests
         box.InteriorSlots.GetSlot(1).Take();
         Check(grid.GetCell(3,7,5).Material == HiveMaterial.Air, "removal refresh");
         Check(box.InteriorSlots.GetSlot(0).TryInsert(Item(ItemKind.DividerBoard)), "divider accepted");
-        Check(grid.GetCell(3,3,5).Material == HiveMaterial.Wood && grid.GetCell(3,2,5).Material == HiveMaterial.Wood, "5mm profile");
+        Check(grid.GetCell(3,3,5).Material == HiveMaterial.Wood && grid.GetCell(3,2,5).Material == HiveMaterial.Wood, "solid wood divider");
         Check(box.InteriorSlots.GetSlot(1).TryInsert(Item(ItemKind.InsulationBoard)), "insulation accepted");
         Check(grid.GetCell(3,6,5).Material == HiveMaterial.Insulation && grid.GetCell(3,7,5).Material == HiveMaterial.Insulation, "25mm profile");
         var custom = new HiveOccupancyProfile(1,1,HiveMaterial.Insulation);
         Check(box.InteriorSlots.GetSlot(2).TryInsert(Item(ItemKind.DividerBoard,custom)), "custom profile");
-        Check(grid.GetCell(3,10,5).Material == HiveMaterial.Insulation && grid.GetCell(3,11,5).Material == HiveMaterial.Air, "custom occupancy");
+        Check(grid.GetCell(3,10,5).Material == HiveMaterial.Wood && grid.GetCell(3,11,5).Material == HiveMaterial.Wood, "legacy divider uses solid wood");
         int previous = events;
         Check(!box.InteriorSlots.GetSlot(0).TryInsert(Item(ItemKind.Frame)), "rejected insert");
         Check(events == previous, "failed operation no update");
@@ -255,3 +255,4 @@ public static class HiveSpatialGridTests
         }
     }
 }
+

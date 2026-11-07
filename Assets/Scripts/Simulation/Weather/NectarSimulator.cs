@@ -57,28 +57,32 @@ public sealed class NectarSimulator
             if(first) Sources[i]=new State { yieldFactor=AnnualFactor(seed,w.Minute/525600,i), development=new double[Math.Max(1,(int)Math.Round(60*p.PollenDevelopmentHours))] };
             var s=Sources[i];
 
-            s.gdd+=Math.Max(0,t-p.BaseGrowthTemperature)/1440;
+            double gddGain=Math.Max(0,t-p.BaseGrowthTemperature)/1440;
             double opening=s.unopened*PerMinute(p.BaseBloomRate*Clamp((s.gdd-p.BloomStartGDD)/p.BloomActivationGDDRange)*Dome(t,p.OptimalBloomTemperature,p.BloomTemperatureRange));
             double wilting=s.bloom*PerMinute(p.BaseWiltingRate*(1+Math.Pow(Math.Abs(t-p.OptimalFlowerMaintenanceTemperature)/(t<p.OptimalFlowerMaintenanceTemperature?p.ColdWiltingTemperatureRange:p.HeatWiltingTemperatureRange),p.WiltingTemperatureExponent)));
             double previous=s.bloom;
-            s.unopened-=opening; s.bloom+=opening-wilting;
             double effective=s.bloom<=p.MinimumBloomingFlowerRatio?0:s.bloom;
             double site=Settings.SiteArea*Settings.SourceFactor*p.BaseNectarYieldRatio*s.yieldFactor;
 
-            s.solar=first?light:s.solar+solarResponse[i]*(light-s.solar);
+            double nextSolar=first?light:s.solar+solarResponse[i]*(light-s.solar);
             double carbon=p.MinimumCarbonFactor+(1-p.MinimumCarbonFactor)*s.solar/(s.solar+p.CarbonHalfSaturation);
-            s.sugar+=site*effective*p.NectarProductionFactor*Dome(t,p.OptimalNectarTemperature,p.NectarTemperatureRange)*carbon*Rise(soil,p.SoilWaterZeroProduction,p.SoilWaterFullProduction)/60;
-            s.water+=site*effective*p.WaterProductionFactor*Rise(t,p.MinimumWaterProductionTemperature,p.FullWaterProductionTemperature)*(1-Rise(t,p.HeatWaterProductionTemperature,p.MaximumWaterProductionTemperature))*Math.Pow(Rise(soil,p.WaterProductionSoilMinimum,p.WaterProductionSoilFull),p.WaterProductionSoilExponent)/60;
+            double sugarGain=site*effective*p.NectarProductionFactor*Dome(t,p.OptimalNectarTemperature,p.NectarTemperatureRange)*carbon*Rise(soil,p.SoilWaterZeroProduction,p.SoilWaterFullProduction)/60;
+            double waterGain=site*effective*p.WaterProductionFactor*Rise(t,p.MinimumWaterProductionTemperature,p.FullWaterProductionTemperature)*(1-Rise(t,p.HeatWaterProductionTemperature,p.MaximumWaterProductionTemperature))*Math.Pow(Rise(soil,p.WaterProductionSoilMinimum,p.WaterProductionSoilFull),p.WaterProductionSoilExponent)/60;
             double solute=18.01528/p.NectarSugarMolarMass*s.sugar;
             double fraction=s.water+solute==0?0:solute/(s.water+solute);
             double activity=(1-fraction)*Math.Exp(-p.NectarNorrishConstant*fraction*fraction);
-            s.water*=Math.Exp(-p.NectarEvaporationRate/60*(1+p.NectarEvaporationWindFactor*windRoot)*0.61078*saturationFactor*Math.Max(0,activity-humidity));
+            double remainingWater=s.water*Math.Exp(-p.NectarEvaporationRate/60*(1+p.NectarEvaporationWindFactor*windRoot)*0.61078*saturationFactor*Math.Max(0,activity-humidity));
             double capacity=site*effective*p.NectarStorageFactor;
-            if(s.Total>capacity) { double scale=capacity/s.Total; s.sugar*=scale; s.water*=scale; }
+            double nextSugar=s.sugar+sugarGain,nextWater=remainingWater+waterGain;
+            double total=nextSugar+nextWater;
+            if(total>capacity) { double scale=capacity/total; nextSugar*=scale;nextWater*=scale; }
             double recent=s.count==0?1:s.developmentSum/s.count;
             double retained=effective==0||previous==0?0:Math.Max(0,1-wilting/previous);
-            s.pollen=(s.pollen*retained+(effective==0?0:site*p.PollenProductionFactor*opening*recent))*Math.Exp(-p.PollenRainLossCoefficient*w.Precipitation);
+            double nextPollen=s.pollen*retained*Math.Exp(-p.PollenRainLossCoefficient*w.Precipitation)
+                +(effective==0?0:site*p.PollenProductionFactor*opening*recent);
             double dev=(1-Rise(t,p.PollenHeatStartTemperature,p.PollenHeatZeroTemperature))*Rise(soil,p.PollenSoilMinimum,p.PollenSoilFull);
+            s.gdd+=gddGain;s.unopened-=opening;s.bloom+=opening-wilting;
+            s.solar=nextSolar;s.sugar=nextSugar;s.water=nextWater;s.pollen=nextPollen;
             s.developmentSum+=dev-s.development[s.cursor]; s.development[s.cursor]=dev;
             s.cursor=(s.cursor+1)%s.development.Length; s.count=Math.Min(s.count+1,s.development.Length);
         }

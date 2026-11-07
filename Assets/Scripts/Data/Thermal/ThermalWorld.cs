@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -118,6 +118,12 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
         Exchange.RefreshCoefficients();
     }
     public Task CalculateMinuteAsync(long nextMinute, CancellationToken cancellation)
+        => AdvanceMinute(nextMinute,cancellation,false);
+#if UNITY_EDITOR
+    public Task CalculateLegacyThermalBenchmark(long nextMinute,CancellationToken cancellation)
+        => AdvanceMinute(nextMinute,cancellation,true);
+#endif
+    private Task AdvanceMinute(long nextMinute,CancellationToken cancellation,bool legacyBenchmark)
     {
         if (Failure != null) throw new InvalidOperationException("Thermal recovery required: " + Failure);
         try
@@ -129,8 +135,28 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
             double outside=world.Weather.Current.TemperatureCelsius;
             Refresh();
             PrepareExchange();
-            SupplyItemHeating(minuteItems, 60);
-            Exchange.StepPrepared(60, outside);
+            if(legacyBenchmark)
+            {
+                SupplyItemHeating(minuteItems,60);
+                Exchange.StepPrepared(60,outside);
+                return Task.CompletedTask;
+            }
+            int topology=TopologyBuilds+LocalTopologyUpdates;
+            if(climate==null || climateTopology!=topology || climateRevision!=Exchange.CoefficientBuilds)
+            {
+                FlushClimate();
+                climate=new ClimateDomain(Exchange,minuteItems,materials,world.Weather.Current.RelativeHumidityPercent/100);
+                climateTopology=topology;
+                climateRevision=Exchange.CoefficientBuilds;
+            }
+            SupplyItemHeating(minuteItems, 60, defer:true);
+            if(!ReferenceEquals(flowConfiguredClimate,climate) || flowConfiguredRevision!=flowObserverRevision)
+            {
+                climate.SetFlowTargets(new HashSet<EquipmentThermalState>(flowObservers.Values));
+                flowConfiguredClimate=climate;flowConfiguredRevision=flowObserverRevision;
+            }
+            climate.Advance(outside);
+            flowMinute=nextMinute;
             return Task.CompletedTask;
         }
         catch (Exception e) { Failure = e.Message; throw; }
@@ -141,7 +167,7 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
         EnsureLayout();
         SupplyItemHeating(minuteItems, seconds);
     }
-    private void SupplyItemHeating(IReadOnlyList<ItemData> items, double seconds)
+    private void SupplyItemHeating(IReadOnlyList<ItemData> items, double seconds,bool defer=false)
     {
         LastHeatingEnergyJ=0;
         foreach(var item in items)if(item.GetContent<HeatingPanelData>() is HeatingPanelData heater)heater.LastSuppliedJoules=0;
@@ -150,8 +176,45 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
             for(int i=0;i<box.InteriorSlots.Capacity;i++){
                 var panel=box.InteriorSlots.GetSlot(i).Item;var heater=panel?.GetContent<HeatingPanelData>();
                 if(panel?.Kind!=ItemKind.HeatingPanel||heater==null||!heater.Enabled||heater.OutputWatts==0)continue;
-                double joules=seconds*heater.OutputWatts;panel.ThermalState.SupplyHeat(joules);heater.LastSuppliedJoules=joules;LastHeatingEnergyJ+=joules;
+                double joules=seconds*heater.OutputWatts;panel.ThermalState.SupplyHeat(joules,defer);heater.LastSuppliedJoules=joules;LastHeatingEnergyJ+=joules;
             }
+    }
+    private readonly Dictionary<object,EquipmentThermalState> flowObservers=new Dictionary<object,EquipmentThermalState>();
+    private long flowMinute=-1;
+    private int flowObserverRevision,flowConfiguredRevision=-1;
+    private ClimateDomain flowConfiguredClimate;
+    public void ObserveMoistureFlow(object observer,EquipmentThermalState owner)
+    {
+        if(owner==null){if(flowObservers.Remove(observer))flowObserverRevision++;}
+        else if(!flowObservers.TryGetValue(observer,out var previous) || !ReferenceEquals(previous,owner))
+        {flowObservers[observer]=owner;flowObserverRevision++;}
+    }
+    public bool TryReadMoistureFlow(EquipmentThermalState owner,int index,out MoistureFlowSnapshot snapshot)
+    {
+        snapshot=null;
+        if(climate==null || layoutDirty || topologyDirty || dirty.Count>0 || Failure!=null ||
+            flowMinute!=world.CurrentGameMinute || climateTopology!=TopologyBuilds+LocalTopologyUpdates || climateRevision!=Exchange.CoefficientBuilds)return false;
+        if(!climate.ReadFlow(owner,index,out snapshot))return false;
+        snapshot.Minute=flowMinute;return true;
+    }
+    private ClimateDomain climate;
+    private int climateRevision,climateTopology;
+    internal void FlushClimate()=>climate?.Flush();
+
+    public bool TryReadVaporPressures(Dictionary<EquipmentThermalState,VaporPressureCell[]> target)
+    {
+        if(target==null)throw new ArgumentNullException(nameof(target));
+        foreach(var pair in target)
+        {
+            if(pair.Value==null || pair.Value.Length!=pair.Key.Count)
+                throw new ArgumentException("Pressure buffer must match equipment cells.");
+            Array.Clear(pair.Value,0,pair.Value.Length);
+        }
+        if(climate==null || Failure!=null || layoutDirty || topologyDirty || dirty.Count>0 ||
+            climateTopology!=TopologyBuilds+LocalTopologyUpdates ||
+            climateRevision!=Exchange.CoefficientBuilds)return false;
+        climate.CopyVaporPressures(target);
+        return true;
     }
     private readonly GameWorld world;
     private ThermalMaterials materials;
@@ -179,6 +242,7 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
         }
         if (dirty.Count != 0)
         {
+            climateRevision=-1;
             refreshWork.Clear();
             refreshWork.AddRange(dirty);
             foreach (var state in refreshWork)
@@ -197,6 +261,7 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
     }
     public void Dispose()
     {
+        FlushClimate(); climate=null;
         UnwatchLayout();
         foreach (var state in tracked) state.InputsChanged -= StateChanged;
         tracked.Clear();
@@ -234,3 +299,5 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
         }
     }
 }
+
+

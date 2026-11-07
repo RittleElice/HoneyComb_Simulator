@@ -56,12 +56,12 @@ public sealed class EquipmentSpatialGrid
         bool frame = item.Kind == ItemKind.Frame;
         bool panel = item.Kind == ItemKind.DividerBoard || item.Kind == ItemKind.InsulationBoard || item.Kind == ItemKind.HeatingPanel;
         bool boundary = item.Kind == ItemKind.QueenExcluder;
-        HiveOccupancyProfile profile = null;
+        HiveMaterial panelMaterial=HiveMaterial.Wood;
         HiveGridLayout layout = null;
         if (frame || panel)
         {
-            profile = panel ? item.GetContent<HiveOccupancyProfile>() ??
-                (item.Kind == ItemKind.HeatingPanel ? HiveOccupancyProfile.Heating : item.Kind == ItemKind.DividerBoard ? HiveOccupancyProfile.Divider : HiveOccupancyProfile.Insulation) : null;
+            if(panel && item.Kind!=ItemKind.DividerBoard) panelMaterial=(item.GetContent<HiveOccupancyProfile>() ??
+                (item.Kind == ItemKind.HeatingPanel ? HiveOccupancyProfile.Heating : HiveOccupancyProfile.Insulation)).Material;
             SlotFirstY = 1;
             X = Slice(HiveGridLayout.Brood.X, 2, HiveGridLayout.FrameSizeX);
             Y = Slice(HiveGridLayout.Brood.Y, 1 + SlotFirstY, 2);
@@ -91,7 +91,7 @@ public sealed class EquipmentSpatialGrid
                 bool occupied = frame || panel || layout.IsLid || x == 0 || x == SizeX - 1 ||
                     y == 0 || y == SizeY - 1 || (layout.HasFloor && z == 0);
                 if (!occupied || (layout != null && layout.IsEntranceCell(x,y,z))) continue;
-                HiveMaterial material = panel ? profile.Material : frame && x > 0 && x < SizeX - 1 && z > 0 && z < SizeZ - 1 ? HiveMaterial.Comb : HiveMaterial.Wood;
+                HiveMaterial material = panel ? panelMaterial : frame && x > 0 && x < SizeX - 1 && z > 0 && z < SizeZ - 1 ? HiveMaterial.Comb : HiveMaterial.Wood;
                 if (panel && SolidFraction(y) == 0) material = HiveMaterial.Air;
                 int index = Index(x,y,z);
                 cells[index] = new EquipmentSpatialCell(item, index, material, area * (Z[z + 1] - Z[z]));
@@ -114,8 +114,8 @@ public sealed class EquipmentSpatialGrid
 
     public double SolidFraction(int y)
     {
-        if (Equipment.Kind != ItemKind.DividerBoard && Equipment.Kind != ItemKind.InsulationBoard && Equipment.Kind != ItemKind.HeatingPanel) return 1;
-        var p = Equipment.GetContent<HiveOccupancyProfile>() ?? (Equipment.Kind == ItemKind.HeatingPanel ? HiveOccupancyProfile.Heating : Equipment.Kind == ItemKind.DividerBoard ? HiveOccupancyProfile.Divider : HiveOccupancyProfile.Insulation);
+        if (Equipment.Kind != ItemKind.InsulationBoard && Equipment.Kind != ItemKind.HeatingPanel) return 1;
+        var p = Equipment.GetContent<HiveOccupancyProfile>() ?? (Equipment.Kind == ItemKind.HeatingPanel ? HiveOccupancyProfile.Heating : HiveOccupancyProfile.Insulation);
         double[] old = { -5, 0, 10, 15, 25 };
         double overlap = Math.Max(0, Math.Min(Y[y+1], old[p.FirstY+p.CountY]) - Math.Max(Y[y], old[p.FirstY]));
         return overlap / (Y[y+1]-Y[y]);
@@ -154,3 +154,4 @@ public sealed class EquipmentSpatialGrid
         return faces[x + SizeX * y];
     }
 }
+

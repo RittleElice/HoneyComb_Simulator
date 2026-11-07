@@ -58,9 +58,14 @@ public sealed class WeatherSimulator : IGameMinuteParticipant
             WeatherEquations.Evaluate(nextMinute,parameters,current,scratch,windows,random);
             scratch.Validate();
             ValidateBounds(nextMinute,scratch);
+            // The interval uses the published weather at its start. The destination
+            // minute still selects the calendar/year transition. Minute zero bootstraps
+            // from the first evaluated weather row because there is no earlier state.
+            var forcing=new WeatherSnapshot(nextMinute,Minute<0?scratch:current);
+            if(apiaryArea!=null) Nectar.Settings.SiteArea=apiaryArea();
+            Nectar.Advance(forcing,nectarSeed);
             windows.Commit(scratch.Rain_Emission,scratch.Rain_Edge_Pass1);
-            var old=current; current=scratch; scratch=old; Minute=nextMinute; if(apiaryArea!=null) Nectar.Settings.SiteArea=apiaryArea();
-            Nectar.Advance(Current,nectarSeed);
+            var old=current; current=scratch; scratch=old; Minute=nextMinute;
         }
         catch { faulted=true; throw; }
     }

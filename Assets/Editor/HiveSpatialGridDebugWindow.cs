@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -14,11 +14,24 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
     [SerializeField] private int apiaryX,apiaryY,axis=1,slice=3,displayMode=1;
     [SerializeField] private bool autoRange;
     [SerializeField] private float rangeLow=0,rangeHigh=40;
+    [SerializeField] private bool pressureAutoRange=true;
+    [SerializeField] private float pressureLow=0,pressureHigh=3000;
+    [SerializeField] private bool recordFlow=true;
+    private bool showFlowPaths;
+    private ThermalWorld flowWorld;
+    private EquipmentThermalState flowOwner;
+    private int flowIndex=-1;
+    private long flowSampleMinute=-1;
+    private double nextFlowRead;
+    private MoistureFlowSnapshot flow;
+    private static readonly string[] FlowDirections={"-X","+X","-Y","+Y","-Z","+Z"};
+    private static readonly string[] WaterKinds={"공기","목재","단열재","밀랍","화밀"};
     private Vector2 scroll;
     private HiveTemperatureMonitor monitor;
     private sealed class Pane
     {
         public readonly HiveTemperatureMonitor Monitor=new HiveTemperatureMonitor();
+        public readonly HiveVaporPressureMonitor Vapor=new HiveVaporPressureMonitor();
         public bool Ready;
         public string Status;
         public double NextSample;
@@ -44,6 +57,32 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         if(titleContent.text!=title) titleContent=new GUIContent(title);
     }
     private void OnEnable() { minSize=new Vector2(500,420);RefreshTitle(); }
+    private void OnDisable(){flowWorld?.ObserveMoistureFlow(this,null);}
+    private void RefreshFlow()
+    {
+        var world=live && displayMode==2 && recordFlow?GameBootstrap.Instance?.GameWorld?.Thermal:null;
+        EquipmentThermalState owner=null;int index=-1;
+        if(world!=null && selectedGrid!=null && panes.TryGetValue(selectedGrid,out var pane) && pane.Monitor.Selected>=0)
+        {
+            index=pane.Monitor.Selected;
+            var source=selectedGrid.GetCell(index).SourceCell;
+            owner=source?.Equipment.ThermalState??selectedGrid.Box.ThermalState;
+            index=source?.Index??index;
+        }
+        if(!ReferenceEquals(flowWorld,world)){flowWorld?.ObserveMoistureFlow(this,null);flowWorld=world;flow=null;}
+        flowWorld?.ObserveMoistureFlow(this,owner);
+        if(!ReferenceEquals(flowOwner,owner) || flowIndex!=index){flow=null;flowSampleMinute=-1;flowOwner=owner;flowIndex=index;}
+        var bootstrap=GameBootstrap.Instance;
+        long minute=bootstrap?.GameWorld?.CurrentGameMinute??-1;
+        if(owner==null){flow=null;return;}
+        if(bootstrap.TimeSystem?.Scheduler?.IsInTick==true)return;
+        if(flowSampleMinute!=minute || flow==null || EditorApplication.timeSinceStartup>=nextFlowRead)
+        {
+            nextFlowRead=EditorApplication.timeSinceStartup+.25;
+            flowWorld.TryReadMoistureFlow(owner,index,out flow);
+            flowSampleMinute=minute;
+        }
+    }
     private void OnInspectorUpdate() { if(live) Repaint(); }
     // All root parts in placement order. Inserted equipment is already projected into each box grid.
     public static List<HiveSpatialGrid> PlacementGrids(MovableItem value)
@@ -71,6 +110,8 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         {
             pane.NextSample=EditorApplication.timeSinceStartup+.25;
             pane.Ready=monitor.Capture(grid,world.CurrentGameMinute,world.Weather.Current.TemperatureCelsius,out pane.Status);
+            pane.Vapor.Capture(grid,world);
+
         }
         sampleReady=pane.Ready;sampleStatus=pane.Status;
     }
@@ -130,8 +171,11 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         }
         if(EditorGUI.EndChangeCheck()) {panes.Clear();RefreshTitle();}
         foreach(var stale in panes.Keys.Where(g=>!grids.Contains(g)).ToArray()) panes.Remove(stale);
+        RefreshFlow();
         if(grids.Count==0) {EditorGUILayout.HelpBox("선택한 양봉장 칸에 벌통 상자나 뚜껑이 없습니다. Play 중인 양봉장 또는 샘플을 선택하세요.",MessageType.Info);return;}
-        displayMode=GUILayout.Toolbar(displayMode,new[]{"재질","온도"});
+        displayMode=GUILayout.Toolbar(Math.Min(displayMode,2),new[]{"재질","온도","수증기압"});
+        if(displayMode==2)recordFlow=EditorGUILayout.Toggle("선택 셀 수분 이동 기록",recordFlow);
+        RefreshFlow();
         axis=GUILayout.Toolbar(axis,new[]{"YZ (X 고정)","XZ (Y 고정)","XY (Z 고정)"});
         int largestZ=grids.Sum(g=>g.Layout.SizeZ);
         slice=axis==1?SelectYSlice(grids):EditorGUILayout.IntSlider("단면 위치 (조립체 전체 기준)",slice,0,(axis==0?HiveGridLayout.SizeX:largestZ)-1);
@@ -167,6 +211,36 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             {EditorGUILayout.HelpBox("색상 최댓값은 최솟값보다 커야 합니다. 임시로 0~40°C를 표시합니다.",MessageType.Warning);low=0;high=40;}
             DrawLegend(low,high);
         }
+        else if(displayMode>=2)
+        {
+            pressureAutoRange=EditorGUILayout.Toggle("수증기압 색상 범위 자동 (전체)",pressureAutoRange);
+            low=pressureLow;high=pressureHigh;
+            if(pressureAutoRange)
+            {
+                var pressures=grids.SelectMany(g=>panes[g].Vapor.Cells ?? Array.Empty<VaporPressureCell>())
+                    .Where(c=>c.Available).SelectMany(c=>new[]{c.AirPa,c.MaterialPa})
+                    .Where(v=>!double.IsNaN(v) && !double.IsInfinity(v)).ToArray();
+                low=pressures.Length>0?Math.Floor(pressures.Min()/100)*100:0;
+                high=pressures.Length>0?Math.Max(low+100,Math.Ceiling(pressures.Max()/100)*100):100;
+            }
+            else
+            {
+                EditorGUILayout.BeginHorizontal();
+                pressureLow=EditorGUILayout.FloatField("최저 Pa",pressureLow);
+                pressureHigh=EditorGUILayout.FloatField("최고 Pa",pressureHigh);
+                EditorGUILayout.EndHorizontal();low=pressureLow;high=pressureHigh;
+            }
+            if(!ThermalExchange.Finite(low)||!ThermalExchange.Finite(high)||high<=low)
+            {
+                EditorGUILayout.HelpBox("유효한 최솟값과 최댓값을 입력하세요. 임시 범위는 0~3000 Pa입니다.",MessageType.Warning);
+                low=0;high=3000;
+            }
+            DrawLegend(low,high,"Pa");
+            EditorGUILayout.LabelField("공기·재질을 같은 Pa 범위로 표시 / 둘 다 있으면 왼쪽 공기 · 오른쪽 재질",EditorStyles.wordWrappedLabel);
+            EditorGUILayout.LabelField("회색: 수분 저장소 없음 또는 계산 상태 없음");
+            if(grids.Any(g=>!panes[g].Vapor.Ready))
+                EditorGUILayout.HelpBox("장비 배치 후 완료된 1분 틱의 수분 상태가 필요합니다.",MessageType.Info);
+        }
         else EditorGUILayout.LabelField("공기: 파랑 / 목재: 갈색 / 소비: 노랑 / 단열재: 보라 / 격왕판: 자홍");
         scroll=EditorGUILayout.BeginScrollView(scroll);
         const float scale=1.25f;
@@ -189,6 +263,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             monitor=panes[selectedGrid].Monitor;
             EditorGUILayout.LabelField($"선택 부품: {selectedGrid.Box.Name}",EditorStyles.boldLabel);
             DrawSelection(selectedGrid);
+            if(displayMode==2)DrawFlowDetails();
         }
         else EditorGUILayout.HelpBox("격자를 클릭하면 해당 부품의 온도 변화 기록을 표시합니다.",MessageType.Info);
         foreach(var grid in grids)
@@ -227,6 +302,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         monitor=panes[grid].Monitor;
         var horizontal=axis==0?grid.Layout.Y:grid.Layout.X;var vertical=axis==2?grid.Layout.Y:grid.Layout.Z;
         const float scale=1.25f;
+        Rect selectedRect=default;
         for(int v=0;v<vertical.Count-1;v++)for(int h=0;h<horizontal.Count-1;h++)
         {
             if(!TrySliceCell(grid,axis,slice,h,v,out int index,out int layers,out Rect mm))continue;
@@ -241,7 +317,25 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
                 if(below>=0 && monitor.SharedRows[below]==monitor.SharedRows[index])rect.height+=1;
                 else if(z==0 && grid.Box.ExistingThermalState.TryGetStackAir(index,out _,out _))rect.height+=1;
             }
-            EditorGUI.DrawRect(rect,color);
+            var vapor=panes[grid].Vapor.At(index);
+            if(displayMode>=2)
+            {
+                bool air=vapor.Available && !double.IsNaN(vapor.AirPa);
+                bool bound=vapor.Available && !double.IsNaN(vapor.MaterialPa);
+                if(air && bound)
+                {
+                    var left=new Rect(rect.x,rect.y,rect.width*.5f,rect.height);
+                    var right=new Rect(left.xMax,rect.y,rect.width-left.width,rect.height);
+                    EditorGUI.DrawRect(left,TemperatureColor(vapor.AirPa,low,high));
+                    EditorGUI.DrawRect(right,TemperatureColor(vapor.MaterialPa,low,high));
+                }
+                else
+                {
+                    double pressure=air?vapor.AirPa:vapor.MaterialPa;
+                    EditorGUI.DrawRect(rect,air || bound?TemperatureColor(pressure,low,high):Color.gray);
+                }
+            }
+            else EditorGUI.DrawRect(rect,color);
             string tip=$"{grid.Box.Name} / 전체 ({x}, {YRange(y,layers)}, {firstZ+z}) / 부품 내부 Z {z} {cell.Material}\n{cell.Equipment?.Name ?? "공기"}";
             if(stackAir)tip+="\n인접 공간과 합쳐진 공기 셀";
             if(thermal) tip+=$"\n온도 {monitor.Temperatures[index]:F3} °C\n열용량 {monitor.Capacities[index]:F5} J/K\n열에너지 {monitor.Energies[index]:F5} J";
@@ -251,11 +345,13 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
                 for(int k=0;k<layers;k++)capacity+=grid.GetHeatCapacityJPerK(index+k*HiveGridLayout.SizeX);
                 tip+=$"\n미리보기 열용량 {capacity:F4} J/K";
             }
+            tip+="\n"+VaporDescription(vapor);
             GUI.Label(rect,new GUIContent("",tip));
-            if(thermal && selectedGrid==grid && monitor.Selected==index) DrawBorder(rect,Color.white);
+            if(thermal && selectedGrid==grid && monitor.Selected==index){DrawBorder(rect,Color.white);selectedRect=rect;}
             if(thermal && Event.current.type==EventType.MouseDown && Event.current.button==0 && rect.Contains(Event.current.mousePosition))
             {selectedGrid=grid;monitor.Select(index);Event.current.Use();Repaint();}
         }
+        if(displayMode==2 && selectedGrid==grid && selectedRect.width>0 && flow!=null)DrawFlowArrows(selectedRect);
         if(axis!=2 && grid.TopBoundaryEquipment!=null && slice>0 && slice<(axis==0?HiveGridLayout.SizeX-1:HiveGridLayout.SizeY-1))
         {
             float height=(float)(vertical[vertical.Count-1]-grid.Layout.Z[grid.Layout.SizeZ-1])*scale;
@@ -279,17 +375,31 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
     {float f=Mathf.Clamp01((float)((t-low)/(high-low)));return f<.5f?Color.Lerp(Cold,new Color(.2f,.85f,.65f),2*f):Color.Lerp(new Color(.2f,.85f,.65f),Hot,2*f-1);}
     private static void DrawBorder(Rect r,Color c)
     {EditorGUI.DrawRect(new Rect(r.x,r.y,r.width,2),c);EditorGUI.DrawRect(new Rect(r.x,r.yMax-2,r.width,2),c);EditorGUI.DrawRect(new Rect(r.x,r.y,2,r.height),c);EditorGUI.DrawRect(new Rect(r.xMax-2,r.y,2,r.height),c);}
-    private static void DrawLegend(double low,double high)
+    private static void DrawLegend(double low,double high,string unit="°C")
     {
         Rect r=GUILayoutUtility.GetRect(100,14,GUILayout.ExpandWidth(true));
         for(int i=0;i<64;i++)EditorGUI.DrawRect(new Rect(r.x+r.width*i/64,r.y,r.width/64+1,r.height),TemperatureColor(low+(high-low)*i/63,low,high));
-        EditorGUILayout.BeginHorizontal();GUILayout.Label($"{low:F1}°C 이하");GUILayout.FlexibleSpace();GUILayout.Label($"{high:F1}°C 이상");EditorGUILayout.EndHorizontal();
+        EditorGUILayout.BeginHorizontal();GUILayout.Label($"{low:F1} {unit} 이하");GUILayout.FlexibleSpace();GUILayout.Label($"{high:F1} {unit} 이상");EditorGUILayout.EndHorizontal();
     }
     private void DrawSelection(HiveSpatialGrid grid)
     {
         if(monitor.Selected<0){EditorGUILayout.HelpBox("격자를 클릭하면 온도 변화 기록이 시작됩니다.",MessageType.Info);return;}
         int i=monitor.Selected;grid.Layout.Coordinates(i,out int x,out int y,out int z);var cell=grid.GetCell(i);
         EditorGUILayout.Space();EditorGUILayout.LabelField($"선택 계산 셀 ({x}, {YRange(y,grid.ActiveCellAt(i).depthCells)}, {z}) / {cell.Material} / {cell.Equipment?.Name ?? "공기"}",EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(VaporDescription(panes[grid].Vapor.At(i)),EditorStyles.wordWrappedLabel);
+        var moisture=panes[grid].Vapor.At(i);
+        if(moisture.Available)
+        {
+            if(moisture.Shared)EditorGUILayout.LabelField("수분량은 연결된 공간이 합쳐진 계산 셀 전체의 합계입니다.",EditorStyles.wordWrappedLabel);
+            EditorGUILayout.LabelField($"총수분 {moisture.TotalWaterKg*1e6:G8} mg ({moisture.TotalWaterKg:G8} kg)",EditorStyles.boldLabel);
+            EditorGUILayout.LabelField($"공기 중 수증기 {moisture.AirWaterKg*1e6:G8} mg / 목재 흡습수 {moisture.WoodWaterKg*1e6:G8} mg",EditorStyles.wordWrappedLabel);
+            EditorGUILayout.LabelField($"단열재 흡습수 {moisture.InsulationWaterKg*1e6:G8} mg / 화밀 액상수 {moisture.NectarWaterKg*1e6:G8} mg",EditorStyles.wordWrappedLabel);
+        }
+        if(displayMode>=2)
+        {
+            EditorGUILayout.LabelField($"완료된 게임 {panes[grid].Vapor.Minute:N0}분의 수분 상태",EditorStyles.miniLabel);
+            return;
+        }
         if(monitor.SharedRows[i]>=0)EditorGUILayout.LabelField("공유 공기 셀 · 연결된 공간의 합계");
         EditorGUILayout.LabelField($"온도 {monitor.Temperatures[i]:F3} °C   |   열에너지 {monitor.Energies[i]:F5} J",EditorStyles.wordWrappedLabel);
         EditorGUILayout.LabelField($"열용량 {monitor.Capacities[i]:F5} J/K   (내용물 {monitor.ContentCapacities[i]:F5} J/K)",EditorStyles.wordWrappedLabel);
@@ -300,6 +410,68 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         if(GUILayout.Button("선택 격자 기록 초기화"))monitor.ClearHistory();
         EditorGUILayout.HelpBox("최근 240개 관측을 보관합니다. 시간 점프 중 모든 분을 기록하지는 않습니다. 변화량에는 내용물·열용량 변경의 영향도 포함됩니다. 대상·배치가 바뀌면 기록을 초기화합니다.",MessageType.None);
     }
+    private void DrawFlowDetails()
+    {
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("마지막 완료 틱의 실제 수분 이동",EditorStyles.boldLabel);
+        if(!recordFlow){EditorGUILayout.HelpBox("기록을 켜고 1분 틱을 진행하세요.",MessageType.Info);return;}
+        if(flow==null){EditorGUILayout.HelpBox("셀을 선택한 뒤 1분 틱을 진행하면 이동 방향과 양이 표시됩니다.",MessageType.Info);return;}
+        EditorGUILayout.LabelField($"게임 {flow.Minute-1} → {flow.Minute}분 · 단위 mg/틱 (1틱=1분)");
+        EditorGUILayout.LabelField("주황 화살표: 유출 / 하늘색 화살표: 유입. 현재 단면에 수직인 이동은 아래 표로 표시합니다.",EditorStyles.wordWrappedLabel);
+        if(flow.Shared)EditorGUILayout.HelpBox("연결된 공간이 하나로 합쳐진 계산 셀의 전체 교환량입니다.",MessageType.Info);
+        double incoming=0,outgoing=0;
+        for(int direction=0;direction<6;direction++)
+        {
+            double input=flow.Transfers.Where(t=>t.Direction==direction && t.Incoming).Sum(t=>t.MassKg);
+            double output=flow.Transfers.Where(t=>t.Direction==direction && !t.Incoming).Sum(t=>t.MassKg);
+            incoming+=input;outgoing+=output;
+            EditorGUILayout.LabelField($"{FlowDirections[direction]} 이웃", $"유입 {input*1e6:G6} / 유출 {output*1e6:G6} mg");
+        }
+        EditorGUILayout.LabelField($"이웃 합계: 유입 {incoming*1e6:G6} / 유출 {outgoing*1e6:G6} / 순증가 {(incoming-outgoing)*1e6:G6} mg",EditorStyles.wordWrappedLabel);
+        EditorGUILayout.LabelField($"셀 내부 증발: 화밀 → 공기 {flow.EvaporationKg*1e6:G6} mg");
+        showFlowPaths=EditorGUILayout.Foldout(showFlowPaths,"저장소별 교환 내역",true);
+        if(showFlowPaths)
+        {
+            foreach(var transfer in flow.Transfers)
+            {
+                string place=transfer.Direction<0?"같은 셀":FlowDirections[transfer.Direction]+" 이웃 "+transfer.OtherEquipment+" #"+transfer.OtherIndex;
+                EditorGUILayout.LabelField($"{place} / {(transfer.Direction<0?"내부 이동":transfer.Incoming?"유입":"유출")} / {WaterKinds[transfer.SourceKind]} → {WaterKinds[transfer.DestinationKind]} / {transfer.MassKg*1e6:G6} mg",EditorStyles.wordWrappedLabel);
+            }
+            if(flow.Transfers.Count==0)EditorGUILayout.LabelField("교환량 0 mg");
+        }
+    }
+    private void DrawFlowArrows(Rect cell)
+    {
+        int horizontal=axis==0?1:0,vertical=axis==2?1:2;
+        for(int direction=0;direction<6;direction++)
+        {
+            int worldAxis=direction/2;if(worldAxis!=horizontal && worldAxis!=vertical)continue;
+            float sign=direction%2==0?-1:1;
+            Vector2 vector=worldAxis==horizontal?new Vector2(sign,0):new Vector2(0,-sign);
+            for(int inward=0;inward<2;inward++)
+            {
+                bool incoming=inward==1;
+                double amount=flow.Transfers.Where(t=>t.Direction==direction && t.Incoming==incoming).Sum(t=>t.MassKg);
+                if(amount<=0)continue;
+                Vector2 offset=new Vector2(-vector.y,vector.x)*(incoming?3:-3);
+                Vector2 center=cell.center+offset,edge=center+vector*32;
+                Vector2 start=incoming?edge:center,end=incoming?center:edge;
+                Vector2 travel=(end-start).normalized,wing=new Vector2(-travel.y,travel.x)*4;
+                Handles.BeginGUI();Handles.color=incoming?OutsideLine:SelectedLine;
+                Handles.DrawAAPolyLine(2,start,end);
+                Handles.DrawAAPolyLine(2,end-travel*7+wing,end,end-travel*7-wing);
+                Handles.color=Color.white;Handles.EndGUI();
+            }
+        }
+    }
+    private static string VaporDescription(VaporPressureCell cell)
+    {
+        if(!cell.Available)return "수증기압: 계산 상태 없음";
+        string air=double.IsNaN(cell.AirPa)?"공기 저장소 없음":cell.AirPa.ToString("F3")+" Pa";
+        string material=double.IsNaN(cell.MaterialPa)?"흡습 저장소 없음":cell.MaterialPa.ToString("F3")+" Pa";
+        return $"공기 수증기압: {air} / 재질 평형 수증기압: {material}";
+    }
+
     private void DrawHistory()
     {
         var points=monitor.History;Rect full=GUILayoutUtility.GetRect(300,165,GUILayout.ExpandWidth(true));

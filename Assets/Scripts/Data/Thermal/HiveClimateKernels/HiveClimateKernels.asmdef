@@ -1,0 +1,6 @@
+{
+    "name": "HiveClimateKernels",
+    "references": ["Unity.Burst"],
+    "includePlatforms": [],
+    "allowUnsafeCode": true
+}

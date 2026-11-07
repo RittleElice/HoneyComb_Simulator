@@ -34,7 +34,8 @@ public sealed class WorldSaveCodec
         using (var stream = new MemoryStream())
         using (var w = new BinaryWriter(stream,Encoding.UTF8,true))
         {
-            int version = 11;
+            snapshot.World.Thermal?.FlushClimate();
+            int version = 12;
             w.Write(version); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
             var world = snapshot.World; w.Write(world.CurrentGameMinute);
             var codec = new WorldSaveCodec { hives = world.Apiary.Hives, schema = version };
@@ -63,7 +64,7 @@ public sealed class WorldSaveCodec
         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
         {
             int schema=r.ReadInt32();
-            if(schema!=9 && schema!=10 && schema!=11) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
+            if(schema!=9 && schema!=10 && schema!=11 && schema!=12) throw new InvalidDataException("지원하지 않는 저장 버전입니다.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);
@@ -119,7 +120,7 @@ public sealed class WorldSaveCodec
         else if(item.Content is FrameData frame)
         {
             if(!contents.Add(frame)) throw new InvalidDataException("Shared frame content is unsupported.");
-            w.Write((byte)2); w.Write(frame.Width); w.Write(frame.Height); w.Write((int)frame.FacingSide); frame.Front.WriteSnapshot(w); frame.Back.WriteSnapshot(w);
+            w.Write((byte)2); w.Write(frame.Width); w.Write(frame.Height); w.Write((int)frame.FacingSide); frame.Front.WriteSnapshot(w,schema>=12); frame.Back.WriteSnapshot(w,schema>=12);
         }
         else if(item.Content is HiveOccupancyProfile profile)
         { w.Write((byte)3); w.Write(profile.FirstY); w.Write(profile.CountY); w.Write((int)profile.Material); }
@@ -128,7 +129,7 @@ public sealed class WorldSaveCodec
         else throw new InvalidDataException("저장할 수 없는 장비 내용물: "+item.Content.GetType().Name);
         if(item.InteriorSlots!=null) for(int i=0;i<item.InteriorSlots.Capacity;i++) WriteItem(w,item.InteriorSlots.GetSlot(i).Value,depth+1);
         if(item.TopSlot!=null) WriteItem(w,item.TopSlot.Value,depth+1);
-        if(schema >= 3) { w.Write(item.ExistingThermalState != null); item.ExistingThermalState?.WriteSnapshot(w); }
+        if(schema >= 3) { w.Write(item.ExistingThermalState != null); item.ExistingThermalState?.WriteSnapshot(w); item.ExistingThermalState?.WriteClimate(w); }
     }
     private MovableItem ReadItem(BinaryReader r,int depth)
     {
@@ -151,7 +152,7 @@ public sealed class WorldSaveCodec
             case 2:
                 int width=SaveBinary.Count(r,10000), height=SaveBinary.Count(r,10000), side=r.ReadInt32();
                 if(width<1||height<1||(long)width*height>1000000||side<0||side>1) throw new InvalidDataException("Invalid frame dimensions.");
-                var frame=new FrameData(width,height); frame.SetFacingSide((FrameSide)side); frame.Front.ReadSnapshot(r); frame.Back.ReadSnapshot(r); content=frame; break;
+                var frame=new FrameData(width,height); frame.SetFacingSide((FrameSide)side); frame.Front.ReadSnapshot(r,schema>=12); frame.Back.ReadSnapshot(r,schema>=12); content=frame; break;
             case 3: content=new HiveOccupancyProfile(r.ReadInt32(),r.ReadInt32(),(HiveMaterial)r.ReadInt32()); break;
             case 4:
                 if(schema<8 || kind!=(int)ItemKind.HeatingPanel)throw new InvalidDataException("Invalid heater content.");
@@ -165,9 +166,11 @@ public sealed class WorldSaveCodec
         {
             if(item.ThermalState == null) throw new InvalidDataException("Thermal state on unsupported equipment");
             item.ThermalState.ReadSnapshot(r);
+            if(schema>=12)item.ThermalState.ReadClimate(r);
         }
         return item;
     }
     private static void Insert(ItemSlot slot,MovableItem value)
     { if(value!=null && !slot.TryInsertValue(value)) throw new InvalidDataException("Invalid item placement."); }
 }
+

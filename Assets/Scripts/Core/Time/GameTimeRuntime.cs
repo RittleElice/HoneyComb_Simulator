@@ -37,6 +37,13 @@ public sealed class GameTimeRuntime : MonoBehaviour
         => world != null && ReferenceEquals(world.Clock, Clock) && !Scheduler.IsInTick && Scheduler.Fault == null && failure == null &&
            (world.Weather == null ? Scheduler.ParticipantCount == 0 : Scheduler.ContainsThermalAndWeather(world.Thermal, world.Weather) && world.Thermal.Failure == null && world.Weather.Minute == Clock.CurrentGameMinute);
 
+    public static SimulationScheduler CreateWorldScheduler(GameWorld world)
+    {
+        var scheduler=new SimulationScheduler(world.Clock);
+        scheduler.Register(world.Thermal);
+        scheduler.Register(world.Weather);
+        return scheduler;
+    }
     public void BeginWorld(GameWorld world)
     {
         if (Blocked || Scheduler.IsRunning) throw new InvalidOperationException("Cannot replace a calculating world.");
@@ -45,9 +52,9 @@ public sealed class GameTimeRuntime : MonoBehaviour
         world.PrepareThermal(ThermalMaterials.Load());
         if (!ReferenceEquals(thermalWorld, world)) thermalWorld?.Thermal?.Dispose();
         thermalWorld = world;
-        Clock = world.Clock; Scheduler = new SimulationScheduler(Clock);
+        Clock = world.Clock; Scheduler = CreateWorldScheduler(world);
         // Reject unsafe thermal steps before advancing weather or its random generator.
-        Scheduler.Register(world.Thermal); Scheduler.Register(world.Weather); offline = new OfflineTimeManager();
+        offline = new OfflineTimeManager();
         Scheduler.CheckpointAsync = () => GameBootstrap.Instance?.SaveSystem?.SaveBoundaryAsync(false) ?? Task.CompletedTask;
         pendingMinutes = 0; operationTarget = 0; HasWorld = true; nextTick = Time.realtimeSinceStartupAsDouble + 5 / speed;
     }
@@ -217,3 +224,4 @@ public sealed class GameTimeRuntime : MonoBehaviour
     }
 #endif
 }
+

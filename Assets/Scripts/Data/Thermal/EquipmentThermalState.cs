@@ -7,6 +7,45 @@ using System.IO;
 // Equipment owns state even when detached. Derived SoA arrays are never serialized.
 public sealed class EquipmentThermalState : IReadOnlyList<float>
 {
+    internal ItemData ClimateItem => item;
+    internal double[] AtmosphericAndBoundWater;
+    internal void AdjustContentWater(int index,double changeKg,double cp)
+    {
+        float change=(float)(changeKg*cp);
+        contentCapacity[index]+=change;
+        capacity[index]+=change;
+    }
+    internal void WriteClimate(BinaryWriter w)
+    {
+        w.Write(AtmosphericAndBoundWater!=null);
+        if(AtmosphericAndBoundWater!=null)foreach(double value in AtmosphericAndBoundWater)w.Write(value);
+    }
+    internal void ReadClimate(BinaryReader r)
+    {
+        if(!r.ReadBoolean())return;
+        AtmosphericAndBoundWater=new double[checked(Count*4)];
+        for(int i=0;i<AtmosphericAndBoundWater.Length;i++)
+        {
+            double v=r.ReadDouble();
+            if((!(v>=0) && !(i%4==0 && v==-1))||double.IsInfinity(v))throw new InvalidDataException("Invalid equipment moisture");
+            AtmosphericAndBoundWater[i]=v;
+        }
+        NormalizeDividerWater();
+    }
+    // A saved mixed divider can have vapor or water bound to its old material.
+    // Preserve its water mass in the solid wood reservoir on load.
+    private void NormalizeDividerWater()
+    {
+        if(item.Kind!=ItemKind.DividerBoard)return;
+        for(int p=0;p<AtmosphericAndBoundWater.Length;p+=4)
+        {
+            if(AtmosphericAndBoundWater[p]<0)continue;
+            double total=AtmosphericAndBoundWater[p]+AtmosphericAndBoundWater[p+1]+AtmosphericAndBoundWater[p+2]+AtmosphericAndBoundWater[p+3];
+            if(double.IsInfinity(total))throw new InvalidDataException("Invalid divider water total");
+            AtmosphericAndBoundWater[p]=AtmosphericAndBoundWater[p+2]=AtmosphericAndBoundWater[p+3]=0;
+            AtmosphericAndBoundWater[p+1]=total;
+        }
+    }
     private readonly ItemData item;
     private readonly float[] energy;
     private readonly bool[] initialized, dirty;
@@ -62,7 +101,22 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
         int row = activeIndices == null ? -1 : activeIndices[index];
         return row < 0 ? energy[index] : ActiveExchange.ReadEnergy(row, this, index);
     }
+    internal long ExternalEnergyRevision { get; private set; }
+
     private void SetEnergy(int index, float value)
+    {
+        StoreEnergy(index, value);
+        unchecked { ExternalEnergyRevision++; }
+    }
+
+    internal void PublishClimateEnergy(int index, float value)
+    {
+        if (!ThermalMath.Finite(value)) throw new ArgumentOutOfRangeException(nameof(value));
+        StoreEnergy(index, value);
+        initialized[index] = true;
+    }
+
+    private void StoreEnergy(int index, float value)
     {
         int row = activeIndices == null ? -1 : activeIndices[index];
         if (row < 0) energy[index] = value;
@@ -204,7 +258,7 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
             ThermalMath.Mix(centreVolume, 0, solid, foundation, m, out _, out _, out float centreK);
             depthConductivity[index] = 1f / (.8f / faceK + .2f / centreK);
         }
-        else if (item.Kind == ItemKind.DividerBoard || item.Kind == ItemKind.InsulationBoard || item.Kind == ItemKind.HeatingPanel)
+        else if (item.Kind == ItemKind.InsulationBoard || item.Kind == ItemKind.HeatingPanel)
         {
             float f = (float)g.SolidFraction(y);
             depthConductivity[index] = 1f / (f / solid.Conductivity + (1-f) / m[ThermalMaterialKind.Air].Conductivity);
@@ -218,15 +272,17 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
             throw new InvalidOperationException("Invalid contents heat capacity");
     }
     // Uniform volumetric heat source across the owned panel.
-    internal void SupplyHeat(double joules)
+    internal double[] PendingHeaterJ { get; private set; }
+    internal void SupplyHeat(double joules,bool defer=false)
     {
         if (item.Kind != ItemKind.HeatingPanel || !ThermalExchange.Finite(joules) || joules < 0)
             throw new ArgumentOutOfRangeException(nameof(joules));
+        if(defer && PendingHeaterJ==null)PendingHeaterJ=new double[Count];
         var g=item.EquipmentGrid;double volume=0;
         for(int i=0;i<Count;i++){int x=i%g.SizeX,y=i/g.SizeX%g.SizeY,z=i/(g.SizeX*g.SizeY);volume+=(g.X[x+1]-g.X[x])*(g.Y[y+1]-g.Y[y])*(g.Z[z+1]-g.Z[z])*g.SolidFraction(y);}
         if(!(volume>0))throw new InvalidOperationException("Heating panel has no solid volume.");
         for(int i=0;i<Count;i++){int x=i%g.SizeX,y=i/g.SizeX%g.SizeY,z=i/(g.SizeX*g.SizeY);double v=(g.X[x+1]-g.X[x])*(g.Y[y+1]-g.Y[y])*(g.Z[z+1]-g.Z[z])*g.SolidFraction(y);
-            double next=ReadEnergy(i)+joules*v/volume;if(!initialized[i]||dirty[i]||!ThermalExchange.Finite(next)||next>float.MaxValue)throw new InvalidOperationException("Invalid heating state");SetEnergy(i,(float)next);
+            double next=ReadEnergy(i)+joules*v/volume;if(!initialized[i]||dirty[i]||!ThermalExchange.Finite(next)||next>float.MaxValue)throw new InvalidOperationException("Invalid heating state");if(defer)PendingHeaterJ[i]+=joules*v/volume;else SetEnergy(i,(float)next);
         }
     }
     internal void WriteSnapshot(BinaryWriter w)
@@ -254,3 +310,5 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
         MarkAllDirty();
     }
 }
+
+

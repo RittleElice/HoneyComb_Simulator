@@ -264,6 +264,40 @@ public sealed partial class FrameSurface
         return thermalRegions[regionX + HiveGridLayout.CombColumns * regionZ];
     }
 
+    // Region lookup is rebuilt only when gameplay changes the comb.
+    private System.Collections.Generic.List<int>[] climateWetCells;
+    private int climateWetRevision=-1;
+    internal double ApplyClimateWater(int x,int z,double ratio)
+    {
+        if(climateWetRevision!=ThermalRevision)
+        {
+            climateWetCells=new System.Collections.Generic.List<int>[HiveGridLayout.CombColumns*HiveGridLayout.CombRows];
+            for(int i=0;i<cells.Length;i++)
+            {
+                if(cells[i].Content!=CellContentKind.Nectar || (materials?.Mass(i)??0)<=0)continue;
+                int region=CombSpatialMapper.RegionX(i%Width,Width)+HiveGridLayout.CombColumns*CombSpatialMapper.RegionZ(i/Width,Height);
+                (climateWetCells[region]??=new System.Collections.Generic.List<int>()).Add(i);
+            }
+            climateWetRevision=ThermalRevision;
+        }
+        int key=x+HiveGridLayout.CombColumns*z;
+        var members=climateWetCells[key];
+        if(members==null)return 0;
+        double changeMg=0;
+        foreach(int i in members)
+        {
+            float old=materials.Mass(i),value=(float)(old*ratio);
+            materials.SetWater(i,value);
+            changeMg+=value-old;
+        }
+        if(changeMg!=0)
+        {
+            thermalRegions[key].WaterMg+=changeMg;
+            unchecked{Revision++;}
+        }
+        return changeMg*1e-6;
+    }
+
     public int CountCompletedCells()
     {
         int count = 0;

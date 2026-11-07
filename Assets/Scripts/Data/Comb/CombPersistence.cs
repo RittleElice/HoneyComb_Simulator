@@ -20,10 +20,27 @@ public partial struct CellData
 }
 public sealed partial class FrameSurface
 {
-    internal void WriteSnapshot(BinaryWriter w)
+    internal void WriteSnapshot(BinaryWriter w,bool compact=false)
     {
         var sugars = new List<KeyValuePair<int,float>>();
-        foreach (var c in cells) c.WriteSnapshot(w);
+        if(compact)
+        {
+            int runs=1;
+            for(int i=1;i<cells.Length;i++)if(!SameState(cells[i-1],cells[i]))runs++;
+            bool useRuns=12L*runs<8L*cells.Length;
+            w.Write(useRuns);
+            if(useRuns)
+            {
+                for(int first=0;first<cells.Length;)
+                {
+                    int end=first+1;
+                    while(end<cells.Length && SameState(cells[first],cells[end]))end++;
+                    w.Write(end-first);cells[first].WriteSnapshot(w);first=end;
+                }
+            }
+            else foreach(var cell in cells)cell.WriteSnapshot(w);
+        }
+        else foreach(var cell in cells)cell.WriteSnapshot(w);
         for (int i = 0; i < cells.Length; i++)
         {
             bool quantified = materials != null && materials.Has(i); w.Write(quantified);
@@ -39,9 +56,20 @@ public sealed partial class FrameSurface
             }
         }
     }
-    internal void ReadSnapshot(BinaryReader r)
+    internal void ReadSnapshot(BinaryReader r,bool compact=false)
     {
-        for (int i = 0; i < cells.Length; i++) cells[i] = CellData.ReadSnapshot(r);
+        if(compact && r.ReadBoolean())
+        {
+            for(int first=0;first<cells.Length;)
+            {
+                int count=SaveBinary.Count(r,cells.Length-first);
+                if(count==0)throw new InvalidDataException("Empty comb run");
+                var cell=CellData.ReadSnapshot(r);
+                for(int i=0;i<count;i++)cells[first+i]=cell;
+                first+=count;
+            }
+        }
+        else for(int i=0;i<cells.Length;i++)cells[i]=CellData.ReadSnapshot(r);
         for (int i = 0; i < cells.Length; i++)
         {
             bool quantified = r.ReadBoolean();
@@ -77,3 +105,4 @@ public sealed partial class FrameSurface
     private static float ReadMass(BinaryReader r)
     { float value = r.ReadSingle(); if (!CellMaterialStore.ValidMass(value)) throw new InvalidDataException("Invalid mass."); return value; }
 }
+

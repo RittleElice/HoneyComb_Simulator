@@ -38,6 +38,7 @@ internal sealed class CellMaterialStore
     private int free;
     internal CellMaterialStore(int count) { payloads = new Payload[count]; }
     internal bool Has(int index) => payloads[index].Bee != 0;
+    internal void SetWater(int index,float value)=>payloads[index].Mass=value;
     internal float Mass(int index) => payloads[index].Mass;
     internal long Bee(int index) => payloads[index].Bee;
     internal static bool ValidMass(float value) => !float.IsNaN(value) && !float.IsInfinity(value) && value >= 0;

@@ -7,7 +7,7 @@ public enum HiveMaterial { Air, Wood, Comb, Insulation }
 // Defaults are modelling presets, not measured product specifications.
 public sealed class HiveOccupancyProfile
 {
-    public static readonly HiveOccupancyProfile Divider = new HiveOccupancyProfile(2, 1, HiveMaterial.Wood);
+    public static readonly HiveOccupancyProfile Divider = new HiveOccupancyProfile(1, 3, HiveMaterial.Wood);
     public static readonly HiveOccupancyProfile Insulation = new HiveOccupancyProfile(1, 3, HiveMaterial.Insulation);
     public static readonly HiveOccupancyProfile Heating = new HiveOccupancyProfile(1, 3, HiveMaterial.Wood);
     public int FirstY { get; }
@@ -27,3 +27,4 @@ public sealed class HiveOccupancyProfile
         => localX >= 1 && localX <= HiveGridLayout.FrameSizeX && localZ >= 0 && localZ < HiveGridLayout.FrameSizeZ &&
            localY >= FirstY && localY < FirstY + CountY;
 }
+

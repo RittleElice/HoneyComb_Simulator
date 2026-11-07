@@ -5,6 +5,28 @@ using UnityEditor;
 using UnityEngine;
 public static class TwoLayerFrameTests
 {
+ public static void VerifySolidDivider()
+ {
+    var materials=ThermalMaterials.Load();
+    var wood=materials[ThermalMaterialKind.Wood];
+    var profile=new HiveOccupancyProfile(1,1,HiveMaterial.Insulation);
+    foreach(var custom in new HiveOccupancyProfile[]{null,profile})
+    {
+        var item=new ItemData(902,"divider",ItemKind.DividerBoard,custom);
+        var g=item.EquipmentGrid;var t=item.ThermalState;t.Refresh(materials,20);
+        double volume=0;
+        for(int z=0;z<g.SizeZ;z++)for(int y=0;y<g.SizeY;y++)for(int x=0;x<g.SizeX;x++){
+            int i=g.Index(x,y,z);var cell=g.GetCell(x,y,z);
+            Check(cell.Material==HiveMaterial.Wood && g.SolidFraction(y)==1 && t.AirVolumeM3[i]==0,"all divider cells pure wood");
+            Near(t.Conductivity(i,1),wood.Conductivity,"wood depth conductivity");volume+=cell.VolumeMm3;
+        }
+        Near(volume,440*220*25,"whole wooden divider volume");
+        double cv=wood.EffectiveVolumetricHeatCapacityJPerM3K>0?wood.EffectiveVolumetricHeatCapacityJPerM3K:wood.Density*wood.SpecificHeat;
+        Near(t.HeatCapacityJPerK.Sum(c=>(double)c),volume*1e-9*cv,"wood heat capacity");
+    }
+    HiveSpatialGridTests.RunAll();
+    Debug.Log("Solid divider spatial and thermal checks passed");
+ }
  static int checks;
  static void Check(bool ok,string why){checks++;if(!ok)throw new Exception(why);}
  static void Near(double a,double b,string why){Check(Math.Abs(a-b)<2e-6*Math.Max(1,Math.Abs(b)),why+": "+a+" / "+b);}
@@ -34,7 +56,7 @@ public static class TwoLayerFrameTests
    foreach(var kind in new[]{ItemKind.DividerBoard,ItemKind.InsulationBoard}) {
     var item=new ItemData(902,"panel",kind);var g=item.EquipmentGrid;double solid=0;
     for(int z=0;z<g.SizeZ;z++)for(int y=0;y<g.SizeY;y++)for(int x=0;x<g.SizeX;x++)solid+=g.GetCell(x,y,z).VolumeMm3*g.SolidFraction(y);
-    Near(solid,440*220*(kind==ItemKind.DividerBoard?5:25),"panel solid dimensions preserved");
+    Near(solid,440*220*25,"panel solid dimensions preserved");
    }
    HiveSpatialGridTests.RunAll();CombGeometryTests.RunAll();CombThermalTests.RunAll();ContentThermalIntegrationTests.Run(m);ExteriorThermalTests.Run(m);PersistentThermalTests.Run(m);WorldSaveTests.Run();
    var world=new GameWorld(new WeatherSimulator(42,WeatherAssetLoader.LoadBaseline()));world.PrepareThermal(m);world.Thermal.PrepareExchange();
@@ -46,3 +68,4 @@ public static class TwoLayerFrameTests
   }catch(Exception e){Debug.LogException(e);ThermalExchange.ReleaseAllBuffers();if(Application.isBatchMode)EditorApplication.Exit(1);else throw;}
  }
 }
+
