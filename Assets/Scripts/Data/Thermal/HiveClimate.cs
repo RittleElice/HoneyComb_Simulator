@@ -29,12 +29,13 @@ public static partial class HiveClimate
         readonly bool[] capacityChanged;
         readonly double waterDensity, airCv, woodDryDensity;
         readonly double liquidCp;
+        readonly ThermalTransferCoefficients exteriorTransfers;
         public Model(ThermalExchange ex, Dictionary<EquipmentThermalState,ItemData> owners,ThermalMaterials materials,bool warmGradient=false)
             : this(new ClimatePartition(ex),owners,materials,warmGradient,null) {}
         internal Model(ClimatePartition ex, Dictionary<EquipmentThermalState,ItemData> owners,ThermalMaterials materials,
             bool warmGradient,double? initialRh)
         {
-            n=ex.CellCount;
+            n=ex.CellCount;exteriorTransfers=materials.Transfers;
             phaseEnergy=new double[n];capacity=new double[n];heatCapacityAtLastExchange=new double[n];capacityChanged=new bool[n];
             heatCoefficients=new double[ex.FaceCount];slope=new double[n*Kinds];
             links=new Link[ex.FaceCount];
@@ -143,16 +144,22 @@ public static partial class HiveClimate
             dE[p/Kinds]-=h;dE[q/Kinds]+=h;
         }
         Contact[] contacts;
+        HiveClimateKernels.ExteriorContact[] exteriorContacts=Array.Empty<HiveClimateKernels.ExteriorContact>();
         double[] slope;
-        static double MoistureResistance(int kind,double half)
+        double MoistureMobility(int kind)=>kind==Air?exteriorTransfers.MoistureAirMobility:
+            kind==Insulation?exteriorTransfers.MoistureInsulationMobility:
+            kind==Nectar?exteriorTransfers.MoistureEvaporationMobility:Mobility[kind];
+        double AirFilmResistance()=>exteriorTransfers.MoistureAirPermeability>0?
+            exteriorTransfers.MoistureExteriorAirFilmM/exteriorTransfers.MoistureAirPermeability:double.PositiveInfinity;
+        double MoistureResistance(int kind,double half)
         {
-            if(kind==Wood)return half/HiveClimateKernels.WoodPermeability;
-            if(kind==Air)return half/HiveClimateKernels.AirPermeability;
-            return .5/(1e-9*Mobility[kind]); // retain legacy non-wood interface scale
+            if(kind==Wood)return exteriorTransfers.MoistureWoodPermeability>0?half/exteriorTransfers.MoistureWoodPermeability:double.PositiveInfinity;
+            if(kind==Air)return exteriorTransfers.MoistureAirPermeability>0?half/exteriorTransfers.MoistureAirPermeability:double.PositiveInfinity;
+            return .5/(1e-9*MoistureMobility(kind)); // retain legacy non-wood interface scale
         }
-        static double FaceMoistureConductance(Link f,int a,int b)
+        double FaceMoistureConductance(Link f,int a,int b)
         {
-            if(a!=Wood && b!=Wood)return f.area*1e-9*Math.Min(Mobility[a],Mobility[b]);
+            if(a!=Wood && b!=Wood && !(a==Air && b==Air))return f.area*1e-9*Math.Min(MoistureMobility(a),MoistureMobility(b));
             return f.area/(MoistureResistance(a,f.halfA)+MoistureResistance(b,f.halfB));
         }
         double LocalMoistureConductance(int row,int kind)
@@ -160,7 +167,7 @@ public static partial class HiveClimate
             // Current pure-wood cells have no local air reservoir. Keep the legacy
             // mixed-cell interface law for other materials; wood uses a cube-length
             // approximation if a future mixed cell exposes a local air reservoir.
-            if(kind!=Wood)return 1e-9*Math.Pow(volume[row],2d/3)*Mobility[kind];
+            if(kind!=Wood)return 1e-9*Math.Pow(volume[row],2d/3)*MoistureMobility(kind);
             double woodVolume=limit[row*Kinds+Wood]/HiveClimateKernels.WoodCapacityRatio/woodDryDensity;
             double half=.5*Math.Pow(woodVolume,1d/3);
             return Math.Pow(volume[row],2d/3)/(MoistureResistance(Wood,half)+MoistureResistance(Air,.5*Math.Pow(volume[row],1d/3)));
@@ -196,21 +203,37 @@ public static partial class HiveClimate
                     Add(i*Kinds,i*Kinds+r,LocalMoistureConductance(i,r),.5/(presentCount[i]-1),.5);
             }
             contacts=active.ToArray();
+            var exterior=new List<HiveClimateKernels.ExteriorContact>();
+            if(flowGrid!=null)for(int j=0;j<flowGrid.BoundaryCount;j++){
+                var b=flowGrid.GetBoundary(j);int row=b.Cell;
+                double fraction=flowGrid.FacePyramidCapacity(row,b.Direction/2,b.AreaM2)/flowGrid.GetCell(row).HeatCapacityJPerK*FaceShare(row);
+                for(int kind=0;kind<Nectar;kind++)if(Present(row*Kinds+kind,kind)){
+                    double resistance=MoistureResistance(kind,b.HalfM)+AirFilmResistance();
+                    exterior.Add(new HiveClimateKernels.ExteriorContact{reservoir=row*Kinds+kind,direction=b.Direction,
+                        conductance=b.AreaM2/resistance,fraction=fraction,area=b.AreaM2,materialResistance=MoistureResistance(kind,b.HalfM)});
+                }
+            }
+            exteriorContacts=exterior.ToArray();
             // Shared or partially covered faces can carry rounding in the area ratios.
             // Ensure that all paired subvolumes together fit in the parent reservoir.
             var total=new double[mass.Length];
             foreach(var c in contacts){total[c.a]+=c.fractionA;total[c.b]+=c.fractionB;}
+            foreach(var c in exteriorContacts)total[c.reservoir]+=c.fraction;
             for(int j=0;j<contacts.Length;j++)
             {
                 var c=contacts[j];
                 c.fractionA/=Math.Max(1,total[c.a]);c.fractionB/=Math.Max(1,total[c.b]);
                 contacts[j]=c;
             }
+            for(int j=0;j<exteriorContacts.Length;j++){
+                var c=exteriorContacts[j];c.fraction/=Math.Max(1,total[c.reservoir]);exteriorContacts[j]=c;
+            }
 
         }
         public void Minute(int steps)
         {
             if(steps<=0)throw new ArgumentOutOfRangeException(nameof(steps));
+            ExternalWaterKg=ExternalMoistureEnergyJ=ExternalSensibleEnergyJ=0;
             Prepare(pressures:false);
             if(steps==1)
             {
@@ -220,6 +243,7 @@ public static partial class HiveClimate
                 if(contacts==null)BuildContacts();
                 PrepareFlowTrace();
                 HiveClimateKernels.PairFlux(contacts,slope,pressure,mass,limit,delta,dE,temperature,flowTransfers);
+                AccumulateExteriorMoisture(60);
                 Mark(2);
                 AccumulateHeat();
                 Mark(3);
@@ -227,6 +251,13 @@ public static partial class HiveClimate
             }
             else LegacyMoisture(steps);
             Mark(4);
+        }
+        void AccumulateExteriorMoisture(double seconds)
+        {
+            if(!exteriorMoistureEnabled)return;
+            HiveClimateKernels.ExteriorFlux(exteriorContacts,slope,pressure,mass,limit,delta,dE,temperature,
+                outsideVaporPressure,outdoors,seconds,out double water,out double enthalpy,flowExterior,outsideWind,exteriorTransfers.MoistureWindCoefficient,exteriorTransfers.MoistureAirPermeability,exteriorTransfers.MoistureExteriorAirFilmM);
+            ExternalWaterKg+=water;ExternalMoistureEnergyJ+=enthalpy;
         }
         // Only the water deltas change here; the enthalpy of a local phase change stays in this cell.
         void AccumulateEvaporation(double seconds)
@@ -245,7 +276,7 @@ public static partial class HiveClimate
                 if(difference<=0)continue;
 
                 double slopeSum=vaporSlope+saturation*solute/(total*total);
-                double rateTime=seconds*1e-9*Mobility[Nectar]*Math.Pow(airVolume,2d/3);
+                double rateTime=seconds*1e-9*MoistureMobility(Nectar)*Math.Pow(airVolume,2d/3);
                 double x=rateTime*slopeSum;
                 double response=x<1e-5?rateTime*(1-x/2+x*x/6):(1-Math.Exp(-x))/slopeSum;
                 double moved=Math.Min(water,difference*response);
@@ -265,14 +296,9 @@ public static partial class HiveClimate
             {
                 Prepare();
                 AccumulateEvaporation(dt);
-                foreach(var f in links)
-                {
-                    // Half the reservoir is available to faces, split among endpoint phases.
-                    for(int s=0;s<Nectar;s++)if(Present(f.a*Kinds+s,s))for(int r=0;r<Nectar;r++)
-                        Move(f.a*Kinds+s,f.b*Kinds+r,dt*FaceMoistureConductance(f,s,r),f.fa/(2*Kinds),f.fb/(2*Kinds));
-                }
-                for(int i=0;i<n;i++)
-                    for(int r=Wood;r<Nectar;r++)Move(i*Kinds,i*Kinds+r,dt*LocalMoistureConductance(i,r),.5/(Kinds-1),.5);
+                if(contacts==null)BuildContacts();
+                foreach(var c in contacts)Move(c.a,c.b,dt*c.conductance,c.fractionA,c.fractionB);
+                AccumulateExteriorMoisture(dt);
                 if(k==steps-1)for(int i=0;i<n;i++)dE[i]+=endHeat[i];
                 CommitChanges();
             }

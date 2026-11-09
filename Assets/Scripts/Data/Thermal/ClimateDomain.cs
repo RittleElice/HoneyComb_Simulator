@@ -9,10 +9,13 @@ internal sealed class ClimatePartition
     readonly ThermalExchange source;
     readonly int[] rows;
     readonly ThermalExchange.Face[] faces;
+    readonly ThermalExchange.Boundary[] boundaries;
     internal ClimatePartition(ThermalExchange source){this.source=source;}
-    internal ClimatePartition(ThermalExchange source,int[] rows,ThermalExchange.Face[] faces)
-    {this.source=source;this.rows=rows;this.faces=faces;}
+    internal ClimatePartition(ThermalExchange source,int[] rows,ThermalExchange.Face[] faces,ThermalExchange.Boundary[] boundaries)
+    {this.source=source;this.rows=rows;this.faces=faces;this.boundaries=boundaries;}
     public int CellCount=>rows?.Length??source.CellCount;
+    public int BoundaryCount=>boundaries?.Length??source.BoundaryCount;
+    public ThermalExchange.Boundary GetBoundary(int i)=>boundaries==null?source.GetBoundary(i):boundaries[i];
     public int FaceCount=>faces?.Length??source.FaceCount;
     internal int Global(int i)=>rows==null?i:rows[i];
     public ThermalExchange.Cell GetCell(int i)=>source.GetCell(Global(i));
@@ -46,7 +49,12 @@ internal sealed class ClimatePartition
         for(int i=0;i<ex.FaceCount;i++){
             var f=ex.GetFace(i);faceGroups[group[f.A]].Add(new ThermalExchange.Face(local[f.A],local[f.B],f.AreaM2,f.HalfAM,f.HalfBM,f.Axis));
         }
-        return cellGroups.Select((c,i)=>new ClimatePartition(ex,c.ToArray(),faceGroups[i].ToArray())).ToArray();
+        var boundaryGroups=cellGroups.Select(_=>new List<ThermalExchange.Boundary>()).ToArray();
+        for(int i=0;i<ex.BoundaryCount;i++){
+            var b=ex.GetBoundary(i);
+            boundaryGroups[group[b.Cell]].Add(new ThermalExchange.Boundary(local[b.Cell],b.Direction,b.AreaM2,b.HalfM));
+        }
+        return cellGroups.Select((c,i)=>new ClimatePartition(ex,c.ToArray(),faceGroups[i].ToArray(),boundaryGroups[i].ToArray())).ToArray();
     }
 }
 
@@ -71,10 +79,13 @@ internal sealed class ClimateDomain
         foreach(var model in models)if(model.ReadFlow(owner,index,out snapshot))return true;
         snapshot=null;return false;
     }
-    internal void Advance(double outside)
+    internal double ExternalWaterKg=>models.Sum(m=>m.ExternalWaterKg);
+    internal double ExternalMoistureEnergyJ=>models.Sum(m=>m.ExternalMoistureEnergyJ);
+    internal double ExternalSensibleEnergyJ=>models.Sum(m=>m.ExternalSensibleEnergyJ);
+    internal void Advance(double outside,double humidity,double wind)
     {
-        if(models.Length==1)models[0].LiveMinute(outside);
-        else Parallel.For(0,models.Length,i=>models[i].LiveMinute(outside));
+        if(models.Length==1)models[0].LiveMinute(outside,humidity,wind);
+        else Parallel.For(0,models.Length,i=>models[i].LiveMinute(outside,humidity,wind));
     }
     internal void Flush(){foreach(var m in models)m.Flush();}
     internal void CopyVaporPressures(Dictionary<EquipmentThermalState,VaporPressureCell[]> target)
@@ -88,9 +99,14 @@ public static partial class HiveClimate
     public sealed partial class Model
     {
         ThermalExchange.Cell[] physical;
-        double[] outsideCoefficient;
+        HiveClimateKernels.ExteriorHeatContact[] outsideHeatContacts;
         float[] published;
-        double outdoors;
+        double outdoors, outsideVaporPressure, outsideWind;
+        bool exteriorMoistureEnabled;
+        // Signed budgets for the last completed calculation: positive enters the domain.
+        public double ExternalWaterKg { get; private set; }
+        public double ExternalMoistureEnergyJ { get; private set; }
+        public double ExternalSensibleEnergyJ { get; private set; }
         struct WetRegion
         {
             public int row,index,x,z;
@@ -130,14 +146,21 @@ public static partial class HiveClimate
         internal void Bind(ClimatePartition grid)
         {
             flowGrid=grid;
-            physical=new ThermalExchange.Cell[n];published=new float[n];outsideCoefficient=new double[n];
+            contacts=null; // exterior and interior pyramids must share one mass budget
+            physical=new ThermalExchange.Cell[n];published=new float[n];
+            outsideHeatContacts=new HiveClimateKernels.ExteriorHeatContact[grid.BoundaryCount];
+            for(int j=0;j<outsideHeatContacts.Length;j++){
+                var b=grid.GetBoundary(j);var c=grid.GetCell(b.Cell);
+                outsideHeatContacts[j]=new HiveClimateKernels.ExteriorHeatContact{row=b.Cell,area=b.AreaM2,
+                    baseConductance=b.AreaM2*exteriorTransfers.Outside(c.Owner.ExchangeMaterial(c.Index)),
+                    pyramidCapacity=grid.FacePyramidCapacity(b.Cell,b.Direction/2,b.AreaM2)};
+            }
             var wet=new List<WetRegion>();
             var heaters=new List<HeaterMember>();
             var memberMap=new Dictionary<EquipmentThermalState,List<(int row,int index)>>();
             var shared=new List<int>();
             for(int i=0;i<n;i++){
                 var c=physical[i]=grid.GetCell(i);published[i]=c.EnergyJ;
-                outsideCoefficient[i]=60*grid.Exterior(i);
                 if(c.MemberCount>1)shared.Add(i);
                 for(int k=0;k<c.MemberCount;k++){
                     var owner=c.MemberOwner(k);
@@ -216,7 +239,7 @@ public static partial class HiveClimate
         }
 
         ClimatePartition flowGrid;
-        double[] flowTransfers,flowEvaporation;
+        double[] flowTransfers,flowEvaporation,flowExterior;
         int[] flowAxes;
         bool flowRequested,flowReady;
 
@@ -227,12 +250,13 @@ public static partial class HiveClimate
             {
                 if(flowEvaporation==null)flowEvaporation=new double[n];
             }
-            else {flowTransfers=null;flowAxes=null;flowEvaporation=null;flowReady=false;}
+            else {flowTransfers=null;flowAxes=null;flowEvaporation=null;flowExterior=null;flowReady=false;}
         }
         void PrepareFlowTrace()
         {
             flowReady=false;
             if(!flowRequested)return;
+            if(flowExterior==null || flowExterior.Length!=exteriorContacts.Length)flowExterior=new double[exteriorContacts.Length];
             if(flowTransfers!=null && flowTransfers.Length==contacts.Length)return;
             flowTransfers=new double[contacts.Length];flowAxes=new int[contacts.Length];
             int next=0;
@@ -254,7 +278,7 @@ public static partial class HiveClimate
             int row=-1;
             foreach(var entry in group.Entries)if(entry.index==index){row=entry.row;break;}
             if(row<0)return false;
-            snapshot=new MoistureFlowSnapshot{EvaporationKg=flowEvaporation[row],Shared=physical[row].MemberCount>1};
+            snapshot=new MoistureFlowSnapshot{WindSpeedMps=outsideWind,EvaporationKg=flowEvaporation[row],Shared=physical[row].MemberCount>1};
             for(int j=0;j<contacts.Length;j++)
             {
                 var contact=contacts[j];int a=contact.a/Kinds,b=contact.b/Kinds;
@@ -267,18 +291,28 @@ public static partial class HiveClimate
                 snapshot.Transfers.Add(new MoistureFlowTransfer(direction,inward,Math.Abs(moved),
                     donor%Kinds,receiver%Kinds,physical[other].Owner.ClimateItem.Name,physical[other].Index));
             }
+            if(flowExterior!=null)for(int j=0;j<exteriorContacts.Length;j++){
+                var c=exteriorContacts[j];if(c.reservoir/Kinds!=row)continue;
+                double moved=flowExterior[j];if(moved==0)continue;
+                bool inward=moved>0;int kind=c.reservoir%Kinds;
+                snapshot.Transfers.Add(new MoistureFlowTransfer(c.direction,inward,Math.Abs(moved),
+                    inward?Air:kind,inward?kind:Air,"외기",-1,true));
+            }
             return true;
         }
 
         void ApplyExteriorHeat()
         {
-            if(outsideCoefficient==null)return;
-            for(int i=0;i<n;i++)dE[i]+=outsideCoefficient[i]*(outdoors-temperature[i]);
+            if(outsideHeatContacts==null)return;
+            HiveClimateKernels.ExteriorHeatFlux(outsideHeatContacts,temperature,dE,outdoors,outsideWind,airCv,out double energy,exteriorTransfers.MoistureWindCoefficient);
+            ExternalSensibleEnergyJ+=energy;
         }
-        internal void LiveMinute(double outside)
+        internal void LiveMinute(double outside,double humidity,double wind=0)
         {
             // The legacy sensible-energy view also receives heater and manual energy inputs.
-            outdoors=outside;
+            if(!ThermalExchange.Finite(outside) || outside<=-273.15 || !ThermalExchange.Finite(humidity) || humidity<0 || humidity>1 || !ThermalExchange.Finite(wind) || wind<0)
+                throw new ArgumentOutOfRangeException("Invalid exterior climate");
+            outdoors=outside;outsideWind=wind;outsideVaporPressure=humidity*Psat(outside);exteriorMoistureEnabled=true;
             importedRows.Clear();
             foreach(var group in equipmentRows)
             {

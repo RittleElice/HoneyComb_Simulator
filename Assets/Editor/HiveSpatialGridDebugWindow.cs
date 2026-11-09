@@ -425,16 +425,20 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             double input=flow.Transfers.Where(t=>t.Direction==direction && t.Incoming).Sum(t=>t.MassKg);
             double output=flow.Transfers.Where(t=>t.Direction==direction && !t.Incoming).Sum(t=>t.MassKg);
             incoming+=input;outgoing+=output;
-            EditorGUILayout.LabelField($"{FlowDirections[direction]} 이웃", $"유입 {input*1e6:G6} / 유출 {output*1e6:G6} mg");
+            EditorGUILayout.LabelField($"{FlowDirections[direction]} 면", $"유입 {input*1e6:G6} / 유출 {output*1e6:G6} mg");
         }
-        EditorGUILayout.LabelField($"이웃 합계: 유입 {incoming*1e6:G6} / 유출 {outgoing*1e6:G6} / 순증가 {(incoming-outgoing)*1e6:G6} mg",EditorStyles.wordWrappedLabel);
+        EditorGUILayout.LabelField($"면 교환 합계: 유입 {incoming*1e6:G6} / 유출 {outgoing*1e6:G6} / 순증가 {(incoming-outgoing)*1e6:G6} mg",EditorStyles.wordWrappedLabel);
         EditorGUILayout.LabelField($"셀 내부 증발: 화밀 → 공기 {flow.EvaporationKg*1e6:G6} mg");
+        double exteriorIn=flow.Transfers.Where(t=>t.Exterior && t.Incoming).Sum(t=>t.MassKg);
+        double exteriorOut=flow.Transfers.Where(t=>t.Exterior && !t.Incoming).Sum(t=>t.MassKg);
+        EditorGUILayout.LabelField($"외기 교환: 유입 {exteriorIn*1e6:G6} / 유출 {exteriorOut*1e6:G6} mg");
+        EditorGUILayout.LabelField($"외기 교환계수 적용 풍속: {flow.WindSpeedMps:G4} m/s");
         showFlowPaths=EditorGUILayout.Foldout(showFlowPaths,"저장소별 교환 내역",true);
         if(showFlowPaths)
         {
             foreach(var transfer in flow.Transfers)
             {
-                string place=transfer.Direction<0?"같은 셀":FlowDirections[transfer.Direction]+" 이웃 "+transfer.OtherEquipment+" #"+transfer.OtherIndex;
+                string place=transfer.Exterior?FlowDirections[transfer.Direction]+" 외기":transfer.Direction<0?"같은 셀":FlowDirections[transfer.Direction]+" 이웃 "+transfer.OtherEquipment+" #"+transfer.OtherIndex;
                 EditorGUILayout.LabelField($"{place} / {(transfer.Direction<0?"내부 이동":transfer.Incoming?"유입":"유출")} / {WaterKinds[transfer.SourceKind]} → {WaterKinds[transfer.DestinationKind]} / {transfer.MassKg*1e6:G6} mg",EditorStyles.wordWrappedLabel);
             }
             if(flow.Transfers.Count==0)EditorGUILayout.LabelField("교환량 0 mg");

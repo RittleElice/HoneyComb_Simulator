@@ -155,12 +155,16 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
                 climate.SetFlowTargets(new HashSet<EquipmentThermalState>(flowObservers.Values));
                 flowConfiguredClimate=climate;flowConfiguredRevision=flowObserverRevision;
             }
-            climate.Advance(outside);
+            climate.Advance(outside,world.Weather.Current.RelativeHumidityPercent/100,world.Weather.Current.WindSpeed);
             flowMinute=nextMinute;
             return Task.CompletedTask;
         }
         catch (Exception e) { Failure = e.Message; throw; }
     }
+    // Last-tick signed external budgets; diagnostic only, never part of saved state.
+    public double LastExternalWaterKg=>climate?.ExternalWaterKg??0;
+    public double LastExternalMoistureEnergyJ=>climate?.ExternalMoistureEnergyJ??0;
+    public double LastExternalSensibleEnergyJ=>climate?.ExternalSensibleEnergyJ??0;
     public double LastHeatingEnergyJ { get; private set; }
     private void SupplyHeating(double seconds)
     {

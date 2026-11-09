@@ -33,6 +33,85 @@ public static unsafe class HiveClimateKernels
         return WoodRh[j-1]+(mc-WoodMc[j-1])*(WoodRh[j]-WoodRh[j-1])/(WoodMc[j]-WoodMc[j-1]);
     }
 
+    // Still-air exterior film assumption (10 mm), not wind or bee-driven ventilation.
+    public const double ExteriorAirFilmM = .01;
+    public struct ExteriorContact
+    {
+        public int reservoir,direction;
+        public double conductance,fraction,area,materialResistance;
+    }
+    public static void ExteriorFlux(ExteriorContact[] contacts,double[] slope,double[] pressure,double[] mass,
+        double[] limit,double[] delta,double[] energyDelta,double[] temperature,double outsidePressure,double outsideTemperature,
+        double seconds,out double netWater,out double netEnergy,double[] transfers=null,double wind=0,double windCoefficient=ExternalWindCoefficient,double airPermeability=AirPermeability,double airFilm=ExteriorAirFilmM)
+    {
+        double water=0,energy=0;
+        fixed(ExteriorContact* c=contacts)
+        fixed(double* s=slope,p=pressure,m=mass,l=limit,d=delta,e=energyDelta,t=temperature,trace=transfers)
+            ExchangeExterior(c,contacts.Length,s,p,m,l,d,e,t,outsidePressure,outsideTemperature,seconds,&water,&energy,trace,wind,windCoefficient,airPermeability,airFilm);
+        netWater=water;netEnergy=energy;
+    }
+    [BurstCompile(CompileSynchronously=true,FloatMode=FloatMode.Strict)]
+    static void ExchangeExterior(ExteriorContact* contacts,int count,double* slope,double* pressure,double* mass,
+        double* limit,double* delta,double* energy,double* temperature,double outsidePressure,double outsideTemperature,
+        double seconds,double* netWater,double* netEnergy,double* trace,double wind,double windCoefficient,double airPermeability,double airFilm)
+    {
+        for(int j=0;j<count;j++){
+            var c=contacts[j];int p=c.reservoir,row=p/5;double moved=0;
+            c.conductance=ExteriorMoistureConductance(c,p%5,wind,outsideTemperature,windCoefficient,airPermeability,airFilm);
+            if(c.fraction>0 && c.conductance>0 && slope[p]>0){
+                double sensitivity=slope[p]/c.fraction,x=seconds*c.conductance*sensitivity;
+                double response=x<1e-5?seconds*c.conductance*(1-x/2+x*x/6):(1-Math.Exp(-x))/sensitivity;
+                moved=(outsidePressure-pressure[p])*response;
+                if(moved<0)moved=-Math.Min(-moved,mass[p]*c.fraction*(1-1e-14));
+                else if(p%5!=0)moved=Math.Min(moved,Math.Max(0,limit[p]-mass[p])*c.fraction*(1-1e-14));
+                // Incoming vapour carries outdoor enthalpy; outgoing vapour uses the
+                // donor's tick-start temperature. Sorption heat is already in phase energy.
+                double h=moved*(2501000+1850*(moved>=0?outsideTemperature:temperature[row]));
+                delta[p]+=moved;energy[row]+=h;*netWater+=moved;*netEnergy+=h;
+            }
+            if(trace!=null)trace[j]=moved;
+        }
+    }
+
+    // Wind enhancement of exposed-face coefficients, not a separate airflow path.
+    // .025 is retained as a tunable reference estimate, NOT a calibrated surface
+    // coefficient for every hive material/orientation. No buoyancy term is present.
+    public const double ExternalWindCoefficient = .025;
+    public static double ExteriorMoistureConductance(ExteriorContact c,int kind,double wind,double outsideTemperature,double windCoefficient=ExternalWindCoefficient,double airPermeability=AirPermeability,double airFilm=ExteriorAirFilmM)
+    {
+        if(wind<=0 || c.area<=0)return c.conductance;
+        double windSurface=windCoefficient*wind/(461.5*(273.15+outsideTemperature));
+        if(kind==0)return c.conductance+c.area*windSurface;
+        // Wind reduces the external film resistance, not the solid's permeability.
+        double surface=airPermeability/airFilm+windSurface;
+        return c.area/(c.materialResistance+1/surface);
+    }
+    public struct ExteriorHeatContact
+    {
+        public int row;
+        public double area,baseConductance,pyramidCapacity;
+    }
+    public static void ExteriorHeatFlux(ExteriorHeatContact[] contacts,double[] temperature,double[] delta,
+        double outside,double wind,double airCv,out double netEnergy,double windCoefficient=ExternalWindCoefficient)
+    {
+        double sum=0;
+        fixed(ExteriorHeatContact* c=contacts)
+        fixed(double* t=temperature,d=delta)ExchangeExteriorHeat(c,contacts.Length,t,d,outside,wind,airCv,&sum,windCoefficient);
+        netEnergy=sum;
+    }
+    [BurstCompile(CompileSynchronously=true,FloatMode=FloatMode.Strict)]
+    static void ExchangeExteriorHeat(ExteriorHeatContact* contacts,int count,double* temperature,double* delta,
+        double outside,double wind,double airCv,double* netEnergy,double windCoefficient)
+    {
+        for(int j=0;j<count;j++){
+            var c=contacts[j];double g=c.baseConductance+c.area*windCoefficient*wind*airCv;
+            double x=60*g/c.pyramidCapacity;
+            double response=x<1e-5?x*(1-x/2+x*x/6):1-Math.Exp(-x);
+            double energy=c.pyramidCapacity*response*(outside-temperature[c.row]);
+            delta[c.row]+=energy;*netEnergy+=energy;
+        }
+    }
+
     public struct Contact
     {
         public int a,b;
