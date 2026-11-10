@@ -37,6 +37,7 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
         }
     }
     private static string HeatTooltip(string pair,bool outside){
+        if(pair=="공기 ↔ 외기")return "현재 직접 노출된 공기 셀은 외기 상태로 고정하므로 이 기본 열교환 계수를 사용하지 않습니다. 값을 높이거나 낮춰도 고정 공기 경계에는 영향이 없습니다.";
         return pair+" 접촉면의 단위 면적당 열교환 계수입니다.\n높이면 온도가 높은 쪽에서 낮은 쪽으로 열이 더 빨리 이동하고, 낮추면 느려집니다. 온도 차이가 없으면 열은 이동하지 않습니다.\n"+
             (outside?"0이면 이 기본 외기 열교환을 끕니다. 바람에 의한 추가 열교환은 별도로 남을 수 있습니다.":"0이면 해당 내부 재질 조합의 열교환을 끕니다.");
     }
@@ -51,17 +52,18 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
     }
     private void DrawMoisture(){
         EditorGUILayout.Space();EditorGUILayout.LabelField("수분 교환",EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("외부에 직접 열린 순수 공기 셀은 외기 온도·수증기압으로 고정합니다. 이 셀과 외기 사이에는 유한한 교환계수를 적용하지 않습니다. 내부 접촉면은 기존 사각뿔 식을 사용하며, 목재·단열재의 외기 교환과 바람 보정은 유지합니다.",MessageType.Info);
         var asset=Resources.Load<PyramidTransferSettings>("Thermal/PyramidTransferSettings");if(asset==null)return;
         var so=new SerializedObject(asset);so.Update();
         string[] names={"MoistureAirPermeability","MoistureWoodPermeability","MoistureAirMobility","MoistureInsulationMobility","MoistureEvaporationMobility","MoistureExteriorAirFilmM","MoistureWindCoefficient"};
         string[] labels={"공기 투습계수 (kg/(m·s·Pa))","목재 투습계수 (kg/(m·s·Pa))","공기 경계 이동 배율","단열재 경계 이동 배율","소방 증발 배율","외기 공기막 두께 (m)","바람 교환 보정계수 (무차원 · 열/수분 공통)"};
         string[] tooltips={
-            "공기 사이 수증기 확산과 외기 공기막의 투습 정도입니다. 면적·이동 거리와 함께 사용합니다.\n높이면 수증기압 차이가 빨리 줄고, 낮추면 국소적인 습도 차이가 오래 남습니다. 0이어도 바람 교환은 남을 수 있습니다.",
+            "공기 사이 수증기 확산과 외기 공기막의 투습 정도입니다. 면적·이동 거리와 함께 사용합니다.\n높이면 수증기압 차이가 빨리 줄고, 낮추면 국소적인 습도 차이가 오래 남습니다. 0이어도 고정 외기 경계와 재질을 통한 교환은 남을 수 있습니다.",
             "목재가 포함된 경로의 수분 전달 정도입니다.\n높이면 흡습·방습과 목재를 통한 전달이 빨라지고, 낮추면 느려집니다. 목재의 저장 용량이나 평형 흡습 곡선은 바꾸지 않습니다.",
             "공기와 단열재 등 사이 경계 교환의 배율입니다. 공기끼리의 확산은 공기 투습계수를 사용합니다.\n높이면 상대 재질이 병목이 아닐 때 교환이 빨라집니다. 낮추면 해당 경계 교환을 제한할 수 있습니다. 상대 재질 배율이 더 작으면 이 값만 높여도 변화가 없을 수 있습니다.",
             "단열재가 참여하는 경계에서 수분이 이동하는 정도입니다.\n높이면 흡습·방습이 빨라지고, 낮추면 느려집니다. 상대 재질의 저항에 제한될 수 있으며 저장 용량은 바뀌지 않습니다.",
             "소방의 화밀 액상수가 수증기로 바뀌는 속도 배율입니다.\n높이면 증발 가능한 조건에서 화밀 건조와 공기 수분 증가가 빨라지고 증발 냉각도 커질 수 있습니다. 낮추면 느려지고 0이면 이 증발을 끕니다. 압력 차이가 없으면 값을 높여도 증발하지 않습니다.",
-            "외기 접촉면에 가정한 정체 공기층 두께로, 수분 이동 저항입니다.\n높이면 외기 교환이 느려지고, 낮추면 빨라집니다. 0보다 커야 합니다. 별도로 더해지는 공기면의 바람 교환을 직접 끄는 값은 아닙니다.",
+            "고체 재질의 외기 접촉면에 가정한 정체 공기층 두께로, 수분 이동 저항입니다.\n높이면 외기 교환이 느려지고, 낮추면 빨라집니다. 0보다 커야 합니다. 외기 상태로 고정된 공기 셀에는 적용하지 않습니다.",
             "같은 풍속에서 바람이 외기 교환을 강화하는 정도입니다. 열과 수분에 함께 적용됩니다.\n높이면 외기 온도·수분 상태에 더 빨리 반응하고, 낮추면 바람 영향이 줄어듭니다. 무풍에서는 영향이 없으며 0이면 바람의 추가 기여만 끕니다. 목재 자체의 투습 저항은 남습니다."
         };
         double[] maxima={1e-8,1e-9,10,1,1,.1,1};
@@ -74,7 +76,7 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
         if(valid)so.ApplyModifiedProperties();else EditorGUILayout.HelpBox("값은 유한한 0 이상이어야 하며, 공기막 두께는 0보다 커야 합니다.",MessageType.Error);
         EditorGUILayout.HelpBox("다음 1분 계산부터 반영됩니다. 아래 저장 버튼으로 프로젝트 기본값에 저장합니다. 사각뿔 면 교환 방식과 마지막 일괄 반영은 유지합니다.",MessageType.Info);
         EditorGUILayout.HelpBox("투습계수는 공기·목재 경로에서 거리와 함께 사용합니다. 경계 이동·증발 배율의 기준 계수는 1×10⁻⁹ kg/(m²·s·Pa)입니다. 공기 경계 배율은 단열재 등과의 경로에 쓰이며 공기끼리의 확산은 투습계수를 사용합니다. 바람 보정은 외기 열교환과 수분 교환에 함께 적용됩니다.",MessageType.None);
-        EditorGUILayout.HelpBox("0은 해당 기여를 끕니다. 공기 투습계수가 0이어도 바람 교환은 남을 수 있습니다. 계수를 높여도 사각뿔 교환 상한 때문에 실제 이동량이 더 늘지 않을 수 있습니다. 밀랍 흡습은 꺼져 있으며, 목재 흡습 곡선과 저장 용량은 이번 설정 대상이 아닙니다.",MessageType.None);
+        EditorGUILayout.HelpBox("0은 해당 기여를 끕니다. 공기 투습계수가 0이어도 고정 외기 경계와 재질을 통한 교환은 남을 수 있습니다. 계수를 높여도 사각뿔 교환 상한 때문에 실제 이동량이 더 늘지 않을 수 있습니다. 밀랍 흡습은 꺼져 있으며, 목재 흡습 곡선과 저장 용량은 이번 설정 대상이 아닙니다.",MessageType.None);
     }
     private void DrawMaterials(){
         string[] labels={"공기","목재","밀랍","단열재"};

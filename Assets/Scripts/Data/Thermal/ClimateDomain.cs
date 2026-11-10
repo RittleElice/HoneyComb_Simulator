@@ -304,7 +304,7 @@ public static partial class HiveClimate
         void ApplyExteriorHeat()
         {
             if(outsideHeatContacts==null)return;
-            HiveClimateKernels.ExteriorHeatFlux(outsideHeatContacts,temperature,dE,outdoors,outsideWind,airCv,out double energy,exteriorTransfers.MoistureWindCoefficient);
+            HiveClimateKernels.ExteriorHeatFlux(outsideHeatContacts,temperature,dE,outdoors,outsideWind,airCv,out double energy,exteriorTransfers.MoistureWindCoefficient,activeExteriorAir);
             ExternalSensibleEnergyJ+=energy;
         }
         internal void LiveMinute(double outside,double humidity,double wind=0)

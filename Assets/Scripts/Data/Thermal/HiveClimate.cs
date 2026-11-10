@@ -26,6 +26,9 @@ public static partial class HiveClimate
         readonly double[] contentFreeVolume,capacity,heatCapacityAtLastExchange,heatCoefficients,phaseEnergy;
         readonly int[] nectarRows;
         bool stateReady;
+        bool[] fixedExteriorAir,activeExteriorAir;
+        int[] exteriorAirRows;
+        double[] exteriorAirArea,exteriorAirCorrection;
         readonly bool[] capacityChanged;
         readonly double waterDensity, airCv, woodDryDensity;
         readonly double liquidCp;
@@ -214,6 +217,22 @@ public static partial class HiveClimate
                 }
             }
             exteriorContacts=exterior.ToArray();
+            fixedExteriorAir=new bool[n];exteriorAirArea=new double[n];exteriorAirCorrection=new double[n];
+            var boundaryRows=new List<int>();
+            foreach(var c in exteriorContacts){
+                int row=c.reservoir/Kinds;
+                if(c.reservoir%Kinds!=Air || volume[row]<=0 || physical==null)continue;
+                if(mass[row*Kinds+Wood]!=0 || mass[row*Kinds+Insulation]!=0 || mass[row*Kinds+Wax]!=0 || mass[row*Kinds+Nectar]!=0)continue;
+                bool pure=true;
+                for(int k=0;k<physical[row].MemberCount;k++){
+                    var owner=physical[row].MemberOwner(k);int index=physical[row].MemberIndex(k);
+                    if(owner.ExchangeMaterial(index)!=HiveMaterial.Air){pure=false;break;}
+                }
+                if(!pure)continue;
+                if(!fixedExteriorAir[row]){fixedExteriorAir[row]=true;boundaryRows.Add(row);}
+                exteriorAirArea[row]+=c.area;
+            }
+            exteriorAirRows=boundaryRows.ToArray();
             // Shared or partially covered faces can carry rounding in the area ratios.
             // Ensure that all paired subvolumes together fit in the parent reservoir.
             var total=new double[mass.Length];
@@ -235,6 +254,7 @@ public static partial class HiveClimate
             if(steps<=0)throw new ArgumentOutOfRangeException(nameof(steps));
             ExternalWaterKg=ExternalMoistureEnergyJ=ExternalSensibleEnergyJ=0;
             Prepare(pressures:false);
+            activeExteriorAir=null;
             if(steps==1)
             {
                 AccumulateEvaporation(60);
@@ -242,11 +262,16 @@ public static partial class HiveClimate
                 Mark(1);
                 if(contacts==null)BuildContacts();
                 PrepareFlowTrace();
-                HiveClimateKernels.PairFlux(contacts,slope,pressure,mass,limit,delta,dE,temperature,flowTransfers);
+                if(exteriorMoistureEnabled){
+                    activeExteriorAir=fixedExteriorAir;
+                    foreach(int row in exteriorAirRows){temperature[row]=outdoors;pressure[row*Kinds]=outsideVaporPressure;}
+                }
+                HiveClimateKernels.PairFlux(contacts,slope,pressure,mass,limit,delta,dE,temperature,flowTransfers,activeExteriorAir);
                 AccumulateExteriorMoisture(60);
                 Mark(2);
                 AccumulateHeat();
                 Mark(3);
+                AccumulateFixedExteriorState();
                 CommitChanges();
             }
             else LegacyMoisture(steps);
@@ -256,8 +281,30 @@ public static partial class HiveClimate
         {
             if(!exteriorMoistureEnabled)return;
             HiveClimateKernels.ExteriorFlux(exteriorContacts,slope,pressure,mass,limit,delta,dE,temperature,
-                outsideVaporPressure,outdoors,seconds,out double water,out double enthalpy,flowExterior,outsideWind,exteriorTransfers.MoistureWindCoefficient,exteriorTransfers.MoistureAirPermeability,exteriorTransfers.MoistureExteriorAirFilmM);
+                outsideVaporPressure,outdoors,seconds,out double water,out double enthalpy,flowExterior,outsideWind,exteriorTransfers.MoistureWindCoefficient,exteriorTransfers.MoistureAirPermeability,exteriorTransfers.MoistureExteriorAirFilmM,activeExteriorAir);
             ExternalWaterKg+=water;ExternalMoistureEnergyJ+=enthalpy;
+        }
+        // Replenish the boundary after all pair fluxes, without mutating state early.
+        // The exterior supplies both transport and the initial state adjustment.
+        void AccumulateFixedExteriorState()
+        {
+            if(activeExteriorAir==null)return;
+            foreach(int row in exteriorAirRows){
+                int p=row*Kinds;
+                double targetMass=outsideVaporPressure*volume[row]/(Rv*(273.15+outdoors));
+                double correction=targetMass-mass[p]-delta[p];
+                double vaporEnergy=correction*(Latent+VaporCp*outdoors);
+                double targetEnergy=(dry[row]+volume[row]*airCv+targetMass*VaporCp)*outdoors+targetMass*Latent;
+                double correctionEnergy=targetEnergy-energy[row]-dE[row];
+                delta[p]=targetMass-mass[p];dE[row]=targetEnergy-energy[row];
+                ExternalWaterKg+=correction;ExternalMoistureEnergyJ+=vaporEnergy;
+                ExternalSensibleEnergyJ+=correctionEnergy-vaporEnergy;
+                exteriorAirCorrection[row]=correction;
+            }
+            if(flowExterior!=null)for(int j=0;j<exteriorContacts.Length;j++){
+                var c=exteriorContacts[j];if(c.reservoir%Kinds==Air&&activeExteriorAir[c.reservoir/Kinds])
+                    flowExterior[j]=exteriorAirCorrection[c.reservoir/Kinds]*c.area/exteriorAirArea[c.reservoir/Kinds];
+            }
         }
         // Only the water deltas change here; the enthalpy of a local phase change stays in this cell.
         void AccumulateEvaporation(double seconds)
@@ -315,7 +362,7 @@ public static partial class HiveClimate
         {
             PrepareHeatCapacity();
             ApplyExteriorHeat();
-            HiveClimateKernels.ExchangeHeat(links,capacity,capacityChanged,heatCoefficients,temperature,dE);
+            HiveClimateKernels.ExchangeHeat(links,capacity,capacityChanged,heatCoefficients,temperature,dE,activeExteriorAir);
         }
         void CommitChanges()
         {

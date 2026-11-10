@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -120,6 +120,10 @@ public static class ThermalTopology
         var joins = new List<(int lower,int upper)>();
         foreach(var entry in grids)AddEmptySlotEndAir(entry.Key,entry.Value,joins);
         foreach(var root in roots) AddStacks(root,seen,grids,faces,boundaries,joins);
+        // A directly exposed air row is a fixed exterior boundary. Do not merge it
+        // into a deeper interior volume (including empty slots or stack channels).
+        var exposedRows=new HashSet<int>(boundaries.Values.Select(b=>b.Cell));
+        joins.RemoveAll(pair=>exposedRows.Contains(pair.lower)||exposedRows.Contains(pair.upper));
         if(joins.Count>0) MergeAir(cells,faces,boundaries,joins,grids);
         var exchange = new ThermalExchange(cells.ToArray(),faces.ToArray(),boundaries.Values.OrderBy(b=>b.Cell).ThenBy(b=>b.Direction).ToArray(),transfers);
         if(joins.Count==0) exchange.TopologyBinding = new Binding(world,grids,items);

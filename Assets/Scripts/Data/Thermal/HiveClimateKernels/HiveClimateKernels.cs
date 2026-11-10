@@ -42,21 +42,22 @@ public static unsafe class HiveClimateKernels
     }
     public static void ExteriorFlux(ExteriorContact[] contacts,double[] slope,double[] pressure,double[] mass,
         double[] limit,double[] delta,double[] energyDelta,double[] temperature,double outsidePressure,double outsideTemperature,
-        double seconds,out double netWater,out double netEnergy,double[] transfers=null,double wind=0,double windCoefficient=ExternalWindCoefficient,double airPermeability=AirPermeability,double airFilm=ExteriorAirFilmM)
+        double seconds,out double netWater,out double netEnergy,double[] transfers=null,double wind=0,double windCoefficient=ExternalWindCoefficient,double airPermeability=AirPermeability,double airFilm=ExteriorAirFilmM,bool[] fixedAir=null)
     {
         double water=0,energy=0;
         fixed(ExteriorContact* c=contacts)
-        fixed(double* s=slope,p=pressure,m=mass,l=limit,d=delta,e=energyDelta,t=temperature,trace=transfers)
-            ExchangeExterior(c,contacts.Length,s,p,m,l,d,e,t,outsidePressure,outsideTemperature,seconds,&water,&energy,trace,wind,windCoefficient,airPermeability,airFilm);
+        fixed(double* s=slope,p=pressure,m=mass,l=limit,d=delta,e=energyDelta,t=temperature,trace=transfers)fixed(bool* boundary=fixedAir)
+            ExchangeExterior(c,contacts.Length,s,p,m,l,d,e,t,outsidePressure,outsideTemperature,seconds,&water,&energy,trace,wind,windCoefficient,airPermeability,airFilm,boundary);
         netWater=water;netEnergy=energy;
     }
     [BurstCompile(CompileSynchronously=true,FloatMode=FloatMode.Strict)]
     static void ExchangeExterior(ExteriorContact* contacts,int count,double* slope,double* pressure,double* mass,
         double* limit,double* delta,double* energy,double* temperature,double outsidePressure,double outsideTemperature,
-        double seconds,double* netWater,double* netEnergy,double* trace,double wind,double windCoefficient,double airPermeability,double airFilm)
+        double seconds,double* netWater,double* netEnergy,double* trace,double wind,double windCoefficient,double airPermeability,double airFilm,bool* boundary)
     {
         for(int j=0;j<count;j++){
             var c=contacts[j];int p=c.reservoir,row=p/5;double moved=0;
+            if(boundary!=null && boundary[row] && p%5==0){if(trace!=null)trace[j]=0;continue;}
             c.conductance=ExteriorMoistureConductance(c,p%5,wind,outsideTemperature,windCoefficient,airPermeability,airFilm);
             if(c.fraction>0 && c.conductance>0 && slope[p]>0){
                 double sensitivity=slope[p]/c.fraction,x=seconds*c.conductance*sensitivity;
@@ -92,19 +93,19 @@ public static unsafe class HiveClimateKernels
         public double area,baseConductance,pyramidCapacity;
     }
     public static void ExteriorHeatFlux(ExteriorHeatContact[] contacts,double[] temperature,double[] delta,
-        double outside,double wind,double airCv,out double netEnergy,double windCoefficient=ExternalWindCoefficient)
+        double outside,double wind,double airCv,out double netEnergy,double windCoefficient=ExternalWindCoefficient,bool[] fixedAir=null)
     {
         double sum=0;
         fixed(ExteriorHeatContact* c=contacts)
-        fixed(double* t=temperature,d=delta)ExchangeExteriorHeat(c,contacts.Length,t,d,outside,wind,airCv,&sum,windCoefficient);
+        fixed(bool* boundary=fixedAir)fixed(double* t=temperature,d=delta)ExchangeExteriorHeat(c,contacts.Length,t,d,outside,wind,airCv,&sum,windCoefficient,boundary);
         netEnergy=sum;
     }
     [BurstCompile(CompileSynchronously=true,FloatMode=FloatMode.Strict)]
     static void ExchangeExteriorHeat(ExteriorHeatContact* contacts,int count,double* temperature,double* delta,
-        double outside,double wind,double airCv,double* netEnergy,double windCoefficient)
+        double outside,double wind,double airCv,double* netEnergy,double windCoefficient,bool* boundary)
     {
         for(int j=0;j<count;j++){
-            var c=contacts[j];double g=c.baseConductance+c.area*windCoefficient*wind*airCv;
+            var c=contacts[j];if(boundary!=null&&boundary[c.row])continue;double g=c.baseConductance+c.area*windCoefficient*wind*airCv;
             double x=60*g/c.pyramidCapacity;
             double response=x<1e-5?x*(1-x/2+x*x/6):1-Math.Exp(-x);
             double energy=c.pyramidCapacity*response*(outside-temperature[c.row]);
@@ -192,17 +193,17 @@ public static unsafe class HiveClimateKernels
     }
 
     public static void PairFlux(Contact[] contacts,double[] slope,double[] pressure,double[] mass,
-        double[] limit,double[] delta,double[] energyDelta,double[] temperature,double[] transfers=null)
+        double[] limit,double[] delta,double[] energyDelta,double[] temperature,double[] transfers=null,bool[] fixedAir=null)
     {
         fixed(Contact* c=contacts)
         fixed(double* s=slope,p=pressure,m=mass,l=limit,d=delta,h=energyDelta,t=temperature)
-        fixed(double* trace=transfers)
-            ExchangePairs(c,contacts.Length,s,p,m,l,d,h,t,trace);
+        fixed(double* trace=transfers)fixed(bool* boundary=fixedAir)
+            ExchangePairs(c,contacts.Length,s,p,m,l,d,h,t,trace,boundary);
     }
 
     [BurstCompile(CompileSynchronously=true,FloatMode=FloatMode.Strict)]
     static void ExchangePairs(Contact* contacts,int count,double* slope,double* pressure,double* mass,
-        double* limit,double* delta,double* energyDelta,double* temperature,double* trace)
+        double* limit,double* delta,double* energyDelta,double* temperature,double* trace,bool* boundary)
     {
         const int batchSize=32;
         double* amounts=stackalloc double[batchSize];
@@ -219,14 +220,16 @@ public static unsafe class HiveClimateKernels
                 bool forwards=pressure[c.a]>=pressure[c.b];
                 int donor=forwards?c.a:c.b, receiver=forwards?c.b:c.a;
                 donors[k]=-1;
-                if(receiver%5==4 || mass[donor]<=0 || c.fractionA<=0 || c.fractionB<=0)
+                bool fixedA=boundary!=null && boundary[c.a/5],fixedB=boundary!=null && boundary[c.b/5];
+                bool fixedDonor=boundary!=null && boundary[donor/5];
+                if((fixedA&&fixedB) || receiver%5==4 || (!fixedDonor&&mass[donor]<=0) || c.fractionA<=0 || c.fractionB<=0)
                     continue;
                 // Subvolume and sorption capacity both scale with the pyramid share.
-                double sensitivity=slope[c.a]/c.fractionA+slope[c.b]/c.fractionB;
+                double sensitivity=(fixedA?0:slope[c.a]/c.fractionA)+(fixedB?0:slope[c.b]/c.fractionB);
                 double x=60*c.conductance*sensitivity;
                 double response=x<1e-5 ? 60*c.conductance*(1-x/2+x*x/6) : (1-Math.Exp(-x))/sensitivity;
                 double moved=(pressure[donor]-pressure[receiver])*response;
-                double available=mass[donor]*(forwards?c.fractionA:c.fractionB);
+                double available=fixedDonor?double.PositiveInfinity:mass[donor]*(forwards?c.fractionA:c.fractionB);
                 if(receiver%5!=0)
                     available=Math.Min(available,Math.Max(0,limit[receiver]-mass[receiver])*(forwards?c.fractionB:c.fractionA));
                 moved=Math.Min(moved,available*(1-1e-14));
@@ -260,26 +263,28 @@ public static unsafe class HiveClimateKernels
     }
 
     public static void ExchangeHeat(Face[] faces, double[] capacity, bool[] changed,
-        double[] coefficients, double[] temperature, double[] energyDelta)
+        double[] coefficients, double[] temperature, double[] energyDelta,bool[] fixedAir=null)
     {
         fixed(Face* f=faces)
         fixed(double* c=capacity, g=coefficients, t=temperature, e=energyDelta)
-        fixed(bool* dirty=changed)
-            Heat(f,faces.Length,c,dirty,g,t,e);
+        fixed(bool* dirty=changed,boundary=fixedAir)
+            Heat(f,faces.Length,c,dirty,g,t,e,boundary);
     }
 
     [BurstCompile(CompileSynchronously=true, FloatMode=FloatMode.Strict)]
-    static void Heat(Face* faces,int count,double* capacity,bool* dirty,double* g,double* t,double* e)
+    static void Heat(Face* faces,int count,double* capacity,bool* dirty,double* g,double* t,double* e,bool* boundary)
     {
         for(int j=0;j<count;j++)
-            Conduct(faces[j],j,capacity,dirty,g,t,e);
+            Conduct(faces[j],j,capacity,dirty,g,t,e,boundary);
     }
 
-    static void Conduct(Face f,int j,double* capacity,bool* dirty,double* g,double* t,double* e)
+    static void Conduct(Face f,int j,double* capacity,bool* dirty,double* g,double* t,double* e,bool* boundary)
     {
-        if(dirty[f.a] || dirty[f.b])
+        bool fixedA=boundary!=null&&boundary[f.a],fixedB=boundary!=null&&boundary[f.b];
+        if(fixedA&&fixedB)return;
+        if(dirty[f.a] || dirty[f.b] || fixedA || fixedB)
         {
-            double a=capacity[f.a]*f.fa,b=capacity[f.b]*f.fb,reduced=a*b/(a+b);
+            double a=capacity[f.a]*f.fa,b=capacity[f.b]*f.fb,reduced=fixedA?b:fixedB?a:a*b/(a+b);
             g[j]=reduced*(1-Math.Exp(-60*f.heat/reduced));
         }
         double heat=g[j]*(t[f.a]-t[f.b]);

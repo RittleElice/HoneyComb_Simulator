@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -26,10 +26,10 @@ MonoBehaviour:
   WoodOutside: 10
   CombOutside: 10
   InsulationOutside: 0.1
-  MoistureAirPermeability: 1.85e-10
-  MoistureWoodPermeability: 2e-12
+  MoistureAirPermeability: 0.000000000185
+  MoistureWoodPermeability: 0.000000000002
   MoistureAirMobility: 1
-  MoistureInsulationMobility: .008
-  MoistureEvaporationMobility: .04
-  MoistureExteriorAirFilmM: .01
-  MoistureWindCoefficient: .025
+  MoistureInsulationMobility: 0.008
+  MoistureEvaporationMobility: 0.04
+  MoistureExteriorAirFilmM: 0.01
+  MoistureWindCoefficient: 0.025
