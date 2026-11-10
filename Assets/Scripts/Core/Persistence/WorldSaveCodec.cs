@@ -17,7 +17,7 @@ internal static class SaveBinary
     public static string Text(BinaryReader r)
     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
 }
-/// <summary>Schema 13 uses a rimless 5x3 frame grid. Earlier geometry saves stay in the previous save directory.
+/// <summary>Schema 14 adds bee surface locations; schema 13 remains readable. Schema 13 uses a rimless 5x3 frame grid. Earlier geometry saves stay in the previous save directory.
 /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
 public sealed class WorldSaveCodec
 {
@@ -25,7 +25,7 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
-    private int schema = 13;
+    private int schema = 14;
     public static byte[] Encode(WorldSaveSnapshot snapshot)
     {
         ValidateTime(snapshot);
@@ -35,7 +35,7 @@ public sealed class WorldSaveCodec
         using (var w = new BinaryWriter(stream,Encoding.UTF8,true))
         {
             snapshot.World.Thermal?.FlushClimate();
-            int version = 13;
+            int version = 14;
             w.Write(version); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
             var world = snapshot.World; w.Write(world.CurrentGameMinute);
             var codec = new WorldSaveCodec { hives = world.Apiary.Hives, schema = version };
@@ -55,6 +55,7 @@ public sealed class WorldSaveCodec
                 codec.WriteItem(w, world.Warehouse.GetSlot(i).Value, 0);
             for (int i = 0; i < world.Trash.Capacity; i++)
                 codec.WriteItem(w, world.Trash.GetSlot(i).Value, 0);
+            world.BeeLocations.Write(w,world);
             return stream.ToArray();
         }
     }
@@ -64,7 +65,7 @@ public sealed class WorldSaveCodec
         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
         {
             int schema=r.ReadInt32();
-            if(schema!=13) throw new InvalidDataException("이전 격자의 저장 데이터입니다. 축소 격자에서는 새 게임을 시작해 주세요.");
+            if(schema!=13 && schema!=14) throw new InvalidDataException("이전 격자의 저장 데이터입니다. 축소 격자에서는 새 게임을 시작해 주세요.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);
@@ -93,6 +94,7 @@ public sealed class WorldSaveCodec
                 for (int i = 0; i < trash.Capacity; i++)
                     Insert(trash.GetSlot(i), codec.ReadItem(r, 0));
             }
+            if(schema>=14) snapshot.World.BeeLocations.Read(r,snapshot.World);
             ValidateTime(snapshot);
             if(stream.Position!=stream.Length) throw new InvalidDataException("Unexpected trailing save data.");
             return snapshot;
