@@ -27,7 +27,7 @@ public static class CombThermalTests
             var centre = back;
             var s = f.Front;
             double baseHeat = front.HeatCapacityJPerK;
-            Near(baseHeat, 11.76, "empty comb effective density and mm3 to m3");
+            Near(baseHeat, 13.552, "empty comb effective density and mm3 to m3");
             Near(centre.ContentHeatCapacityJPerK,0,"back initially empty");
             s.TrySetConstruction(0,0,80);
             Check(s.TryAddNectar(0,0,0,0,100),"store water");
@@ -90,7 +90,7 @@ public static class CombThermalTests
             Near(grid.GetHeatCapacityJPerK(gridIndex),CombBalance.MaterialHeatCapacityJPerK(HiveMaterial.Air,grid.Layout.VolumeMm3(gridIndex)),"removed frame replaced by air heat capacity");
             Near(front.ContentHeatCapacityJPerK,.418,"detached frame retains thermal contents");
             Check(box.InteriorSlots.GetSlot(2).TryInsert(frame),"reinsert different slot");
-            var wood=local.GetCell(0,0,0); Near(wood.ContentHeatCapacityJPerK,0,"wood has no comb contents");
+            var wood=box.EquipmentGrid.GetCell(0,0,0); Near(wood.ContentHeatCapacityJPerK,0,"wood has no comb contents");
             Near(wood.HeatCapacityJPerK,wood.VolumeMm3*1e-9*500*1600,"wood baseline units");
             Check(s.TrySetType(0,0,CombCellType.Drone),"legacy tag retained");
             Check(!s.TryAddNectar(0,0,0,0,201),"drone tag gets no extra capacity");

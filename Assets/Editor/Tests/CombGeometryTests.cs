@@ -21,8 +21,8 @@ public static class CombGeometryTests
             Check(x - g.StepX / 2 >= -1e-8 && x + g.StepX / 2 <= 420 + 1e-8 && z - g.Radius >= 0 && z + g.Radius <= 200, "bounds");
             Check(ids.Add(new CombCellId(item,FrameSide.Front,c,r)) && ids.Add(new CombCellId(item,FrameSide.Back,c,r)), "unique IDs");
             var mapped = CombSpatialMapper.GetLogicalCell(item,c,r,0);
-            int rx = mapped.Index % item.EquipmentGrid.SizeX - 1;
-            int rz = mapped.Index / (item.EquipmentGrid.SizeX * item.EquipmentGrid.SizeY) - 1;
+            int rx = mapped.Index % item.EquipmentGrid.SizeX;
+            int rz = mapped.Index / (item.EquipmentGrid.SizeX * item.EquipmentGrid.SizeY);
             counts[rx + 5 * rz]++;
             Check(CombSpatialMapper.GetLogicalCell(item,c,r,0).Material == HiveMaterial.Comb, "logical comb material");
             if (r < 38)

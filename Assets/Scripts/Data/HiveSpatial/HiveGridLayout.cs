@@ -4,12 +4,13 @@ using System.Collections.Generic;
 // Coordinates are millimetres; Z increases from the bottom towards the open top.
 public sealed class HiveGridLayout
 {
-    public const int CombColumns = 5, CombRows = 3, FrameSizeX = CombColumns + 2, FrameSizeZ = CombRows + 2;
+    // Full 440 x 220 mm frame footprint; no separate wooden rim cells.
+    public const int CombColumns = 5, CombRows = 3, FrameSizeX = CombColumns, FrameSizeZ = CombRows;
     private static readonly double[] SlotLayersMm = { 5, 12.5, 12.5, 5 };
     public static readonly double SlotDepthMm = ArraySum(SlotLayersMm);
     private static double ArraySum(double[] widths) { double sum=0; foreach(double width in widths) sum+=width; return sum; }
     public static double SlotLayerEnergyShare(int layer) => SlotLayersMm[layer] / SlotDepthMm;
-    public const int SizeX = CombColumns + 6, SizeY = 42, SlotCount = 10, SlotDepthCells = 4;
+    public const int SizeX = CombColumns + 4, SizeY = 42, SlotCount = 10, SlotDepthCells = 4;
     public static readonly HiveGridLayout Brood = new HiveGridLayout(true);
     public static readonly HiveGridLayout Super = new HiveGridLayout(false);
     public static readonly HiveGridLayout Lid = new HiveGridLayout();
@@ -37,17 +38,17 @@ public sealed class HiveGridLayout
     private HiveGridLayout(bool brood)
     {
         HasFloor = brood;
-        var x = new List<double> { 20, 8, 10 };
-        for (int i = 0; i < CombColumns; i++) x.Add(420.0 / CombColumns);
-        x.AddRange(new double[] { 10, 8, 20 });
+        var x = new List<double> { 20, 8 };
+        for (int i = 0; i < CombColumns; i++) x.Add(440.0 / CombColumns);
+        x.AddRange(new double[] { 8, 20 });
         var y = new List<double> { 20 };
         for (int i = 0; i < SlotCount; i++) y.AddRange(SlotLayersMm);
         y.Add(20);
         var z = new List<double>();
         if (brood) z.AddRange(new double[] { 15, 10 });
-        z.AddRange(new double[] { 8, 10 });
-        for (int i = 0; i < CombRows; i++) z.Add(200.0 / CombRows);
-        z.AddRange(new double[] { 10, 10 });
+        z.Add(8);
+        for (int i = 0; i < CombRows; i++) z.Add(220.0 / CombRows);
+        z.Add(10);
         X = Boundaries(x); Y = Boundaries(y); Z = Boundaries(z);
         if (X[SizeX] != 496 || Y[SizeY] != 390 || Math.Abs(Z[SizeZ] - (brood ? 263 : 238)) > 1e-9)
             throw new InvalidOperationException("Hive dimension totals disagree with the specification.");

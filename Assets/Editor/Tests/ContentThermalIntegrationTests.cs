@@ -13,7 +13,7 @@ public static class ContentThermalIntegrationTests
             CombBalance.TryApply(new CombBalanceParameters(),out _);
             var f=new FrameData();var item=new ItemData(9901,"contents frame",ItemKind.Frame,f);var state=item.ThermalState;
             f.Front.SetAllConstruction(100);f.Back.SetAllConstruction(100);state.Refresh(materials,20);
-            var g=item.EquipmentGrid;int front=g.Index(1,0,1),back=g.Index(1,1,1),middle=g.Index(1,1,1);
+            var g=item.EquipmentGrid;int front=g.Index(0,0,0),back=g.Index(0,1,0),middle=g.Index(0,1,0);
             double baseC=state.HeatCapacityJPerK[front];float oldEnergy=state.EnergyJ[front];
             Check(f.Front.TryAddNectar(0,0,1,100,100),"nectar insert");state.Refresh(materials,20);
             Near(state.ContentHeatCapacityJPerK[front],.543,"water plus sugar capacity");
@@ -36,7 +36,7 @@ public static class ContentThermalIntegrationTests
             Near(state.ContentHeatCapacityJPerK[front],.6,"live brood tuning");Near(state.ContentHeatCapacityJPerK[back],.2,"live pollen tuning");
             f.Front.TrySetConstruction(0,0,50);state.Refresh(materials,20);Near(state.ContentHeatCapacityJPerK[front],0,"collapse removes contents");
             var box=new ItemData(9902,"box",ItemKind.BroodBox);Check(box.InteriorSlots.GetSlot(0).TryInsert(item),"place frame");
-            var view=new HiveThermalView(box.SpatialGrid);int mapped=Enumerable.Range(0,box.SpatialGrid.CellCount).First(i=>ReferenceEquals(box.SpatialGrid.GetCell(i).SourceCell,g.GetCell(1,1,1)));
+            var view=new HiveThermalView(box.SpatialGrid);int mapped=Enumerable.Range(0,box.SpatialGrid.CellCount).First(i=>ReferenceEquals(box.SpatialGrid.GetCell(i).SourceCell,g.GetCell(0,1,0)));
             Near(view.HeatCapacityJPerK(mapped),state.HeatCapacityJPerK[back],"assembled view reads owner capacity");
             box.InteriorSlots.GetSlot(0).Take();state.Refresh(materials,20);Near(state.ContentHeatCapacityJPerK[back],.2,"detached retains contents");
             f.Flip();state.Refresh(materials,20);Near(state.ContentHeatCapacityJPerK[back],.2,"flip retains physical face");

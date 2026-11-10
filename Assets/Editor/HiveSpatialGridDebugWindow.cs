@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -181,6 +181,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         slice=axis==1?SelectYSlice(grids):EditorGUILayout.IntSlider("단면 위치 (조립체 전체 기준)",slice,0,(axis==0?HiveGridLayout.SizeX:largestZ)-1);
         double totalHeight=grids.Sum(g=>g.Layout.Z[g.Layout.SizeZ]);
         EditorGUILayout.LabelField($"조립체: 496 × 390 × {totalHeight} mm / 아래에서 위로 연결",EditorStyles.wordWrappedLabel);
+        EditorGUILayout.LabelField($"소비 슬롯: {HiveGridLayout.SlotDepthCells} × {HiveGridLayout.FrameSizeZ} × {HiveGridLayout.FrameSizeX} / 목재 테두리 없는 소비 격자",EditorStyles.wordWrappedLabel);
         var ready=new HashSet<HiveSpatialGrid>();
         string status=null;
         foreach(var grid in grids)

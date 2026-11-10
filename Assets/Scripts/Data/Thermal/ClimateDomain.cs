@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -174,7 +174,7 @@ public static partial class HiveClimate
                 }
                 if(mass[i*Kinds+Nectar]<=0)continue;
                 var o=c.Owner;var g=o.ClimateItem.EquipmentGrid;int j=c.Index;
-                wet.Add(new WetRegion{row=i,index=j,owner=o,previous=mass[i*Kinds+Nectar],x=j%g.SizeX-1,z=j/(g.SizeX*g.SizeY)-1,
+                wet.Add(new WetRegion{row=i,index=j,owner=o,previous=mass[i*Kinds+Nectar],x=j%g.SizeX,z=j/(g.SizeX*g.SizeY),
                     surface=o.ClimateItem.GetContent<FrameData>().GetSurface(j/g.SizeX%g.SizeY==0?FrameSide.Front:FrameSide.Back)});
             }
             equipmentRows=memberMap.Select(pair=>new EquipmentRows(pair.Key,pair.Value)).ToArray();

@@ -226,10 +226,10 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
         }
         var g = item.EquipmentGrid;
         // Front/back wax and contents use identical region boundaries.
-        for (int z = 1; z < HiveGridLayout.FrameSizeZ - 1; z++) for (int y = 0; y < 2; y++) for (int x = 1; x < HiveGridLayout.FrameSizeX - 1; x++)
+        for (int z = 0; z < HiveGridLayout.FrameSizeZ; z++) for (int y = 0; y < 2; y++) for (int x = 0; x < HiveGridLayout.FrameSizeX; x++)
         {
             float mass = (float)((g.X[x+1]-g.X[x]) * (g.Z[z+1]-g.Z[z]) * .25e-9 * lastMaterials[ThermalMaterialKind.Wax].Density);
-            mass += logicalWax[(x-1) + HiveGridLayout.CombColumns * (y + 2 * (z-1))];
+            mass += logicalWax[x + HiveGridLayout.CombColumns * (y + 2 * z)];
             int index = g.Index(x, y, z);
             if (waxMass[index] != mass) { waxMass[index] = mass; MarkDirty(index); }
         }
@@ -294,18 +294,13 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
     internal void ReadSnapshot(BinaryReader r)
     {
         int savedCount = r.ReadInt32();
-        int plane = HiveGridLayout.SizeX * HiveGridLayout.SizeY;
-        bool oldTop = (item.Kind == ItemKind.BroodBox || item.Kind == ItemKind.Super) && savedCount == Count + plane;
-        if (savedCount != Count && !oldTop) throw new InvalidDataException("Thermal geometry length mismatch");
-        for (int i = 0; i < savedCount; i++)
+        if(savedCount!=Count) throw new InvalidDataException("Thermal geometry length mismatch");
+        for(int i=0;i<savedCount;i++)
         {
-            if (!r.ReadBoolean()) continue;
-            float value = r.ReadSingle();
-            if (!ThermalMath.Finite(value)) throw new InvalidDataException("Invalid saved energy");
-            // The two former 5 mm slices occupy the same space as the new 10 mm slice.
-            int dest = i >= Count ? i - plane : i;
-            if (i >= Count && initialized[dest]) value += ReadEnergy(dest);
-            RestoreEnergy(dest, value);
+            if(!r.ReadBoolean())continue;
+            float value=r.ReadSingle();
+            if(!ThermalMath.Finite(value))throw new InvalidDataException("Invalid saved energy");
+            RestoreEnergy(i,value);
         }
         MarkAllDirty();
     }

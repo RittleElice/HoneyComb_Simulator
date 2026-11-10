@@ -76,6 +76,6 @@ public static class CombSpatialMapper
         if (item == null || item.Kind != ItemKind.Frame || frame == null)
             throw new ArgumentException("Logical mapping requires frame content");
         frame.Front.GetIndex(column, row);
-        return item.EquipmentGrid.GetCell(1 + RegionX(column, frame.Width), depth, 1 + RegionZ(row, frame.Height));
+        return item.EquipmentGrid.GetCell(RegionX(column, frame.Width), depth, RegionZ(row, frame.Height));
     }
 }

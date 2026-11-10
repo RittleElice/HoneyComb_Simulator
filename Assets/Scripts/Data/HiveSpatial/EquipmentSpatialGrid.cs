@@ -29,7 +29,7 @@ public sealed class EquipmentSpatialFace
 }
 
 // Local geometry only. Empty box volume is null, not equipment-owned air.
-// Queen excluders own a zero-thickness 11 x 40 face grid, not artificial solid cells.
+// Queen excluders own a zero-thickness 9 x 40 face grid, not artificial solid cells.
 public sealed class EquipmentSpatialGrid
 {
     private readonly EquipmentSpatialCell[] cells;
@@ -91,7 +91,7 @@ public sealed class EquipmentSpatialGrid
                 bool occupied = frame || panel || layout.IsLid || x == 0 || x == SizeX - 1 ||
                     y == 0 || y == SizeY - 1 || (layout.HasFloor && z == 0);
                 if (!occupied || (layout != null && layout.IsEntranceCell(x,y,z))) continue;
-                HiveMaterial material = panel ? panelMaterial : frame && x > 0 && x < SizeX - 1 && z > 0 && z < SizeZ - 1 ? HiveMaterial.Comb : HiveMaterial.Wood;
+                HiveMaterial material = panel ? panelMaterial : frame ? HiveMaterial.Comb : HiveMaterial.Wood;
                 if (panel && SolidFraction(y) == 0) material = HiveMaterial.Air;
                 int index = Index(x,y,z);
                 cells[index] = new EquipmentSpatialCell(item, index, material, area * (Z[z + 1] - Z[z]));
@@ -109,7 +109,7 @@ public sealed class EquipmentSpatialGrid
         var frame = Equipment.GetContent<FrameData>();
         if (frame == null) return default;
         int x = index % SizeX, y = index / SizeX % SizeY, z = index / (SizeX * SizeY);
-        return frame.GetSurface(y == 0 ? FrameSide.Front : FrameSide.Back).GetThermalRegion(x - 1, z - 1);
+        return frame.GetSurface(y == 0 ? FrameSide.Front : FrameSide.Back).GetThermalRegion(x, z);
     }
 
     public double SolidFraction(int y)
