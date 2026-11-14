@@ -84,7 +84,7 @@ public class GameWorld
                 message = "조립체나 내용물이 있는 장비, 등록된 벌통을 먼저 꺼내세요.";
                 return false;
             }
-            if (BeeLocations.HasFrame(((ItemData)value).Id)) { message = "벌이 붙어 있는 소비장은 삭제할 수 없습니다."; return false; }
+            if (BeeLocations.HasEquipment(((ItemData)value).Id)) { message = "벌이 붙어 있는 장비는 삭제할 수 없습니다."; return false; }
             count++;
         }
         for (int i = 0; i < Trash.Capacity; i++)

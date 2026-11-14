@@ -1,0 +1,1 @@
+PASS 88 checks: grid-only positions, all30 frame cells, all15 adjacent-frame links, no solid/empty-slot/panel shortcuts, shared cache invalidation, wall/ambient climate, lift/reinsert, v13/v14 migration, v15 roundtrip, equipment deletion guards.

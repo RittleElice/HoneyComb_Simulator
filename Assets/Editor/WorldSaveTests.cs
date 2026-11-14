@@ -10,7 +10,14 @@ public static class WorldSaveTests
     private static void Check(bool ok,string message) { checks++; if(!ok) throw new Exception(message); }
     public static void Run()
     {
+        checks=0;
         var world=new GameWorld(); var box=world.Apiary.GetItemSlot(0,0).Item;
+        // Test fixtures must not depend on the player's evolving starter inventory.
+        for(int i=0;i<world.Inventory.Capacity;i++) world.Inventory.GetSlot(i).Take();
+        world.Inventory.GetSlot(1).TryInsert(new ItemData(101,"test super",ItemKind.Super));
+        world.Inventory.GetSlot(4).TryInsert(new ItemData(104,"test frame",ItemKind.Frame,new FrameData()));
+        world.Inventory.GetSlot(5).TryInsert(new ItemData(105,"test hand frame",ItemKind.Frame,new FrameData()));
+        world.Inventory.GetSlot(9).TryInsert(new ItemData(109,"test excluder",ItemKind.QueenExcluder));
         var frameItem=world.Inventory.GetSlot(4).Take(); var frame=frameItem.GetContent<FrameData>();
         frame.SetFacingSide(FrameSide.Back); frameItem.TrySetAging(.63f);
         frame.Front.TrySetConstruction(0,0,100); frame.Front.TrySetConstruction(0,0,60);
