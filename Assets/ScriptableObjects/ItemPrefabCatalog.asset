@@ -36,11 +36,11 @@ MonoBehaviour:
   - kind: 2
     context: 1
     prefab: {fileID: 1146316118959187193, guid: a8c5fb93f808c8b4d9d0db8ede780620, type: 3}
-    sprite: {fileID: 5098863225712921096, guid: 76d0e0114233ba2418debe5c74379051, type: 3}
+    sprite: {fileID: -5629798854632490695, guid: 216fa24444c589349b16a6cf9a5fea4b, type: 3}
   - kind: 2
     context: 2
     prefab: {fileID: 1146316118959187193, guid: 12b345a0835fcc34bb3e42f4833183bb, type: 3}
-    sprite: {fileID: 5098863225712921096, guid: 305dba81808f2b8488e8a0d0edfcf968, type: 3}
+    sprite: {fileID: -5629798854632490695, guid: e6452e62049c2fb4fadf3a85757d128e, type: 3}
   - kind: 2
     context: 3
     prefab: {fileID: 1146316118959187193, guid: 892b23f3fa4d4e49aff1f67013022860, type: 3}
