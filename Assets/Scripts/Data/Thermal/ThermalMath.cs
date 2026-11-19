@@ -4,7 +4,7 @@ public static class ThermalMath
 {
     public static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
     public static bool Positive(float v) => Finite(v) && v > 0;
-    public static float WaxMassKg(CellData cell) => (cell.Type == CombCellType.Drone ? 20e-6f : 15e-6f) * (cell.Construction / 100f);
+    public static float WaxMassKg(CellData cell) => (cell.Type == CombCellType.Drone ? 20e-6f : 15e-6f) * (cell.Construction / 100f) * FrameData.CellAreaScale;
     public static int LogicalIndex(int column, int row, FrameSide side)
     {
         return LogicalIndex(column, row, side, FrameData.DefaultWidth, FrameData.DefaultHeight);

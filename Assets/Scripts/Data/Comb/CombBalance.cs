@@ -5,8 +5,8 @@ using System;
 [Serializable]
 public sealed class CombBalanceParameters
 {
-    public float CellLiquidCapacityMl = 0.30f;
-    public float CellPollenCapacityMg = 200f;
+    public float CellLiquidCapacityMl = 2.21f;
+    public float CellPollenCapacityMg = 200f * FrameData.CellAreaScale;
     public float WaterSpecificHeatJPerKgK = 4180f;
     public float SugarSpecificHeatJPerKgK = 1250f;
     public float PollenSpecificHeatJPerKgK = 1800f;

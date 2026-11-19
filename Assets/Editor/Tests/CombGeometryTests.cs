@@ -11,10 +11,10 @@ public static class CombGeometryTests
     {
         checks = 0;
         var f = new FrameData(); var item = new ItemData(501, "Frame", ItemKind.Frame, f);
-        Check(f.Width == 85 && f.Height == 39 && f.TotalCellCount == 6630, "fixed dimensions");
+        Check(f.Width == 30 && f.Height == 15 && f.TotalCellCount == 900, "fixed dimensions");
         var g = new CombGeometry(); var ids = new HashSet<CombCellId>();
         var counts = new int[15];
-        for (int r = 0; r < 39; r++) for (int c = 0; c < 85; c++)
+        for (int r = 0; r < f.Height; r++) for (int c = 0; c < f.Width; c++)
         {
             g.Center(c, r, out double x, out double z);
             Check(g.TryFind(x,z,out int pc,out int pr) && pc == c && pr == r, "centre hit round trip");
@@ -25,14 +25,14 @@ public static class CombGeometryTests
             int rz = mapped.Index / (item.EquipmentGrid.SizeX * item.EquipmentGrid.SizeY);
             counts[rx + 5 * rz]++;
             Check(CombSpatialMapper.GetLogicalCell(item,c,r,0).Material == HiveMaterial.Comb, "logical comb material");
-            if (r < 38)
+            if (r < f.Height - 1)
             {
                 g.Center(c,r+1,out double nx,out double nz);
                 Check(Math.Abs(Math.Sqrt((nx-x)*(nx-x)+(nz-z)*(nz-z))-g.StepX)<1e-8,"dense neighbour pitch");
             }
         }
-        foreach (var count in counts) Check(count == 221,"17 by 13 cells per region");
-        Check(Math.Abs(g.Width-420)<1e-8 && Math.Abs(g.Height-167.33028854408101)<1e-5,"physical extent");
+        foreach (var count in counts) Check(count == 30,"6 by 5 cells per region");
+        Check(Math.Abs(g.Width-420)<1e-8 && Math.Abs(g.Height - g.Radius * 23)<1e-8,"physical extent");
         Check(!g.TryFind(210,0,out _,out _),"margin is not a cell");
         f.Front.TrySetConstruction(3,4,100); f.Front.TrySetContent(3,4,CellContentKind.Honey);
         f.Front.TrySetType(3,4,CombCellType.Drone);

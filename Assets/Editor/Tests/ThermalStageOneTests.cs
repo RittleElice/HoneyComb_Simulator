@@ -49,12 +49,12 @@ public static class ThermalStageOneTests
             Throws(()=>ThermalMath.Mix(.001f,.0011f,wood,0,m,out _,out _,out _),"solid overflow");
             Throws(()=>ThermalMath.Mix(.001f,0,wood,1,m,out _,out _,out _),"wax overflow");
             Throws(()=>ThermalMath.Mix(0,0,wood,0,m,out _,out _,out _),"zero volume");
-            Throws(()=>ThermalMath.LogicalIndex(85,0,FrameSide.Front),"column bound");
-            Throws(()=>ThermalMath.LogicalIndex(0,39,FrameSide.Back),"row bound");
+            Throws(()=>ThermalMath.LogicalIndex(FrameData.DefaultWidth,0,FrameSide.Front),"column bound");
+            Throws(()=>ThermalMath.LogicalIndex(0,FrameData.DefaultHeight,FrameSide.Back),"row bound");
             Throws(()=>ThermalMath.LogicalIndex(0,0,(FrameSide)2),"side bound");
             var counts = new int[30];
-            foreach(var side in new[]{FrameSide.Front,FrameSide.Back}) for(int z=0;z<39;z++) for(int x=0;x<85;x++) counts[ThermalMath.LogicalIndex(x,z,side)]++;
-            foreach(int count in counts) Check(count==221,"17x13 cells per face region");
+            foreach(var side in new[]{FrameSide.Front,FrameSide.Back}) for(int z=0;z<FrameData.DefaultHeight;z++) for(int x=0;x<FrameData.DefaultWidth;x++) counts[ThermalMath.LogicalIndex(x,z,side)]++;
+            foreach(int count in counts) Check(count==30,"6x5 cells per face region");
             var f = new FrameData(); var frame = new ItemData(900,"thermal frame",ItemKind.Frame,f); var t = frame.ThermalState; var g = frame.EquipmentGrid;
             Check(t.Count==70,"equipment grid 14x3x10"); Check(t.DirtyIndices.Count==70,"initial dirty list");
             t.MarkDirty(0); Check(t.DirtyIndices.Count==70,"dirty deduplication");

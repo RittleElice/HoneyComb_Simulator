@@ -1,0 +1,1 @@
+PASS: 6380 additional assertions; geometry, cell states, material capacity, content thermal integration, save integrity, 60-minute three-tier thermal/moisture simulation and resume. Schema 16 only; 900 cells; liquid 1989 mL; pollen 1326 g; worker constructed wax 99.45 g plus unchanged foundation. UI prefab rendered and all 900 front/back centre hit tests passed.

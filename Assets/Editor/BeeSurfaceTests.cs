@@ -19,9 +19,9 @@ public static class BeeSurfaceTests
         try
         {
             for(int i=0;i<w.Inventory.Capacity;i++) w.Inventory.GetSlot(i).Take();
-            var empty=Save(w);Check(BitConverter.ToInt32(empty,0)==15,"schema15");
+            var empty=Save(w);Check(BitConverter.ToInt32(empty,0)==16,"schema16");
             var old=empty.Take(empty.Length-4).ToArray();Array.Copy(BitConverter.GetBytes(13),old,4);
-            Check(WorldSaveCodec.Decode(old).World.BeeLocations.Count==0,"schema13 compatibility");
+            bool oldRejected=false;try{WorldSaveCodec.Decode(old);}catch(InvalidDataException){oldRejected=true;}Check(oldRejected,"schema13 rejected without migration");
             var root=w.Apiary.GetItemSlot(0,0);var box=root.Item;
             var a=new ItemData(10000,"frame A",ItemKind.Frame,new FrameData());
             var b=new ItemData(10001,"frame B",ItemKind.Frame,new FrameData());
@@ -40,10 +40,7 @@ public static class BeeSurfaceTests
                     writer.Write(102L);writer.Write(a.Id);writer.Write((int)FrameSide.Back);writer.Write(439.9d);writer.Write(219.9d);
                 }
                 var legacy=stream.ToArray();Array.Copy(BitConverter.GetBytes(14),legacy,4);
-                var converted=WorldSaveCodec.Decode(legacy).World;
-                Check(converted.BeeLocations.TryGet(101,out var first)&&first.Equals(new BeeGridPosition(a.Id,0,0,0)),"v14 front conversion");
-                Check(converted.BeeLocations.TryGet(102,out var last)&&last.Equals(new BeeGridPosition(a.Id,4,1,2)),"v14 back conversion");
-                Check(BitConverter.ToInt32(Save(converted),0)==15,"migrated save version");
+                bool rejected=false;try{WorldSaveCodec.Decode(legacy);}catch(InvalidDataException){rejected=true;}Check(rejected,"schema14 rejected without migration");
             }
             for(int y=0;y<2;y++)for(int z=0;z<3;z++)for(int x=0;x<5;x++)
             {
@@ -79,7 +76,7 @@ public static class BeeSurfaceTests
             Check(BeeSurfaceEnvironmentReader.TryRead(w,200,out var wallClimate)&&wallClimate.Kind==BeeSurfaceEnvironmentKind.Mixed,"wall inner+outer aggregate");
             Check(!double.IsNaN(wallClimate.RelativeHumidityPercent),"finite aggregate humidity");
             var bytes=Save(w);restored=WorldSaveCodec.Decode(bytes).World;
-            Check(bytes.SequenceEqual(Save(restored)),"schema15 exact roundtrip");
+            Check(bytes.SequenceEqual(Save(restored)),"schema16 exact roundtrip");
             Check(restored.BeeLocations.TryGet(200,out var wallSaved)&&wallSaved.Equals(wall),"wall save");
             Check(box.InteriorSlots.GetSlot(2).TryMoveTo(w.Hand.Slot),"lift frame");
             Check(w.BeeLocations.TryGet(100,out var carried)&&carried.Equals(back),"attachment survives lift");
@@ -97,7 +94,7 @@ public static class BeeSurfaceTests
             Check(!w.TryEmptyTrash(out _),"wall equipment deletion guard");
             restored.Weather.BindBaseline(WeatherAssetLoader.LoadBaseline());restored.PrepareThermal(ThermalMaterials.Load());Tick(restored,2);
             Check(BeeSurfaceEnvironmentReader.TryReadAt(restored,front,out _),"restored climate");
-            var report="PASS "+checks+" checks: grid-only positions, all30 frame cells, all15 adjacent-frame links, no solid/empty-slot/panel shortcuts, shared cache invalidation, wall/ambient climate, lift/reinsert, v13/v14 migration, v15 roundtrip, equipment deletion guards.";
+            var report="PASS "+checks+" checks: grid-only positions, all30 frame cells, all15 adjacent-frame links, no solid/empty-slot/panel shortcuts, shared cache invalidation, wall/ambient climate, lift/reinsert, v13/v14 rejection, v16 roundtrip, equipment deletion guards.";
             var path=Environment.GetEnvironmentVariable("BEE_REPORT");if(!string.IsNullOrEmpty(path))File.WriteAllText(path,report);Debug.Log(report);
         }
         finally { w.Thermal?.Dispose();restored?.Thermal?.Dispose(); }

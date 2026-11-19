@@ -14,7 +14,7 @@ public static class CombThermalTests
         var previous = CombBalance.Snapshot();
         try
         {
-            Check(CombBalance.TryApply(new CombBalanceParameters(), out _), "defaults valid");
+            Check(CombBalance.TryApply(new CombBalanceParameters { CellLiquidCapacityMl = .30f, CellPollenCapacityMg = 200f }, out _), "defaults valid");
             Near(CombBalance.NectarVolumeMl(160,100),.2,"additive component volumes");
             Near(CombBalance.NectarVolumeMl(0,100),.1,"water density");
             Near(CombBalance.NectarVolumeMl(160,0),.1,"effective sugar density");
@@ -67,7 +67,7 @@ public static class CombThermalTests
             Check(!CombBalance.TryApply(settings,out _),"NaN setting rejected");
             settings=CombBalance.Snapshot(); settings.WaterDensityGPerMl=0;
             Check(!CombBalance.TryApply(settings,out _),"zero water density rejected");
-            CombBalance.TryApply(new CombBalanceParameters(),out _);
+            CombBalance.TryApply(new CombBalanceParameters { CellLiquidCapacityMl = .30f, CellPollenCapacityMg = 200f },out _);
             s.TryClearContent(0,0); Check(s.TryAddPollen(0,0,200) && !s.TryAddPollen(0,0,.1f),"pollen capacity");
             s.TryClearContent(0,0); s.TryAddNectar(0,0,0,171.2f,42.8f); s.TryAddNectar(0,0,1,171.2f,42.8f);
             Check(s.GetCapacityFillRatio(0,0)>.99 && s.GetCapacityFillRatio(0,0)<=1,"80 percent nectar capacity");
@@ -94,16 +94,16 @@ public static class CombThermalTests
             Near(wood.HeatCapacityJPerK,wood.VolumeMm3*1e-9*500*1600,"wood baseline units");
             Check(s.TrySetType(0,0,CombCellType.Drone),"legacy tag retained");
             Check(!s.TryAddNectar(0,0,0,0,201),"drone tag gets no extra capacity");
-            // Every cell in each 12x8 group lands once in its own side/region.
+            // Every cell in each 6x5 group lands once in its own side/region.
             var dense=new FrameData(); var denseItem=new ItemData(3,"dense",ItemKind.Frame,dense);
             foreach(var side in new[]{FrameSide.Front,FrameSide.Back})
             {
                 var surface=dense.GetSurface(side); surface.SetAllConstruction(100);
-                for(int y=0;y<39;y++) for(int x=0;x<85;x++) Check(surface.TryAddNectar(x,y,0,0,1),"populate all cells");
+                for(int y=0;y<dense.Height;y++) for(int x=0;x<dense.Width;x++) Check(surface.TryAddNectar(x,y,0,0,1),"populate all cells");
                 for(int z=0;z<3;z++) for(int x=0;x<5;x++)
                 {
-                    int left=(x*85+4)/5, right=((x+1)*85+4)/5;
-                    int bottom=(z*39+2)/3, top=((z+1)*39+2)/3;
+                    int left=(x*dense.Width+4)/5, right=((x+1)*dense.Width+4)/5;
+                    int bottom=(z*dense.Height+2)/3, top=((z+1)*dense.Height+2)/3;
                     Near(CombSpatialMapper.GetContentCell(denseItem,side,left,bottom).ContentHeatCapacityJPerK,
                          (right-left)*(top-bottom)*.00418,"region conserves all member cells");
                 }
