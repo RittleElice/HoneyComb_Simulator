@@ -1,0 +1,5 @@
+AMD Ryzen 5 5600X 6-Core Processor 
+Logical processors=12
+RAM MB=32650
+Unity=6000.5.1f1
+30x15; 3 tiers, 30 frames per hive; all cells built; nectar 40mg sugar +100mg water at one cell per each face-region (30 wet cells/frame). Weather seed 42. First tick includes climate initialization; 10 warmup ticks then 100 samples. No rendering, frame yielding or autosave in measured ordinary ticks.
