@@ -73,7 +73,7 @@ public class GameBootstrap : MonoBehaviour
             NewGameStatus = "시작 날짜의 날씨를 준비하고 있습니다…";
             await TimeSystem.NextFrame();
             var candidate = await NewGameWeatherPreparation.CreateAsync(target,
-                WeatherAssetLoader.Create(WeatherSimulator.DefaultSeed), TimeSystem.NextFrame,
+                WeatherAssetLoader.CreateNewGame(), TimeSystem.NextFrame,
                 TimeSystem.WaitForResumeAsync, cancellation,
                 (done, total) => NewGameStatus = total == 0 ? "새 게임 준비 완료" : $"날씨 준비 {100d * done / total:F0}%");
             cancellation.ThrowIfCancellationRequested();

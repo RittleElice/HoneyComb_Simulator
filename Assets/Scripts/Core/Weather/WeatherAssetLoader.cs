@@ -17,6 +17,14 @@ public static class WeatherAssetLoader
         cached=asset.LoadData();
         return cached;
     }
+    // Draw once per new world. Loaded worlds restore their saved seed and random state.
+    public static WeatherSimulator CreateNewGame()
+    {
+        byte[] seedBytes = new byte[sizeof(ulong)];
+        using (var random = System.Security.Cryptography.RandomNumberGenerator.Create())
+            random.GetBytes(seedBytes);
+        return Create(BitConverter.ToUInt64(seedBytes, 0));
+    }
     public static WeatherSimulator Create(ulong seed) {
         var asset=Resources.Load<NectarSettings>("NectarV2");
         if(asset) asset.ValidateSettings();
