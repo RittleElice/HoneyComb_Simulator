@@ -6,8 +6,8 @@ public enum FrameSide
 
 public sealed class FrameData
 {
-    public const int DefaultWidth = 30;
-    public const int DefaultHeight = 15;
+    public const int DefaultWidth = 25;
+    public const int DefaultHeight = 12;
 
     // Preserve the former 85 x 39 frame totals when reducing logical cells.
     public const float CellAreaScale = (85f * 39f) / (DefaultWidth * DefaultHeight);

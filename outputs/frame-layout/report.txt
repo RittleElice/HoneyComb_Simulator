@@ -1,0 +1,34 @@
+소비장 이미지 반전 및 배열 프리팹 설정
+
+적용: C:/UnityProject/HoneyComb_Simulator
+PF_Frame_Hand.prefab 루트의 Frame Cell Presenter에서 설정:
+- Cell Offset: Cell Area 로컬 좌표 기준 위치 X/Y.
+- Cell Scale: 가로/세로 배율. 기본값 (1,1).
+- Flip Cells X: 벌집 배열만 좌우 반전. 뒷면 전체 반전과 독립적으로 적용.
+- 기존 Area Fill: 기존 균등 크기 배율 유지.
+- Scene 뷰 배열 미리보기: 선택한 프리팹에서 배열 외곽선 표시. 저장되는 임시 객체 없음.
+
+뒤집기 동작:
+- 소비장 프리팹이 FacingSide에 따라 이미지와 배열을 함께 좌우 반전.
+- 뒷면 상태로 재바인딩해도 즉시 이미지 방향 반영.
+- 바깥 드래그 애니메이션은 폭만 변경하여 이중 반전 방지.
+- 90도 경계에서 면 전환. 취소는 드래그 시작 면으로 복귀.
+- 설정된 배열 변환을 선택 좌표에도 역적용.
+- 25×12 데이터, 저장·건설도·물리·열수분 규칙 변경 없음.
+- 사용자 수정 스프라이트/메타 및 기타 프리팹 설정은 덮어쓰지 않음.
+
+검증:
+- 열린 원본 Unity 유지. 동일 소스 복사본에서 Unity 6000.5.1f1 컴파일 및 실행.
+- FrameLayoutTests: 2,439개 검증 통과. 위치/비균등 배율/좌우 반전 4조합,
+  각 조합에서 300개 소방 중심 및 화면 좌표 선택, 앞뒷면, 재바인딩,
+  양방향 드래그 각도, 취소, 종료 확인.
+- CombGeometryTests 1,499개, CellStateTests 81개 통과.
+- Front.png / Back.png 실제 프리팹 렌더링 시각 확인.
+- 원본과 테스트 복사본의 변경 파일 바이트 일치 확인.
+- 복사본 최초 가져오기에서 긴 PackageCache 경로의 Unity 2D tooling 편집기 UXML
+  파일 가져오기 오류가 기록됨. C# 컴파일과 요청 기능 테스트는 완료/통과.
+- 사용자 열린 화면의 수동 조작, 실제 모바일 터치, Play Mode 코루틴 시간 경과는 미검증.
+
+변경 전 원본: before/
+변경 내역: changes.diff
+테스트 메뉴: Tools/HoneyComb/검증/Run Frame Layout Tests

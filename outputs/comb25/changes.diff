@@ -1,0 +1,343 @@
+--- before/Assets/Scripts/Data/Comb/FrameData.cs
++++ after/Assets/Scripts/Data/Comb/FrameData.cs
+@@ -6,8 +6,8 @@
+ 
+ public sealed class FrameData
+ {
+-    public const int DefaultWidth = 30;
+-    public const int DefaultHeight = 15;
++    public const int DefaultWidth = 25;
++    public const int DefaultHeight = 12;
+ 
+     // Preserve the former 85 x 39 frame totals when reducing logical cells.
+     public const float CellAreaScale = (85f * 39f) / (DefaultWidth * DefaultHeight);
+--- before/Assets/Scripts/Data/Comb/CombBalance.cs
++++ after/Assets/Scripts/Data/Comb/CombBalance.cs
+@@ -5,7 +5,7 @@
+ [Serializable]
+ public sealed class CombBalanceParameters
+ {
+-    public float CellLiquidCapacityMl = 2.21f;
++    public float CellLiquidCapacityMl = 0.30f * FrameData.CellAreaScale;
+     public float CellPollenCapacityMg = 200f * FrameData.CellAreaScale;
+     public float WaterSpecificHeatJPerKgK = 4180f;
+     public float SugarSpecificHeatJPerKgK = 1250f;
+--- before/Assets/Resources/CombBalanceSettings.asset
++++ after/Assets/Resources/CombBalanceSettings.asset
+@@ -28,9 +28,9 @@
+ 
+   values:
+ 
+-    CellLiquidCapacityMl: 2.21
++    CellLiquidCapacityMl: 3.315
+ 
+-    CellPollenCapacityMg: 1473.3333333333333
++    CellPollenCapacityMg: 2210
+ 
+     WaterSpecificHeatJPerKgK: 4180
+ 
+--- before/Assets/Scripts/Core/Persistence/GamePersistenceRuntime.cs
++++ after/Assets/Scripts/Core/Persistence/GamePersistenceRuntime.cs
+@@ -27,7 +27,7 @@
+     }
+     private void Awake()
+     {
+-        string directory=Path.Combine(Application.persistentDataPath,"Saves-Comb30x15");
++        string directory=Path.Combine(Application.persistentDataPath,"Saves-Comb25x12");
+ #if UNITY_EDITOR
+         // Batch tests use an isolated location and must never touch the player's save files.
+         string testDirectory=Environment.GetEnvironmentVariable("HONEYCOMB_SAVE_TEST_ROOT");
+--- before/Assets/Scripts/Core/Persistence/WorldSaveCodec.cs
++++ after/Assets/Scripts/Core/Persistence/WorldSaveCodec.cs
+@@ -17,7 +17,7 @@
+     public static string Text(BinaryReader r)
+     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
+ }
+-/// <summary>Schema 16 uses 30x15 comb defaults and preserved frame capacity/wax totals. Earlier saves remain untouched in the previous save directory and are not migrated.
++/// <summary>Schema 17 uses 25x12 comb defaults and preserved frame capacity/wax totals. Earlier saves remain untouched in the previous save directory and are not migrated.
+ /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
+ public sealed class WorldSaveCodec
+ {
+@@ -25,7 +25,7 @@
+     private readonly HashSet<object> contents = new HashSet<object>();
+     private List<HiveData> hives;
+     private int nodes;
+-    private int schema = 16;
++    private int schema = 17;
+     public static byte[] Encode(WorldSaveSnapshot snapshot)
+     {
+         ValidateTime(snapshot);
+@@ -35,7 +35,7 @@
+         using (var w = new BinaryWriter(stream,Encoding.UTF8,true))
+         {
+             snapshot.World.Thermal?.FlushClimate();
+-            int version = 16;
++            int version = 17;
+             w.Write(version); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
+             var world = snapshot.World; w.Write(world.CurrentGameMinute);
+             var codec = new WorldSaveCodec { hives = world.Apiary.Hives, schema = version };
+@@ -65,7 +65,7 @@
+         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
+         {
+             int schema=r.ReadInt32();
+-            if(schema!=16) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 30×15 소방에서는 새 게임을 시작해 주세요.");
++            if(schema!=17) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
+             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
+             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
+             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);
+--- before/Assets/Editor/Tests/CombGeometryTests.cs
++++ after/Assets/Editor/Tests/CombGeometryTests.cs
+@@ -11,7 +11,7 @@
+     {
+         checks = 0;
+         var f = new FrameData(); var item = new ItemData(501, "Frame", ItemKind.Frame, f);
+-        Check(f.Width == 30 && f.Height == 15 && f.TotalCellCount == 900, "fixed dimensions");
++        Check(f.Width == 25 && f.Height == 12 && f.TotalCellCount == 600, "fixed dimensions");
+         var g = new CombGeometry(); var ids = new HashSet<CombCellId>();
+         var counts = new int[15];
+         for (int r = 0; r < f.Height; r++) for (int c = 0; c < f.Width; c++)
+@@ -31,8 +31,8 @@
+                 Check(Math.Abs(Math.Sqrt((nx-x)*(nx-x)+(nz-z)*(nz-z))-g.StepX)<1e-8,"dense neighbour pitch");
+             }
+         }
+-        foreach (var count in counts) Check(count == 30,"6 by 5 cells per region");
+-        Check(Math.Abs(g.Width-420)<1e-8 && Math.Abs(g.Height - g.Radius * 23)<1e-8,"physical extent");
++        foreach (var count in counts) Check(count == 20,"5 by 4 cells per region");
++        Check(Math.Abs(g.Width-420)<1e-8 && Math.Abs(g.Height - g.Radius * 18.5)<1e-8,"physical extent");
+         Check(!g.TryFind(210,0,out _,out _),"margin is not a cell");
+         f.Front.TrySetConstruction(3,4,100); f.Front.TrySetContent(3,4,CellContentKind.Honey);
+         f.Front.TrySetType(3,4,CombCellType.Drone);
+--- before/Assets/Editor/Tests/ContentThermalIntegrationTests.cs
++++ after/Assets/Editor/Tests/ContentThermalIntegrationTests.cs
+@@ -47,13 +47,13 @@
+                 for(int y=0;y<surf.Height;y++)for(int x=0;x<surf.Width;x++)Check(surf.TryAddNectar(x,y,0,0,1),"dense insert");
+             }
+             denseItem.ThermalState.Refresh(materials,20);
+-            Near(denseItem.ThermalState.ContentHeatCapacityJPerK.Sum(v=>(double)v),900*.00418,"all cells counted once");
++            Near(denseItem.ThermalState.ContentHeatCapacityJPerK.Sum(v=>(double)v),dense.TotalCellCount*.00418,"all cells counted once");
+             var world=new GameWorld(new WeatherSimulator(42,WeatherAssetLoader.LoadBaseline()));
+             Check(world.Hand.Slot.TryInsert(denseItem),"put dense frame in saved world");world.PrepareThermal(materials);
+             var snap=new WorldSaveSnapshot{World=world,UtcTicks=DateTime.UtcNow.Ticks,TargetMinute=world.CurrentGameMinute};
+             var bytes=WorldSaveCodec.Encode(snap);var loaded=WorldSaveCodec.Decode(bytes);loaded.World.PrepareThermal(materials);
+             Check(bytes.SequenceEqual(WorldSaveCodec.Encode(loaded)),"content and energy exact save roundtrip");
+-            Near(loaded.World.Hand.Item.ThermalState.ContentHeatCapacityJPerK.Sum(v=>(double)v),900*.00418,"loaded contents rebuild capacity");
++            Near(loaded.World.Hand.Item.ThermalState.ContentHeatCapacityJPerK.Sum(v=>(double)v),dense.TotalCellCount*.00418,"loaded contents rebuild capacity");
+         }
+         finally {CombBalance.TryApply(original,out _);}
+         UnityEngine.Debug.Log("CONTENT THERMAL INTEGRATION PASS");
+--- before/Assets/Editor/Tests/CombThermalTests.cs
++++ after/Assets/Editor/Tests/CombThermalTests.cs
+@@ -94,7 +94,7 @@
+             Near(wood.HeatCapacityJPerK,wood.VolumeMm3*1e-9*500*1600,"wood baseline units");
+             Check(s.TrySetType(0,0,CombCellType.Drone),"legacy tag retained");
+             Check(!s.TryAddNectar(0,0,0,0,201),"drone tag gets no extra capacity");
+-            // Every cell in each 6x5 group lands once in its own side/region.
++            // Every cell in each 5x4 group lands once in its own side/region.
+             var dense=new FrameData(); var denseItem=new ItemData(3,"dense",ItemKind.Frame,dense);
+             foreach(var side in new[]{FrameSide.Front,FrameSide.Back})
+             {
+--- before/Assets/Editor/Tests/ReducedGridIntegrationTests.cs
++++ after/Assets/Editor/Tests/ReducedGridIntegrationTests.cs
+@@ -5,7 +5,7 @@
+ static void Populate(ItemSlot root,ref int id){var box=root.Item;for(int tier=0;tier<3;tier++){
+ if(tier>0){box=new ItemData(id++,"super",ItemKind.Super);var slot=new ItemSlot();slot.TryInsert(box);Check(root.TryCombineFrom(slot),"stack");}
+ for(int i=0;i<10;i++){var data=new FrameData();data.Front.SetAllConstruction(100);data.Back.SetAllConstruction(100);
+-foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int z=0;z<3;z++)for(int x=0;x<5;x++)Check(data.GetSurface(side).TryAddNectar(x*6,z*5,0,40,100),"region nectar");
++foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int z=0;z<3;z++)for(int x=0;x<5;x++)Check(data.GetSurface(side).TryAddNectar(x*5,z*4,0,40,100),"region nectar");
+ Check(box.InteriorSlots.GetSlot(i).TryInsert(new ItemData(id++,"frame",ItemKind.Frame,data)),"frame insert");}}
+ var lid=new ItemSlot();lid.TryInsert(new ItemData(id++,"lid",ItemKind.Lid));Check(root.TryCombineFrom(lid),"lid");}
+ static void GridChecks(GameWorld w){foreach(var grid in HiveSpatialGridDebugWindow.PlacementGrids(w.Apiary.GetItemSlot(0,0).Value)){
+@@ -19,21 +19,21 @@
+ public static void Run(){checks=0;string folder=Environment.GetEnvironmentVariable("REDUCED_PRODUCTION_REPORT")??Path.Combine(Path.GetTempPath(),"HoneyComb-ReducedGrid-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(folder);GameWorld w=null,resumed=null;
+ try{
+ HiveSpatialGridTests.RunAll();CombGeometryTests.RunAll();CombThermalTests.RunAll();ContentThermalIntegrationTests.Run(ThermalMaterials.Load());
+-var frame=new ItemData(90000,"mapping",ItemKind.Frame,new FrameData());var fg=frame.EquipmentGrid;Check(fg.SizeX==5&&fg.SizeZ==3&&fg.CellCount==30,"frame dimensions");var counts=new int[30];
+-foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int z=0;z<15;z++)for(int x=0;x<30;x++){var c=CombSpatialMapper.GetContentCell(frame,side,x,z);Check(c.Index==fg.Index(x/6,side==FrameSide.Front?0:1,z/5)&&c.Material==HiveMaterial.Comb,"900 logical mappings");counts[c.Index]++;}Check(counts.All(n=>n==30),"all regions covered");
++var frame=new ItemData(60000,"mapping",ItemKind.Frame,new FrameData());var fg=frame.EquipmentGrid;Check(fg.SizeX==5&&fg.SizeZ==3&&fg.CellCount==30,"frame dimensions");var counts=new int[30];
++foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int z=0;z<FrameData.DefaultHeight;z++)for(int x=0;x<FrameData.DefaultWidth;x++){var c=CombSpatialMapper.GetContentCell(frame,side,x,z);Check(c.Index==fg.Index(x/5,side==FrameSide.Front?0:1,z/4)&&c.Material==HiveMaterial.Comb,"600 logical mappings");counts[c.Index]++;}Check(counts.All(n=>n==20),"all regions covered");
+ frame.ThermalState.Refresh(ThermalMaterials.Load(),20);Check(Math.Abs(frame.ThermalState.WaxMassKg.Sum(v=>(double)v)-.04598)<1e-7,"expanded foundation mass");
+ w=new GameWorld(new WeatherSimulator(42,WeatherAssetLoader.LoadBaseline()));for(int i=0;i<w.Inventory.Capacity;i++)w.Inventory.GetSlot(i).Take();int id=10000;Populate(w.Apiary.GetItemSlot(0,0),ref id);
+ w.PrepareThermal(ThermalMaterials.Load());Tick(w,3);Check(w.Thermal.Exchange.CellCount==6244&&w.Thermal.Exchange.FaceCount==17530,"full stack topology");GridChecks(w);
+-var frames=ThermalWorld.Items(w).Where(i=>i.Kind==ItemKind.Frame).ToArray();foreach(var f in frames)foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int z=0;z<3;z++)for(int x=0;x<5;x++){float m=f.GetContent<FrameData>().GetSurface(side).GetWaterMassMg(x*6,z*5);Check(m>0&&m<100,"all30 regions evaporate");}
+-var snapshot=new WorldSaveSnapshot{World=w,UtcTicks=DateTime.UtcNow.Ticks,TargetMinute=w.CurrentGameMinute};var bytes=WorldSaveCodec.Encode(snapshot);Check(BitConverter.ToInt32(bytes,0)==16,"schema16");var decoded=WorldSaveCodec.Decode(bytes);Check(bytes.SequenceEqual(WorldSaveCodec.Encode(decoded)),"exact save roundtrip");resumed=decoded.World;
++var frames=ThermalWorld.Items(w).Where(i=>i.Kind==ItemKind.Frame).ToArray();foreach(var f in frames)foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int z=0;z<3;z++)for(int x=0;x<5;x++){float m=f.GetContent<FrameData>().GetSurface(side).GetWaterMassMg(x*5,z*4);Check(m>0&&m<100,"all30 regions evaporate");}
++var snapshot=new WorldSaveSnapshot{World=w,UtcTicks=DateTime.UtcNow.Ticks,TargetMinute=w.CurrentGameMinute};var bytes=WorldSaveCodec.Encode(snapshot);Check(BitConverter.ToInt32(bytes,0)==17,"schema17");var decoded=WorldSaveCodec.Decode(bytes);Check(bytes.SequenceEqual(WorldSaveCodec.Encode(decoded)),"exact save roundtrip");resumed=decoded.World;
+ var store=new WorldSaveStore(Path.Combine(folder,"save-test"));store.Save(bytes);Check(store.Load(out bool recovered).World.CurrentGameMinute==3&&!recovered,"store reload");
+-foreach(int old in new[]{9,10,11,12,13,14,15}){var bad=(byte[])bytes.Clone();Array.Copy(BitConverter.GetBytes(old),bad,4);bool rejected=false;try{WorldSaveCodec.Decode(bad);}catch(InvalidDataException){rejected=true;}Check(rejected,"old geometry fails closed");}
++foreach(int old in new[]{9,10,11,12,13,14,15,16}){var bad=(byte[])bytes.Clone();Array.Copy(BitConverter.GetBytes(old),bad,4);bool rejected=false;try{WorldSaveCodec.Decode(bad);}catch(InvalidDataException){rejected=true;}Check(rejected,"old geometry fails closed");}
+ resumed.Weather.BindBaseline(WeatherAssetLoader.LoadBaseline());resumed.PrepareThermal(ThermalMaterials.Load());Tick(w,4);Tick(resumed,4);var e=w.Thermal.Exchange;var other=resumed.Thermal.Exchange;double maxT=0;
+ for(int i=0;i<e.CellCount;i++){var a=e.GetCell(i);var b=other.GetCell(i);maxT=Math.Max(maxT,Math.Abs(a.EnergyJ/a.HeatCapacityJPerK-b.EnergyJ/b.HeatCapacityJPerK));}Check(maxT<.002,"resume temperature "+maxT);GridChecks(resumed);
+ var box=ThermalWorld.Items(resumed).First(i=>i.Kind==ItemKind.BroodBox);var moved=box.InteriorSlots.GetSlot(0).Item;Check(box.InteriorSlots.GetSlot(0).TryMoveTo(resumed.Inventory.GetSlot(0)),"detach frame");Tick(resumed,5);Check(resumed.Inventory.GetSlot(0).TryMoveTo(box.InteriorSlots.GetSlot(0)),"replace frame");Tick(resumed,6);GridChecks(resumed);
+ resumed.Thermal.ObserveMoistureFlow("test",moved.ThermalState);Tick(resumed,7);Check(resumed.Thermal.TryReadMoistureFlow(moved.ThermalState,0,out var flow)&&flow!=null,"flow inspector");
+ for(int tick=8;tick<=60;tick++)Tick(resumed,tick);Check(resumed.Thermal.Failure==null,"60 ticks finite");
+ var final=WorldSaveCodec.Encode(new WorldSaveSnapshot{World=resumed,UtcTicks=DateTime.UtcNow.Ticks,TargetMinute=60});Check(final.SequenceEqual(WorldSaveCodec.Encode(WorldSaveCodec.Decode(final))),"post-move roundtrip");
+-File.WriteAllBytes(Path.Combine(folder,"new-game-test.bin"),final);File.WriteAllText(Path.Combine(folder,"validation.txt"),"PASS "+checks+" checks; schema16 exact saves and resume, old schema rejection, 900 mappings, all30 evaporation regions, 60 live ticks, frame moves, all Hive Grid slices/selections, temperature/vapor/water/flow inspection. Max resume temperature delta="+maxT+" C. Native UI validation is separate.\n");Debug.Log("REDUCED GRID INTEGRATION PASSED "+checks);
++File.WriteAllBytes(Path.Combine(folder,"new-game-test.bin"),final);File.WriteAllText(Path.Combine(folder,"validation.txt"),"PASS "+checks+" checks; schema17 exact saves and resume, old schema rejection, 600 mappings, all30 evaporation regions, 60 live ticks, frame moves, all Hive Grid slices/selections, temperature/vapor/water/flow inspection. Max resume temperature delta="+maxT+" C. Native UI validation is separate.\n");Debug.Log("REDUCED GRID INTEGRATION PASSED "+checks);
+ }finally{w?.Thermal?.Dispose();resumed?.Thermal?.Dispose();}}
+ }
+--- before/Assets/Editor/Tests/GridSevenFiveTests.cs
++++ after/Assets/Editor/Tests/GridSevenFiveTests.cs
+@@ -15,9 +15,9 @@
+  var counts=new int[g.CellCount];
+  foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int z=0;z<f.Height;z++)for(int x=0;x<f.Width;x++){
+   var c=CombSpatialMapper.GetContentCell(frame,side,x,z);counts[c.Index]++;
+-  Check(c.Index==g.Index(x/6,side==FrameSide.Front?0:1,z/5),"mapping identity");
++  Check(c.Index==g.Index(x/5,side==FrameSide.Front?0:1,z/4),"mapping identity");
+  }
+- Check(counts.Count(n=>n==30)==30&&counts.Sum()==900,"mapping coverage");
++ Check(counts.Count(n=>n==20)==30&&counts.Sum()==600,"mapping coverage");
+  frame.ThermalState.Refresh(m,20);Check(Math.Abs(frame.ThermalState.WaxMassKg.Sum(v=>(double)v)-.04598)<1e-7,"foundation mass");
+  f.Front.SetAllConstruction(100);f.Back.SetAllConstruction(100);frame.ThermalState.Refresh(m,20);
+  double expected=.04598;foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int z=0;z<f.Height;z++)for(int x=0;x<f.Width;x++)expected+=ThermalMath.WaxMassKg(f.GetSurface(side).GetCell(x,z));
+@@ -35,7 +35,7 @@
+  var snapshot=new WorldSaveSnapshot{World=fresh,UtcTicks=DateTime.UtcNow.Ticks,TargetMinute=0};var bytes=WorldSaveCodec.Encode(snapshot);var loaded=WorldSaveCodec.Decode(bytes);loaded.World.PrepareThermal(m);Check(bytes.SequenceEqual(WorldSaveCodec.Encode(loaded)),"schema9 roundtrip");
+  var old=(byte[])bytes.Clone();old[0]=8;bool rejected=false;try{WorldSaveCodec.Decode(old);}catch(InvalidDataException){rejected=true;}Check(rejected,"old schema rejected");
+  new WorldSaveStore(Path.Combine(folder,"new-save-schema9")).Save(bytes);
+- File.WriteAllText(Path.Combine(folder,"results.txt"),"PASS geometry, comb capacity, content integration, exterior, persistent buffers, effective solver, 900 mapping identities, foundation/built wax conservation, movement, 1440 finite ticks, schema9 exact roundtrip, schema8 rejection.\nDefault cells="+cells+" faces="+faces+"\n1440 ticks including inserted frame/moves mean ms="+(total/1440)+" (not an A/B benchmark).\nFresh minute0 save prepared in new-save; user save untouched by test.");
++ File.WriteAllText(Path.Combine(folder,"results.txt"),"PASS geometry, comb capacity, content integration, exterior, persistent buffers, effective solver, 600 mapping identities, foundation/built wax conservation, movement, 1440 finite ticks, schema9 exact roundtrip, schema8 rejection.\nDefault cells="+cells+" faces="+faces+"\n1440 ticks including inserted frame/moves mean ms="+(total/1440)+" (not an A/B benchmark).\nFresh minute0 save prepared in new-save; user save untouched by test.");
+  ThermalExchange.ReleaseAllBuffers();EditorApplication.Exit(0);
+  }catch(Exception ex){File.WriteAllText(Path.Combine(folder,"results.txt"),ex.ToString());Debug.LogException(ex);ThermalExchange.ReleaseAllBuffers();EditorApplication.Exit(1);}
+  }
+--- before/Assets/Editor/Tests/ThermalStageOneTests.cs
++++ after/Assets/Editor/Tests/ThermalStageOneTests.cs
+@@ -54,7 +54,7 @@
+             Throws(()=>ThermalMath.LogicalIndex(0,0,(FrameSide)2),"side bound");
+             var counts = new int[30];
+             foreach(var side in new[]{FrameSide.Front,FrameSide.Back}) for(int z=0;z<FrameData.DefaultHeight;z++) for(int x=0;x<FrameData.DefaultWidth;x++) counts[ThermalMath.LogicalIndex(x,z,side)]++;
+-            foreach(int count in counts) Check(count==30,"6x5 cells per face region");
++            foreach(int count in counts) Check(count==20,"5x4 cells per face region");
+             var f = new FrameData(); var frame = new ItemData(900,"thermal frame",ItemKind.Frame,f); var t = frame.ThermalState; var g = frame.EquipmentGrid;
+             Check(t.Count==70,"equipment grid 14x3x10"); Check(t.DirtyIndices.Count==70,"initial dirty list");
+             t.MarkDirty(0); Check(t.DirtyIndices.Count==70,"dirty deduplication");
+--- before/Assets/Editor/BeeSurfaceTests.cs
++++ after/Assets/Editor/BeeSurfaceTests.cs
+@@ -19,7 +19,7 @@
+         try
+         {
+             for(int i=0;i<w.Inventory.Capacity;i++) w.Inventory.GetSlot(i).Take();
+-            var empty=Save(w);Check(BitConverter.ToInt32(empty,0)==16,"schema16");
++            var empty=Save(w);Check(BitConverter.ToInt32(empty,0)==17,"schema17");
+             var old=empty.Take(empty.Length-4).ToArray();Array.Copy(BitConverter.GetBytes(13),old,4);
+             bool oldRejected=false;try{WorldSaveCodec.Decode(old);}catch(InvalidDataException){oldRejected=true;}Check(oldRejected,"schema13 rejected without migration");
+             var root=w.Apiary.GetItemSlot(0,0);var box=root.Item;
+@@ -76,7 +76,7 @@
+             Check(BeeSurfaceEnvironmentReader.TryRead(w,200,out var wallClimate)&&wallClimate.Kind==BeeSurfaceEnvironmentKind.Mixed,"wall inner+outer aggregate");
+             Check(!double.IsNaN(wallClimate.RelativeHumidityPercent),"finite aggregate humidity");
+             var bytes=Save(w);restored=WorldSaveCodec.Decode(bytes).World;
+-            Check(bytes.SequenceEqual(Save(restored)),"schema16 exact roundtrip");
++            Check(bytes.SequenceEqual(Save(restored)),"schema17 exact roundtrip");
+             Check(restored.BeeLocations.TryGet(200,out var wallSaved)&&wallSaved.Equals(wall),"wall save");
+             Check(box.InteriorSlots.GetSlot(2).TryMoveTo(w.Hand.Slot),"lift frame");
+             Check(w.BeeLocations.TryGet(100,out var carried)&&carried.Equals(back),"attachment survives lift");
+@@ -94,7 +94,7 @@
+             Check(!w.TryEmptyTrash(out _),"wall equipment deletion guard");
+             restored.Weather.BindBaseline(WeatherAssetLoader.LoadBaseline());restored.PrepareThermal(ThermalMaterials.Load());Tick(restored,2);
+             Check(BeeSurfaceEnvironmentReader.TryReadAt(restored,front,out _),"restored climate");
+-            var report="PASS "+checks+" checks: grid-only positions, all30 frame cells, all15 adjacent-frame links, no solid/empty-slot/panel shortcuts, shared cache invalidation, wall/ambient climate, lift/reinsert, v13/v14 rejection, v16 roundtrip, equipment deletion guards.";
++            var report="PASS "+checks+" checks: grid-only positions, all30 frame cells, all15 adjacent-frame links, no solid/empty-slot/panel shortcuts, shared cache invalidation, wall/ambient climate, lift/reinsert, v13/v14 rejection, v17 roundtrip, equipment deletion guards.";
+             var path=Environment.GetEnvironmentVariable("BEE_REPORT");if(!string.IsNullOrEmpty(path))File.WriteAllText(path,report);Debug.Log(report);
+         }
+         finally { w.Thermal?.Dispose();restored?.Thermal?.Dispose(); }
+--- before/Assets/Editor/Tests/Comb30Validation.cs
++++ after/Assets/Editor/Tests/Comb30Validation.cs
+@@ -7,10 +7,10 @@
+ public static class Comb30Validation
+ {
+     static int checks;
+-    static readonly string Folder = "outputs/comb30";
++    static readonly string Folder = "outputs/comb25";
+     static void Check(bool ok,string label){checks++;if(!ok)throw new Exception(label);}
+     static void Near(double a,double b,double tolerance,string label){Check(Math.Abs(a-b)<=tolerance,label+": "+a+" vs "+b);}
+-    [MenuItem("Tools/HoneyComb/검증/Run Comb 30x15 Validation")]
++    [MenuItem("Tools/HoneyComb/검증/Run Comb 25x12 Validation")]
+     public static void Run()
+     {
+         Directory.CreateDirectory(Folder);
+@@ -18,46 +18,46 @@
+         {
+             var asset=Resources.Load<CombBalanceSettings>("CombBalanceSettings");
+             Check(asset!=null && asset.TryApply(out _),"runtime balance asset loads");
+-            Near(CombBalance.LiquidCapacityMl*900,1989,.001,"whole-frame liquid capacity");
+-            Near(CombBalance.PollenCapacityMg*900,1326000,.1,"whole-frame pollen capacity");
++            Near(CombBalance.LiquidCapacityMl*600,1989,.001,"whole-frame liquid capacity");
++            Near(CombBalance.PollenCapacityMg*600,1326000,.1,"whole-frame pollen capacity");
+             var defaults=new CombBalanceParameters();
+             Near(defaults.CellLiquidCapacityMl,CombBalance.LiquidCapacityMl,1e-6,"asset and code liquid agree");
+             Near(defaults.CellPollenCapacityMg,CombBalance.PollenCapacityMg,.001,"asset and code pollen agree");
+             CombGeometryTests.RunAll(); CellStateTests.RunAll(); CombThermalTests.RunAll();
+             ContentThermalIntegrationTests.Run(ThermalMaterials.Load()); WorldSaveTests.Run(); BeeSurfaceTests.Run();
+             var f=new FrameData();var item=new ItemData(93000,"comb30",ItemKind.Frame,f);
+-            Check(f.TotalCellCount==900,"900 cells");
++            Check(f.TotalCellCount==600,"600 cells");
+             Near(item.EquipmentGrid.X.Last()-item.EquipmentGrid.X.First(),440,1e-8,"frame width unchanged");
+             Near(item.EquipmentGrid.Z.Last()-item.EquipmentGrid.Z.First(),220,1e-8,"frame height unchanged");
+             double water=0,pollen=0;
+             foreach(var side in new[]{FrameSide.Front,FrameSide.Back})
+             {
+                 var s=f.GetSurface(side);s.SetAllConstruction(100);
+-                for(int y=0;y<15;y++)for(int x=0;x<30;x++)
++                for(int y=0;y<12;y++)for(int x=0;x<25;x++)
+                 {
+-                    Check(s.TryAddNectar(x,y,0,0,2210),"full liquid deposit");
++                    Check(s.TryAddNectar(x,y,0,0,3315),"full liquid deposit");
+                     Check(!s.TryAddNectar(x,y,0,0,1),"liquid overflow rejected");water+=s.GetWaterMassMg(x,y);
+                     s.TryClearContent(x,y);
+                     Check(s.TryAddPollen(x,y,(float)CombBalance.PollenCapacityMg),"full pollen deposit");
+                     Check(!s.TryAddPollen(x,y,1),"pollen overflow rejected");pollen+=s.GetPollenMassMg(x,y);
+                     s.TryClearContent(x,y);
+-                    Check(s.TrySetBrood(x,y,1+x+30*y+(int)side*450),"one brood per cell");
++                    Check(s.TrySetBrood(x,y,1+x+25*y+(int)side*300),"one brood per cell");
+                     Check(!s.TrySetBrood(x,y,999999),"second brood rejected");s.TryClearContent(x,y);
+                 }
+             }
+             Near(water,1989000,.1,"full frame stored liquid mass");Near(pollen,1326000,.1,"full frame stored pollen mass");
+             var wet=f.Front;
+-            for(int y=0;y<5;y++)for(int x=0;x<6;x++)Check(wet.TryAddNectar(x,y,0,100,100),"wet region setup");
++            for(int y=0;y<4;y++)for(int x=0;x<5;x++)Check(wet.TryAddNectar(x,y,0,100,100),"wet region setup");
+             var before=wet.GetThermalRegion(0,0);
+             var applyWater=typeof(FrameSurface).GetMethod("ApplyClimateWater",BindingFlags.Instance|BindingFlags.NonPublic);
+-            Near((double)applyWater.Invoke(wet,new object[]{0,0,.5}),-.0015,1e-10,"region water loss reported in kg");
++            Near((double)applyWater.Invoke(wet,new object[]{0,0,.5}),-.001,1e-10,"region water loss reported in kg");
+             var after=wet.GetThermalRegion(0,0);
+-            Near(before.WaterMg-after.WaterMg,1500,1e-6,"region water balance");
++            Near(before.WaterMg-after.WaterMg,1000,1e-6,"region water balance");
+             Near(after.SugarMg,before.SugarMg,1e-6,"evaporation preserves sugar");
+-            for(int y=0;y<5;y++)for(int x=0;x<6;x++){Near(wet.GetWaterMassMg(x,y),50,1e-6,"water propagated to every member");wet.TryClearContent(x,y);}
++            for(int y=0;y<4;y++)for(int x=0;x<5;x++){Near(wet.GetWaterMassMg(x,y),50,1e-6,"water propagated to every member");wet.TryClearContent(x,y);}
+             item.ThermalState.Refresh(ThermalMaterials.Load(),20);
+             Near(item.ThermalState.WaxMassKg.Sum(v=>(double)v),.04598+.09945,2e-7,"foundation plus preserved worker wax");
+-            foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int y=0;y<15;y++)for(int x=0;x<30;x++)f.GetSurface(side).TrySetType(x,y,CombCellType.Drone);
++            foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int y=0;y<12;y++)for(int x=0;x<25;x++)f.GetSurface(side).TrySetType(x,y,CombCellType.Drone);
+             item.ThermalState.Refresh(ThermalMaterials.Load(),20);
+             Near(item.ThermalState.WaxMassKg.Sum(v=>(double)v),.04598+.1326,2e-7,"preserved drone wax");
+             f.Front.SetAllConstruction(50);f.Back.SetAllConstruction(50);item.ThermalState.Refresh(ThermalMaterials.Load(),20);
+@@ -65,8 +65,8 @@
+             Environment.SetEnvironmentVariable("REDUCED_PRODUCTION_REPORT",Path.GetFullPath(Folder+"/integration"));
+             ReducedGridIntegrationTests.Run();
+             ValidateUI();
+-            File.WriteAllText(Folder+"/result.txt","PASS: "+checks+" additional assertions; geometry, cell states, material capacity, content thermal integration, save integrity, 60-minute three-tier thermal/moisture simulation and resume. Schema 16 only; 900 cells; liquid 1989 mL; pollen 1326 g; worker constructed wax 99.45 g plus unchanged foundation. UI prefab rendered and all 900 front/back centre hit tests passed.\n");
+-            Debug.Log("COMB30 PASS "+checks);if(Application.isBatchMode)EditorApplication.Exit(0);
++            File.WriteAllText(Folder+"/result.txt","PASS: "+checks+" additional assertions; geometry, cell states, material capacity, content thermal integration, save integrity, 60-minute three-tier thermal/moisture simulation and resume. Schema 17 only; 600 cells; liquid 1989 mL; pollen 1326 g; worker constructed wax 99.45 g plus unchanged foundation. UI prefab rendered and all 600 front/back centre hit tests passed.\n");
++            Debug.Log("COMB25 PASS "+checks);if(Application.isBatchMode)EditorApplication.Exit(0);
+         }
+         catch(Exception e){File.WriteAllText(Folder+"/result.txt",e.ToString());Debug.LogException(e);if(Application.isBatchMode)EditorApplication.Exit(1);else throw;}
+         finally{ThermalExchange.ReleaseAllBuffers();}
+@@ -79,15 +79,15 @@
+         var canvasObject=new GameObject("Comb30 preview canvas",typeof(RectTransform),typeof(Canvas));var canvas=canvasObject.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=cam;canvas.planeDistance=100;
+         var go=UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Item/InteriorSlot/Frame/PF_Frame_Hand.prefab"),canvasObject.transform);
+         var presenter=go.GetComponent<FrameCellPresenter>();var f=new FrameData();f.Front.SetAllConstruction(100);f.Back.SetAllConstruction(80);
+-        f.Front.TryAddNectar(0,0,0,100,100);f.Back.TryAddPollen(29,14,100);
++        f.Front.TryAddNectar(0,0,0,100,100);f.Back.TryAddPollen(24,11,100);
+         var item=new ItemData(94000,"UI test",ItemKind.Frame,f);Canvas.ForceUpdateCanvases();presenter.BindItem(item);Canvas.ForceUpdateCanvases();
+         var area=(RectTransform)typeof(FrameCellPresenter).GetField("cellArea",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(presenter);
+         float scale=Mathf.Min(area.rect.width/420,area.rect.height/200);var geometry=new CombGeometry();
+         foreach(var side in new[]{FrameSide.Front,FrameSide.Back})
+         {
+             f.SetFacingSide(side);presenter.Rebuild();Canvas.ForceUpdateCanvases();
+-            Check(go.GetComponentsInChildren<FrameCellMesh>().Length==5,"450 cells use five prefab mesh batches");
+-            for(int y=0;y<15;y++)for(int x=0;x<30;x++)
++            Check(go.GetComponentsInChildren<FrameCellMesh>().Length==3,"300 cells use three prefab mesh batches");
++            for(int y=0;y<12;y++)for(int x=0;x<25;x++)
+             {geometry.Center(x,y,out double cx,out double cz);var p=area.rect.center+new Vector2((float)(cx-210)*scale,(float)(cz-100)*scale);Check(presenter.TryGetCellAtLocalPoint(p,out var id)&&id.Column==x&&id.Row==y&&id.Side==side,"prefab cell hit identity");}
+             Check(!presenter.TryGetCellAtLocalPoint(area.rect.center+new Vector2(0,-100*scale),out _),"margin not selectable");
+             cam.Render();RenderTexture.active=rt;var texture=new Texture2D(1200,1100,TextureFormat.RGB24,false);texture.ReadPixels(new Rect(0,0,1200,1100),0,0);texture.Apply();File.WriteAllBytes(Folder+"/"+side+".png",texture.EncodeToPNG());UnityEngine.Object.DestroyImmediate(texture);RenderTexture.active=null;

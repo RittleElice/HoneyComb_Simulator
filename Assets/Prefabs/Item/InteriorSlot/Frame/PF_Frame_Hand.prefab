@@ -68,7 +68,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -5629798854632490695, guid: 4a194b919d5397648844eaf24b74ead8, type: 3}
+  m_Sprite: {fileID: -2026812747467584672, guid: ee6841728b13a374db7c0dd9b707e0e5, type: 3}
   m_Type: 0
   m_PreserveAspect: 1
   m_FillCenter: 1
@@ -109,6 +109,9 @@ MonoBehaviour:
   cellArea: {fileID: 2522096634326158296}
   showCells: 1
   areaFill: 1
+  cellOffset: {x: 0, y: 0}
+  cellScale: {x: 1, y: 1}
+  flipCellsX: 0
   outlineColor: {r: 0.5, g: 0.3, b: 0.1, a: 0.8}
   outlineWidth: 1
   cellsPerMesh: 100

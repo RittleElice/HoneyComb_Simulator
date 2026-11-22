@@ -1,0 +1,15 @@
+[
+  "Assets/Scripts/Data/Comb/FrameData.cs",
+  "Assets/Scripts/Data/Comb/CombBalance.cs",
+  "Assets/Resources/CombBalanceSettings.asset",
+  "Assets/Scripts/Core/Persistence/GamePersistenceRuntime.cs",
+  "Assets/Scripts/Core/Persistence/WorldSaveCodec.cs",
+  "Assets/Editor/Tests/CombGeometryTests.cs",
+  "Assets/Editor/Tests/ContentThermalIntegrationTests.cs",
+  "Assets/Editor/Tests/CombThermalTests.cs",
+  "Assets/Editor/Tests/ReducedGridIntegrationTests.cs",
+  "Assets/Editor/Tests/GridSevenFiveTests.cs",
+  "Assets/Editor/Tests/ThermalStageOneTests.cs",
+  "Assets/Editor/BeeSurfaceTests.cs",
+  "Assets/Editor/Tests/Comb30Validation.cs"
+]

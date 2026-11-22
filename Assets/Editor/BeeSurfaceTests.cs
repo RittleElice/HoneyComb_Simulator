@@ -19,7 +19,7 @@ public static class BeeSurfaceTests
         try
         {
             for(int i=0;i<w.Inventory.Capacity;i++) w.Inventory.GetSlot(i).Take();
-            var empty=Save(w);Check(BitConverter.ToInt32(empty,0)==16,"schema16");
+            var empty=Save(w);Check(BitConverter.ToInt32(empty,0)==17,"schema17");
             var old=empty.Take(empty.Length-4).ToArray();Array.Copy(BitConverter.GetBytes(13),old,4);
             bool oldRejected=false;try{WorldSaveCodec.Decode(old);}catch(InvalidDataException){oldRejected=true;}Check(oldRejected,"schema13 rejected without migration");
             var root=w.Apiary.GetItemSlot(0,0);var box=root.Item;
@@ -76,7 +76,7 @@ public static class BeeSurfaceTests
             Check(BeeSurfaceEnvironmentReader.TryRead(w,200,out var wallClimate)&&wallClimate.Kind==BeeSurfaceEnvironmentKind.Mixed,"wall inner+outer aggregate");
             Check(!double.IsNaN(wallClimate.RelativeHumidityPercent),"finite aggregate humidity");
             var bytes=Save(w);restored=WorldSaveCodec.Decode(bytes).World;
-            Check(bytes.SequenceEqual(Save(restored)),"schema16 exact roundtrip");
+            Check(bytes.SequenceEqual(Save(restored)),"schema17 exact roundtrip");
             Check(restored.BeeLocations.TryGet(200,out var wallSaved)&&wallSaved.Equals(wall),"wall save");
             Check(box.InteriorSlots.GetSlot(2).TryMoveTo(w.Hand.Slot),"lift frame");
             Check(w.BeeLocations.TryGet(100,out var carried)&&carried.Equals(back),"attachment survives lift");
@@ -94,7 +94,7 @@ public static class BeeSurfaceTests
             Check(!w.TryEmptyTrash(out _),"wall equipment deletion guard");
             restored.Weather.BindBaseline(WeatherAssetLoader.LoadBaseline());restored.PrepareThermal(ThermalMaterials.Load());Tick(restored,2);
             Check(BeeSurfaceEnvironmentReader.TryReadAt(restored,front,out _),"restored climate");
-            var report="PASS "+checks+" checks: grid-only positions, all30 frame cells, all15 adjacent-frame links, no solid/empty-slot/panel shortcuts, shared cache invalidation, wall/ambient climate, lift/reinsert, v13/v14 rejection, v16 roundtrip, equipment deletion guards.";
+            var report="PASS "+checks+" checks: grid-only positions, all30 frame cells, all15 adjacent-frame links, no solid/empty-slot/panel shortcuts, shared cache invalidation, wall/ambient climate, lift/reinsert, v13/v14 rejection, v17 roundtrip, equipment deletion guards.";
             var path=Environment.GetEnvironmentVariable("BEE_REPORT");if(!string.IsNullOrEmpty(path))File.WriteAllText(path,report);Debug.Log(report);
         }
         finally { w.Thermal?.Dispose();restored?.Thermal?.Dispose(); }

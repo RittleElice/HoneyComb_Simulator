@@ -26,6 +26,7 @@ public class FrameFlipAction : MonoBehaviour
     private float angle;
     private float startAngle;
     private float startPointerX;
+    private FrameSide dragStartSide;
 
     private bool dragging;
     private Vector3 baseScale;
@@ -81,6 +82,7 @@ public class FrameFlipAction : MonoBehaviour
             visual = nextVisual;
 
             baseScale = visual.localScale;
+            baseScale.x = Mathf.Abs(baseScale.x);
 
             angle = frame.FacingSide == FrameSide.Front
                 ? 0f
@@ -89,6 +91,7 @@ public class FrameFlipAction : MonoBehaviour
             ApplyAngle();
         }
 
+        dragStartSide = currentFrame.FacingSide;
         startAngle = angle;
         startPointerX = position.x;
         dragging = true;
@@ -137,11 +140,13 @@ public class FrameFlipAction : MonoBehaviour
 
     public void CancelDrag()
     {
+        bool wasInProgress = dragging || snapRoutine != null;
         dragging = false;
         StopSnap();
 
         if (currentFrame != null)
         {
+            if (wasInProgress) currentFrame.SetFacingSide(dragStartSide);
             angle =
                 currentFrame.FacingSide == FrameSide.Front
                     ? 0f
@@ -205,9 +210,14 @@ public class FrameFlipAction : MonoBehaviour
             Mathf.Cos(angle * Mathf.Deg2Rad);
 
         visual.localScale = new Vector3(
-            baseScale.x * widthFactor,
+            baseScale.x * Mathf.Abs(widthFactor),
             baseScale.y,
             baseScale.z);
+
+        // The prefab owns mirroring; the gesture only compresses the outer visual.
+        // Switch contents at the edge-on point, including negative drag angles.
+        if (currentFrame != null)
+            currentFrame.SetFacingSide(widthFactor < 0f ? FrameSide.Back : FrameSide.Front);
     }
 
     private void StopSnap()

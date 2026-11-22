@@ -94,7 +94,7 @@ public static class CombThermalTests
             Near(wood.HeatCapacityJPerK,wood.VolumeMm3*1e-9*500*1600,"wood baseline units");
             Check(s.TrySetType(0,0,CombCellType.Drone),"legacy tag retained");
             Check(!s.TryAddNectar(0,0,0,0,201),"drone tag gets no extra capacity");
-            // Every cell in each 6x5 group lands once in its own side/region.
+            // Every cell in each 5x4 group lands once in its own side/region.
             var dense=new FrameData(); var denseItem=new ItemData(3,"dense",ItemKind.Frame,dense);
             foreach(var side in new[]{FrameSide.Front,FrameSide.Back})
             {

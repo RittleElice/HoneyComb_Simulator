@@ -1,0 +1,1 @@
+PASS 104550 checks; schema17 exact saves and resume, old schema rejection, 600 mappings, all30 evaporation regions, 60 live ticks, frame moves, all Hive Grid slices/selections, temperature/vapor/water/flow inspection. Max resume temperature delta=3.54648932443524E-07 C. Native UI validation is separate.

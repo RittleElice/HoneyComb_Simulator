@@ -15,9 +15,9 @@ public static class GridSevenFiveTests {
  var counts=new int[g.CellCount];
  foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int z=0;z<f.Height;z++)for(int x=0;x<f.Width;x++){
   var c=CombSpatialMapper.GetContentCell(frame,side,x,z);counts[c.Index]++;
-  Check(c.Index==g.Index(x/6,side==FrameSide.Front?0:1,z/5),"mapping identity");
+  Check(c.Index==g.Index(x/5,side==FrameSide.Front?0:1,z/4),"mapping identity");
  }
- Check(counts.Count(n=>n==30)==30&&counts.Sum()==900,"mapping coverage");
+ Check(counts.Count(n=>n==20)==30&&counts.Sum()==600,"mapping coverage");
  frame.ThermalState.Refresh(m,20);Check(Math.Abs(frame.ThermalState.WaxMassKg.Sum(v=>(double)v)-.04598)<1e-7,"foundation mass");
  f.Front.SetAllConstruction(100);f.Back.SetAllConstruction(100);frame.ThermalState.Refresh(m,20);
  double expected=.04598;foreach(var side in new[]{FrameSide.Front,FrameSide.Back})for(int z=0;z<f.Height;z++)for(int x=0;x<f.Width;x++)expected+=ThermalMath.WaxMassKg(f.GetSurface(side).GetCell(x,z));
@@ -35,7 +35,7 @@ public static class GridSevenFiveTests {
  var snapshot=new WorldSaveSnapshot{World=fresh,UtcTicks=DateTime.UtcNow.Ticks,TargetMinute=0};var bytes=WorldSaveCodec.Encode(snapshot);var loaded=WorldSaveCodec.Decode(bytes);loaded.World.PrepareThermal(m);Check(bytes.SequenceEqual(WorldSaveCodec.Encode(loaded)),"schema9 roundtrip");
  var old=(byte[])bytes.Clone();old[0]=8;bool rejected=false;try{WorldSaveCodec.Decode(old);}catch(InvalidDataException){rejected=true;}Check(rejected,"old schema rejected");
  new WorldSaveStore(Path.Combine(folder,"new-save-schema9")).Save(bytes);
- File.WriteAllText(Path.Combine(folder,"results.txt"),"PASS geometry, comb capacity, content integration, exterior, persistent buffers, effective solver, 900 mapping identities, foundation/built wax conservation, movement, 1440 finite ticks, schema9 exact roundtrip, schema8 rejection.\nDefault cells="+cells+" faces="+faces+"\n1440 ticks including inserted frame/moves mean ms="+(total/1440)+" (not an A/B benchmark).\nFresh minute0 save prepared in new-save; user save untouched by test.");
+ File.WriteAllText(Path.Combine(folder,"results.txt"),"PASS geometry, comb capacity, content integration, exterior, persistent buffers, effective solver, 600 mapping identities, foundation/built wax conservation, movement, 1440 finite ticks, schema9 exact roundtrip, schema8 rejection.\nDefault cells="+cells+" faces="+faces+"\n1440 ticks including inserted frame/moves mean ms="+(total/1440)+" (not an A/B benchmark).\nFresh minute0 save prepared in new-save; user save untouched by test.");
  ThermalExchange.ReleaseAllBuffers();EditorApplication.Exit(0);
  }catch(Exception ex){File.WriteAllText(Path.Combine(folder,"results.txt"),ex.ToString());Debug.LogException(ex);ThermalExchange.ReleaseAllBuffers();EditorApplication.Exit(1);}
  }

@@ -11,7 +11,7 @@ public static class CombGeometryTests
     {
         checks = 0;
         var f = new FrameData(); var item = new ItemData(501, "Frame", ItemKind.Frame, f);
-        Check(f.Width == 30 && f.Height == 15 && f.TotalCellCount == 900, "fixed dimensions");
+        Check(f.Width == 25 && f.Height == 12 && f.TotalCellCount == 600, "fixed dimensions");
         var g = new CombGeometry(); var ids = new HashSet<CombCellId>();
         var counts = new int[15];
         for (int r = 0; r < f.Height; r++) for (int c = 0; c < f.Width; c++)
@@ -31,8 +31,8 @@ public static class CombGeometryTests
                 Check(Math.Abs(Math.Sqrt((nx-x)*(nx-x)+(nz-z)*(nz-z))-g.StepX)<1e-8,"dense neighbour pitch");
             }
         }
-        foreach (var count in counts) Check(count == 30,"6 by 5 cells per region");
-        Check(Math.Abs(g.Width-420)<1e-8 && Math.Abs(g.Height - g.Radius * 23)<1e-8,"physical extent");
+        foreach (var count in counts) Check(count == 20,"5 by 4 cells per region");
+        Check(Math.Abs(g.Width-420)<1e-8 && Math.Abs(g.Height - g.Radius * 18.5)<1e-8,"physical extent");
         Check(!g.TryFind(210,0,out _,out _),"margin is not a cell");
         f.Front.TrySetConstruction(3,4,100); f.Front.TrySetContent(3,4,CellContentKind.Honey);
         f.Front.TrySetType(3,4,CombCellType.Drone);
