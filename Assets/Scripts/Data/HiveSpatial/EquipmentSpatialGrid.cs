@@ -29,7 +29,7 @@ public sealed class EquipmentSpatialFace
 }
 
 // Local geometry only. Empty box volume is null, not equipment-owned air.
-// Queen excluders own a zero-thickness 9 x 40 face grid, not artificial solid cells.
+// Queen excluders own a zero-thickness interior face grid, not artificial solid cells.
 public sealed class EquipmentSpatialGrid
 {
     private readonly EquipmentSpatialCell[] cells;
@@ -63,8 +63,8 @@ public sealed class EquipmentSpatialGrid
             if(panel && item.Kind!=ItemKind.DividerBoard) panelMaterial=(item.GetContent<HiveOccupancyProfile>() ??
                 (item.Kind == ItemKind.HeatingPanel ? HiveOccupancyProfile.Heating : HiveOccupancyProfile.Insulation)).Material;
             SlotFirstY = 1;
-            X = Slice(HiveGridLayout.Brood.X, 2, HiveGridLayout.FrameSizeX);
-            Y = Slice(HiveGridLayout.Brood.Y, 1 + SlotFirstY, 2);
+            X = Slice(HiveGridLayout.Brood.X, HiveGridLayout.FirstFrameX, HiveGridLayout.FrameSizeX);
+            Y = Slice(HiveGridLayout.Brood.Y, HiveGridLayout.FirstSlotY + SlotFirstY, 2);
             Z = Slice(HiveGridLayout.Brood.Z, 3, HiveGridLayout.FrameSizeZ);
         }
         else if (boundary)

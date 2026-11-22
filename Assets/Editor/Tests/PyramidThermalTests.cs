@@ -73,7 +73,7 @@ public static class PyramidThermalTests
             var c=e.GetCell(i);
             if(!ReferenceEquals(c.Owner,box.ThermalState) || !c.IsSlotGroup)continue;
             box.SpatialGrid.Layout.Coordinates(c.Index,out _,out int y,out _);
-            if((y-1)/HiveGridLayout.SlotDepthCells!=slot)continue;
+            if((y-HiveGridLayout.FirstSlotY)/HiveGridLayout.SlotDepthCells!=slot)continue;
             var material=c.Owner.ExchangeMaterial(c.Index);
             for(int k=1;k<c.MemberCount;k++)
                 Check(material==c.Owner.ExchangeMaterial(c.MemberIndex(k)),"group contains one material");
@@ -115,7 +115,7 @@ public static class PyramidThermalTests
         bool Combined()=>Enumerable.Range(0,world.Exchange.CellCount).Any(i=>world.Exchange.GetCell(i).IsStackAir);
         Prepare();var e=world.Exchange;Check(Combined(),"air joined across stack");
         var lo=lower.SpatialGrid.Layout;var hi=upper.SpatialGrid.Layout;
-        int l=lo.Index(4,1,lo.SizeZ-1),u=hi.Index(4,1,0);
+        int l=lo.Index(4,HiveGridLayout.FirstSlotY,lo.SizeZ-1),u=hi.Index(4,HiveGridLayout.FirstSlotY,0);
         Near(lo.Z[lo.SizeZ]-lo.Z[lo.SizeZ-1],10,0,"10 mm top");
         var lowerState=lower.ThermalState;var upperState=upper.ThermalState;
         foreach(var state in new[]{lowerState,upperState})
@@ -179,7 +179,7 @@ public static class PyramidThermalTests
         void Verify(int slot,bool lowerEmpty,bool upperEmpty,bool open){
             var lo=lower.SpatialGrid.Layout;var hi=upper.SpatialGrid.Layout;
             for(int x=1;x<HiveGridLayout.SizeX-1;x++)for(int layer=0;layer<4;layer++){
-                int y=1+slot*4+layer;
+                int y=HiveGridLayout.FirstSlotY+slot*HiveGridLayout.SlotDepthCells+layer;
                 int railA=Shared(lower,lo.Index(x,y,lo.SizeZ-2));
                 int top=Shared(lower,lo.Index(x,y,lo.SizeZ-1));
                 int bottom=Shared(upper,hi.Index(x,y,0));

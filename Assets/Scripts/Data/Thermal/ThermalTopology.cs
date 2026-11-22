@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -141,7 +141,7 @@ public static class ThermalTopology
         for(int slot=0;slot<HiveGridLayout.SlotCount;slot++){
             if((empty & (1<<slot))==0)continue;
             for(int layer=0;layer<HiveGridLayout.SlotDepthCells;layer++){
-                int y=1+slot*HiveGridLayout.SlotDepthCells+layer;
+                int y=HiveGridLayout.FirstSlotY+slot*HiveGridLayout.SlotDepthCells+layer;
                 for(int x=1;x<HiveGridLayout.SizeX-1;x++){
                     JoinIfAir(x,y,bottom-1);
                     if(grid.TopBoundaryEquipment==null)JoinIfAir(x,y,top);

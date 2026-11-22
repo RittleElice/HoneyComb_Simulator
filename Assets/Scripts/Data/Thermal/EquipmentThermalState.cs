@@ -20,17 +20,44 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
         w.Write(AtmosphericAndBoundWater!=null);
         if(AtmosphericAndBoundWater!=null)foreach(double value in AtmosphericAndBoundWater)w.Write(value);
     }
-    internal void ReadClimate(BinaryReader r)
+    internal void ReadClimate(BinaryReader r, int schema = WorldSaveCodec.CurrentSchema)
     {
-        if(!r.ReadBoolean())return;
-        AtmosphericAndBoundWater=new double[checked(Count*4)];
-        for(int i=0;i<AtmosphericAndBoundWater.Length;i++)
+        if (!r.ReadBoolean()) return;
+        AtmosphericAndBoundWater = new double[checked(Count*4)];
+        for (int i=0; i<Count; i++) AtmosphericAndBoundWater[i*4] = -1;
+        int count = SavedCellCount(schema);
+        for (int i=0; i<count; i++)
         {
-            double v=r.ReadDouble();
-            if((!(v>=0) && !(i%4==0 && v==-1))||double.IsInfinity(v))throw new InvalidDataException("Invalid equipment moisture");
-            AtmosphericAndBoundWater[i]=v;
+            MapSavedCell(schema, i, out int first, out int second, out double scale);
+            for (int k=0; k<4; k++)
+            {
+                double v = r.ReadDouble();
+                if ((!(v>=0) && !(k==0 && v==-1)) || double.IsInfinity(v))
+                    throw new InvalidDataException("Invalid equipment moisture");
+                double mapped = v < 0 ? v : v * scale;
+                AtmosphericAndBoundWater[first*4+k] = mapped;
+                if (second >= 0) AtmosphericAndBoundWater[second*4+k] = mapped;
+            }
         }
         NormalizeDividerWater();
+    }
+
+    int SavedCellCount(int schema) =>
+        schema == 17 && item.SpatialGrid != null ? 9 * 42 * item.EquipmentGrid.SizeZ : Count;
+
+    // Preserve temperatures and moisture density when the two old 8 mm bands become 10 mm.
+    // The new Y bands have no predecessor and initialize from the normal ambient state.
+    void MapSavedCell(int schema, int old, out int first, out int second, out double scale)
+    {
+        first = old; second = -1; scale = 1;
+        if (schema != 17 || item.SpatialGrid == null) return;
+        int x = old % 9, y = old / 9 % 42, z = old / (9 * 42);
+        first = item.SpatialGrid.Layout.Index(HiveGridLayout.MapLegacyX(x), HiveGridLayout.MapLegacyY(y), z);
+        if (x == 1 || x == 7)
+        {
+            second = first + 1;
+            scale = HiveGridLayout.SurfaceAirMm / 8.0;
+        }
     }
     // A saved mixed divider can have vapor or water bound to its old material.
     // Preserve its water mass in the solid wood reservoir on load.
@@ -291,16 +318,18 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
         w.Write(Count);
         for (int i = 0; i < Count; i++) { w.Write(initialized[i]); if (initialized[i]) { float value = ReadEnergy(i); if (!ThermalMath.Finite(value)) throw new InvalidDataException("Invalid energy"); w.Write(value); } }
     }
-    internal void ReadSnapshot(BinaryReader r)
+    internal void ReadSnapshot(BinaryReader r, int schema = WorldSaveCodec.CurrentSchema)
     {
         int savedCount = r.ReadInt32();
-        if(savedCount!=Count) throw new InvalidDataException("Thermal geometry length mismatch");
+        if(savedCount!=SavedCellCount(schema)) throw new InvalidDataException("Thermal geometry length mismatch");
         for(int i=0;i<savedCount;i++)
         {
             if(!r.ReadBoolean())continue;
             float value=r.ReadSingle();
             if(!ThermalMath.Finite(value))throw new InvalidDataException("Invalid saved energy");
-            RestoreEnergy(i,value);
+            MapSavedCell(schema, i, out int first, out int second, out double scale);
+            RestoreEnergy(first, (float)(value * scale));
+            if (second >= 0) RestoreEnergy(second, (float)(value * scale));
         }
         MarkAllDirty();
     }

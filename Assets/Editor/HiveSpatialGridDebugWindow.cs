@@ -180,7 +180,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         int largestZ=grids.Sum(g=>g.Layout.SizeZ);
         slice=axis==1?SelectYSlice(grids):EditorGUILayout.IntSlider("단면 위치 (조립체 전체 기준)",slice,0,(axis==0?HiveGridLayout.SizeX:largestZ)-1);
         double totalHeight=grids.Sum(g=>g.Layout.Z[g.Layout.SizeZ]);
-        EditorGUILayout.LabelField($"조립체: 496 × 390 × {totalHeight} mm / 아래에서 위로 연결",EditorStyles.wordWrappedLabel);
+        EditorGUILayout.LabelField($"조립체: {HiveGridLayout.WidthMm} × {HiveGridLayout.DepthMm} × {totalHeight} mm / 아래에서 위로 연결",EditorStyles.wordWrappedLabel);
         EditorGUILayout.LabelField($"소비 슬롯: {HiveGridLayout.SlotDepthCells} × {HiveGridLayout.FrameSizeZ} × {HiveGridLayout.FrameSizeX} / 목재 테두리 없는 소비 격자",EditorStyles.wordWrappedLabel);
         var ready=new HashSet<HiveSpatialGrid>();
         string status=null;
@@ -245,7 +245,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         else EditorGUILayout.LabelField("공기: 파랑 / 목재: 갈색 / 소비: 노랑 / 단열재: 보라 / 격왕판: 자홍");
         scroll=EditorGUILayout.BeginScrollView(scroll);
         const float scale=1.25f;
-        double width=axis==0?390:496,height=axis==2?390:totalHeight;
+        double width=axis==0?HiveGridLayout.DepthMm:HiveGridLayout.WidthMm,height=axis==2?HiveGridLayout.DepthMm:totalHeight;
         Rect area=GUILayoutUtility.GetRect((float)width*scale+200,(float)height*scale,GUILayout.ExpandWidth(false));
         double bottom=0;int firstZ=0;
         foreach(var grid in grids)
@@ -253,7 +253,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             double partHeight=grid.Layout.Z[grid.Layout.SizeZ];
             if(axis!=2 || (slice>=firstZ && slice<firstZ+grid.Layout.SizeZ))
             {
-                var partArea=new Rect(area.x,axis==2?area.y:area.y+(float)(totalHeight-bottom-partHeight)*scale,(float)width*scale,(float)(axis==2?390:partHeight)*scale);
+                var partArea=new Rect(area.x,axis==2?area.y:area.y+(float)(totalHeight-bottom-partHeight)*scale,(float)width*scale,(float)(axis==2?HiveGridLayout.DepthMm:partHeight)*scale);
                 DrawGrid(grid,partArea,axis==2?slice-firstZ:slice,ready.Contains(grid),low,high,firstZ);
                 GUI.Label(new Rect(partArea.xMax+8,partArea.y,190,40),$"{grid.Box.Name}\nZ {bottom:0}–{bottom+partHeight:0} mm");
             }

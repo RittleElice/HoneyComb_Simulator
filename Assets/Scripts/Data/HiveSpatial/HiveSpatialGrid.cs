@@ -66,13 +66,13 @@ public sealed class HiveSpatialGrid
         box.TopSlot.OnChanged += OnTopChanged;
     }
 
-    private bool IsSlotY(int y) => slots != null && y >= 1 &&
-        y < 1 + HiveGridLayout.SlotCount * HiveGridLayout.SlotDepthCells;
+    private bool IsSlotY(int y) => slots != null && y >= HiveGridLayout.FirstSlotY &&
+        y < HiveGridLayout.FirstSlotY + HiveGridLayout.SlotCount * HiveGridLayout.SlotDepthCells;
 
     internal bool IsGroupedColumn(int x, int y, int z)
     {
         if (!IsSlotY(y)) return false;
-        var band = slots[(y - 1) / HiveGridLayout.SlotDepthCells];
+        var band = slots[(y - HiveGridLayout.FirstSlotY) / HiveGridLayout.SlotDepthCells];
         int column = x + HiveGridLayout.SizeX * z;
         return band.Offsets[column + 1] - band.Offsets[column] == 1;
     }
@@ -82,7 +82,7 @@ public sealed class HiveSpatialGrid
     {
         Layout.Coordinates(index, out int x, out int y, out int z);
         if (!IsGroupedColumn(x,y,z)) return (index,1);
-        int layer = (y - 1) % HiveGridLayout.SlotDepthCells;
+        int layer = (y - HiveGridLayout.FirstSlotY) % HiveGridLayout.SlotDepthCells;
         return (index - layer * HiveGridLayout.SizeX,HiveGridLayout.SlotDepthCells);
     }
 
@@ -93,7 +93,7 @@ public sealed class HiveSpatialGrid
         for (int x = 0; x < HiveGridLayout.SizeX; x++)
         {
             bool grouped = IsGroupedColumn(x,y,z);
-            if (grouped && (y - 1) % HiveGridLayout.SlotDepthCells != 0) continue;
+            if (grouped && (y - HiveGridLayout.FirstSlotY) % HiveGridLayout.SlotDepthCells != 0) continue;
             yield return (Layout.Index(x,y,z),grouped ? HiveGridLayout.SlotDepthCells : 1);
         }
     }
@@ -103,11 +103,11 @@ public sealed class HiveSpatialGrid
     {
         Layout.Coordinates(index, out int x, out int y, out int z);
         if (!IsSlotY(y)) return new HiveGridCell(Box.EquipmentGrid.GetCell(x,y,z));
-        var band = slots[(y - 1) / HiveGridLayout.SlotDepthCells];
+        var band = slots[(y - HiveGridLayout.FirstSlotY) / HiveGridLayout.SlotDepthCells];
         int column = x + HiveGridLayout.SizeX * z;
         int start = band.Offsets[column];
         if (band.Offsets[column + 1] - start != 1)
-            return band.Cells[start + (y - 1) % HiveGridLayout.SlotDepthCells];
+            return band.Cells[start + (y - HiveGridLayout.FirstSlotY) % HiveGridLayout.SlotDepthCells];
         // A grouped wood cell still exposes the requested equipment-local source address.
         var representative = band.Cells[start];
         return representative.SourceCell == null ? representative : new HiveGridCell(Box.EquipmentGrid.GetCell(x,y,z));
@@ -137,7 +137,7 @@ public sealed class HiveSpatialGrid
         var local = item?.EquipmentGrid;
         bool empty = Box.InteriorSlots.GetSlot(slot).IsEmpty;
         int depth = HiveGridLayout.SlotDepthCells;
-        int firstY = 1 + slot * depth;
+        int firstY = HiveGridLayout.FirstSlotY + slot * depth;
         int columns = HiveGridLayout.SizeX * Layout.SizeZ;
         var offsets = new int[columns + 1];
         var active = new List<HiveGridCell>(item == null ? columns : columns * depth);
@@ -152,9 +152,9 @@ public sealed class HiveSpatialGrid
             for (int layer = 0; layer < depth; layer++)
             {
                 var source = interior ? null : Box.EquipmentGrid.GetCell(x, firstY + layer, z);
-                if (interior && local != null && x >= 2 && x < 2 + local.SizeX &&
+                if (interior && local != null && x >= HiveGridLayout.FirstFrameX && x < HiveGridLayout.FirstFrameX + local.SizeX &&
                     layer >= local.SlotFirstY && layer < local.SlotFirstY + local.SizeY)
-                    source = local.GetCell(x - 2,layer - local.SlotFirstY,frameZ);
+                    source = local.GetCell(x - HiveGridLayout.FirstFrameX,layer - local.SlotFirstY,frameZ);
                 var cell = new HiveGridCell(source);
                 members[layer] = cell;
                 grouped &= cell.Material == members[0].Material &&

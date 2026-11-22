@@ -6,11 +6,14 @@ public sealed class HiveGridLayout
 {
     // Full 440 x 220 mm frame footprint; no separate wooden rim cells.
     public const int CombColumns = 5, CombRows = 3, FrameSizeX = CombColumns, FrameSizeZ = CombRows;
-    private static readonly double[] SlotLayersMm = { 5, 12.5, 12.5, 5 };
+    private static readonly double[] SlotLayersMm = { SurfaceAirMm, 12.5, 12.5, SurfaceAirMm };
     public static readonly double SlotDepthMm = ArraySum(SlotLayersMm);
     private static double ArraySum(double[] widths) { double sum=0; foreach(double width in widths) sum+=width; return sum; }
     public static double SlotLayerEnergyShare(int layer) => SlotLayersMm[layer] / SlotDepthMm;
-    public const int SizeX = CombColumns + 4, SizeY = 42, SlotCount = 10, SlotDepthCells = 4;
+    public const int SlotCount = 10, SlotDepthCells = 4;
+    public const int FirstFrameX = 3, FirstSlotY = 2;
+    public const int SizeX = FirstFrameX * 2 + CombColumns, SizeY = FirstSlotY * 2 + SlotCount * SlotDepthCells;
+    public const int WidthMm = 500, DepthMm = 400, SurfaceAirMm = 5;
     public static readonly HiveGridLayout Brood = new HiveGridLayout(true);
     public static readonly HiveGridLayout Super = new HiveGridLayout(false);
     public static readonly HiveGridLayout Lid = new HiveGridLayout();
@@ -22,9 +25,9 @@ public sealed class HiveGridLayout
     public int SizeZ => Z.Count - 1;
     public int CellCount => SizeX * SizeY * SizeZ;
     public int SlotBottom => IsLid ? -1 : HasFloor ? 3 : 1;
-    // Unreduced entrance: X=0..20, Y=20..370, Z=15..25 mm.
+    // Unreduced entrance: X=0..20, Y=25..375, Z=15..25 mm.
     // The forty Y subdivisions through the X=0 wall are air, not equipment-owned wood.
-    public bool IsEntranceCell(int x, int y, int z) => HasFloor && x == 0 && z == 1 && y > 0 && y < SizeY - 1;
+    public bool IsEntranceCell(int x, int y, int z) => HasFloor && x == 0 && z == 1 && y >= FirstSlotY && y < SizeY - FirstSlotY;
     public int EdgeCount => (SizeX - 1) * SizeY * SizeZ + SizeX * (SizeY - 1) * SizeZ + SizeX * SizeY * (SizeZ - 1);
 
     // A single 20 mm layer with exactly the same XY partition as the boxes.
@@ -38,11 +41,12 @@ public sealed class HiveGridLayout
     private HiveGridLayout(bool brood)
     {
         HasFloor = brood;
-        var x = new List<double> { 20, 8 };
+        var x = new List<double> { 20, SurfaceAirMm, SurfaceAirMm };
         for (int i = 0; i < CombColumns; i++) x.Add(440.0 / CombColumns);
-        x.AddRange(new double[] { 8, 20 });
-        var y = new List<double> { 20 };
+        x.AddRange(new double[] { SurfaceAirMm, SurfaceAirMm, 20 });
+        var y = new List<double> { 20, SurfaceAirMm };
         for (int i = 0; i < SlotCount; i++) y.AddRange(SlotLayersMm);
+        y.Add(SurfaceAirMm);
         y.Add(20);
         var z = new List<double>();
         if (brood) z.AddRange(new double[] { 15, 10 });
@@ -50,7 +54,7 @@ public sealed class HiveGridLayout
         for (int i = 0; i < CombRows; i++) z.Add(220.0 / CombRows);
         z.Add(10);
         X = Boundaries(x); Y = Boundaries(y); Z = Boundaries(z);
-        if (X[SizeX] != 496 || Y[SizeY] != 390 || Math.Abs(Z[SizeZ] - (brood ? 263 : 238)) > 1e-9)
+        if (X[SizeX] != WidthMm || Y[SizeY] != DepthMm || Math.Abs(Z[SizeZ] - (brood ? 263 : 238)) > 1e-9)
             throw new InvalidOperationException("Hive dimension totals disagree with the specification.");
     }
 
@@ -60,6 +64,10 @@ public sealed class HiveGridLayout
         for (int i = 0; i < widths.Count; i++) bounds[i + 1] = bounds[i] + widths[i];
         return Array.AsReadOnly(bounds);
     }
+
+    // Schema 17 had one 8 mm end clearance and no wall layer outside the ten slots.
+    internal static int MapLegacyX(int x) => x <= 1 ? x : x == 8 ? 10 : x + 1;
+    internal static int MapLegacyY(int y) => y == 0 ? 0 : y == 41 ? 43 : y + 1;
 
     public int Index(int x, int y, int z)
     {

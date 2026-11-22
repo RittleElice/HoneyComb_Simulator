@@ -9,7 +9,7 @@ public static class BroodEntranceTests {
   foreach(var box in ThermalWorld.Items(world).Where(i=>i.Kind==ItemKind.BroodBox)){
    var grid=box.SpatialGrid;var l=grid.Layout;double area=0;
    for(int y=0;y<HiveGridLayout.SizeY;y++){
-    bool opening=y>0&&y<HiveGridLayout.SizeY-1;int index=l.Index(0,y,1);var cell=grid.GetCell(index);
+    bool opening=y>=HiveGridLayout.FirstSlotY&&y<HiveGridLayout.SizeY-HiveGridLayout.FirstSlotY;int index=l.Index(0,y,1);var cell=grid.GetCell(index);
     Check(l.IsEntranceCell(0,y,1)==opening,"entrance classification");
     Check((cell.Material==HiveMaterial.Air)==opening,"only selected front cells open");
     Check(grid.GetCell(0,y,0).Material==HiveMaterial.Wood,"floor remains solid");

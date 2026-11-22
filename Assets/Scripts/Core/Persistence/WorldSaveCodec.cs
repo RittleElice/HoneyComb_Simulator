@@ -17,7 +17,7 @@ internal static class SaveBinary
     public static string Text(BinaryReader r)
     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
 }
-/// <summary>Schema 17 uses 25x12 comb defaults and preserved frame capacity/wax totals. Earlier saves remain untouched in the previous save directory and are not migrated.
+/// <summary>Schema 18 stores the wall air layers and supported air positions. Schema 17 migrates on read.
 /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
 public sealed class WorldSaveCodec
 {
@@ -25,7 +25,8 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
-    private int schema = 17;
+    public const int CurrentSchema = 18;
+    private int schema = CurrentSchema;
     public static byte[] Encode(WorldSaveSnapshot snapshot)
     {
         ValidateTime(snapshot);
@@ -35,7 +36,7 @@ public sealed class WorldSaveCodec
         using (var w = new BinaryWriter(stream,Encoding.UTF8,true))
         {
             snapshot.World.Thermal?.FlushClimate();
-            int version = 17;
+            const int version = CurrentSchema;
             w.Write(version); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
             var world = snapshot.World; w.Write(world.CurrentGameMinute);
             var codec = new WorldSaveCodec { hives = world.Apiary.Hives, schema = version };
@@ -65,7 +66,7 @@ public sealed class WorldSaveCodec
         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
         {
             int schema=r.ReadInt32();
-            if(schema!=17) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
+            if(schema!=17 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);
@@ -167,8 +168,8 @@ public sealed class WorldSaveCodec
         if(schema >= 3 && r.ReadBoolean())
         {
             if(item.ThermalState == null) throw new InvalidDataException("Thermal state on unsupported equipment");
-            item.ThermalState.ReadSnapshot(r);
-            if(schema>=12)item.ThermalState.ReadClimate(r);
+            item.ThermalState.ReadSnapshot(r, schema);
+            if(schema>=12)item.ThermalState.ReadClimate(r, schema);
         }
         return item;
     }

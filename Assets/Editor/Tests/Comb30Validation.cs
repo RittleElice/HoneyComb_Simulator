@@ -65,7 +65,7 @@ public static class Comb30Validation
             Environment.SetEnvironmentVariable("REDUCED_PRODUCTION_REPORT",Path.GetFullPath(Folder+"/integration"));
             ReducedGridIntegrationTests.Run();
             ValidateUI();
-            File.WriteAllText(Folder+"/result.txt","PASS: "+checks+" additional assertions; geometry, cell states, material capacity, content thermal integration, save integrity, 60-minute three-tier thermal/moisture simulation and resume. Schema 17 only; 600 cells; liquid 1989 mL; pollen 1326 g; worker constructed wax 99.45 g plus unchanged foundation. UI prefab rendered and all 600 front/back centre hit tests passed.\n");
+            File.WriteAllText(Folder+"/result.txt","PASS: "+checks+" additional assertions; geometry, cell states, material capacity, content thermal integration, save integrity, 60-minute three-tier thermal/moisture simulation and resume. Schema 18 with schema 17 migration; 600 cells; liquid 1989 mL; pollen 1326 g; worker constructed wax 99.45 g plus unchanged foundation. UI prefab rendered and all 600 front/back centre hit tests passed.\n");
             Debug.Log("COMB25 PASS "+checks);if(Application.isBatchMode)EditorApplication.Exit(0);
         }
         catch(Exception e){File.WriteAllText(Folder+"/result.txt",e.ToString());Debug.LogException(e);if(Application.isBatchMode)EditorApplication.Exit(1);else throw;}

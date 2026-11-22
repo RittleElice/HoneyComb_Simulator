@@ -14,8 +14,8 @@ public static class HiveSpatialGridTests
     public static void RunAll()
     {
         checks = 0;
-        Geometry(ItemKind.BroodBox, 2646, 263, 7203);
-        Geometry(ItemKind.Super, 1890, 238, 5037);
+        Geometry(ItemKind.BroodBox, 3388, 263, 9295);
+        Geometry(ItemKind.Super, 2420, 238, 6501);
         OccupancyAndEvents();
         Stack();
         LidLayer();
@@ -47,8 +47,8 @@ public static class HiveSpatialGridTests
                 if (n >= 0) Check(grid.Neighbour(n,d ^ 1) == i, "symmetric neighbour");
             }
         }
-        Check(Math.Abs(volume - 496 * 390 * height) < .001, "total volume");
-        Check(air == (kind == ItemKind.BroodBox ? 1720 : 1400), "empty interior air");
+        Check(Math.Abs(volume - 500 * 400 * height) < .001, "total volume");
+        Check(air == (kind == ItemKind.BroodBox ? 2308 : 1890), "empty interior air");
         int actual = 0; var unique = new HashSet<long>();
         foreach (var edge in grid.Edges())
         {
@@ -80,24 +80,24 @@ public static class HiveSpatialGridTests
             if (cell.Material != HiveMaterial.Air) Check(ReferenceEquals(cell.Frame,frameData), "frame reference");
         }
         Check(comb == 30 && wood == 0, "frame interior and perimeter");
-        Check(grid.GetCell(3,1,5).Material == HiveMaterial.Air && grid.GetCell(3,4,5).Material == HiveMaterial.Air, "front/back air");
+        Check(grid.GetCell(4,2,5).Material == HiveMaterial.Air && grid.GetCell(4,5,5).Material == HiveMaterial.Air, "front/back air");
         Check(box.InteriorSlots.GetSlot(0).TryMoveTo(box.InteriorSlots.GetSlot(9)), "move");
-        Check(grid.GetCell(3,3,5).Material == HiveMaterial.Air && ReferenceEquals(grid.GetCell(3,39,5).Frame,frameData), "move refresh");
+        Check(grid.GetCell(4,4,5).Material == HiveMaterial.Air && ReferenceEquals(grid.GetCell(4,40,5).Frame,frameData), "move refresh");
         var super = Item(ItemKind.Super);
         var upperGrid = super.SpatialGrid;
         Check(box.InteriorSlots.GetSlot(9).TryMoveTo(super.InteriorSlots.GetSlot(0)), "cross box move");
-        Check(grid.GetCell(3,39,5).Material == HiveMaterial.Air && ReferenceEquals(upperGrid.GetCell(3,3,3).Frame,frameData), "both grids refreshed");
+        Check(grid.GetCell(4,40,5).Material == HiveMaterial.Air && ReferenceEquals(upperGrid.GetCell(4,4,3).Frame,frameData), "both grids refreshed");
         Check(super.InteriorSlots.GetSlot(0).TrySwap(box.InteriorSlots.GetSlot(1)), "swap");
-        Check(ReferenceEquals(grid.GetCell(3,7,5).Frame,frameData), "swap refresh");
+        Check(ReferenceEquals(grid.GetCell(4,8,5).Frame,frameData), "swap refresh");
         box.InteriorSlots.GetSlot(1).Take();
-        Check(grid.GetCell(3,7,5).Material == HiveMaterial.Air, "removal refresh");
+        Check(grid.GetCell(4,8,5).Material == HiveMaterial.Air, "removal refresh");
         Check(box.InteriorSlots.GetSlot(0).TryInsert(Item(ItemKind.DividerBoard)), "divider accepted");
-        Check(grid.GetCell(3,3,5).Material == HiveMaterial.Wood && grid.GetCell(3,2,5).Material == HiveMaterial.Wood, "solid wood divider");
+        Check(grid.GetCell(4,4,5).Material == HiveMaterial.Wood && grid.GetCell(4,3,5).Material == HiveMaterial.Wood, "solid wood divider");
         Check(box.InteriorSlots.GetSlot(1).TryInsert(Item(ItemKind.InsulationBoard)), "insulation accepted");
-        Check(grid.GetCell(3,6,5).Material == HiveMaterial.Insulation && grid.GetCell(3,7,5).Material == HiveMaterial.Insulation, "25mm profile");
+        Check(grid.GetCell(4,7,5).Material == HiveMaterial.Insulation && grid.GetCell(4,8,5).Material == HiveMaterial.Insulation, "25mm profile");
         var custom = new HiveOccupancyProfile(1,1,HiveMaterial.Insulation);
         Check(box.InteriorSlots.GetSlot(2).TryInsert(Item(ItemKind.DividerBoard,custom)), "custom profile");
-        Check(grid.GetCell(3,10,5).Material == HiveMaterial.Wood && grid.GetCell(3,11,5).Material == HiveMaterial.Wood, "legacy divider uses solid wood");
+        Check(grid.GetCell(4,11,5).Material == HiveMaterial.Wood && grid.GetCell(4,12,5).Material == HiveMaterial.Wood, "legacy divider uses solid wood");
         int previous = events;
         Check(!box.InteriorSlots.GetSlot(0).TryInsert(Item(ItemKind.Frame)), "rejected insert");
         Check(events == previous, "failed operation no update");
@@ -114,7 +114,7 @@ public static class HiveSpatialGridTests
                 if(air)openFaces++;else blockedFaces++;
             }
         Check(openFaces>0 && blockedFaces>0,"excluder spans air and installed equipment");
-        Check(faces == 280 && events == previous + 1, "excluder faces and event");
+        Check(faces == 378 && events == previous + 1, "excluder faces and event");
         box.TopSlot.Take();
         foreach (var edge in grid.Edges()) Check(!edge.HasQueenExcluder, "excluder removal");
         Check(grid.Revision == events, "revision");
@@ -132,7 +132,7 @@ public static class HiveSpatialGridTests
         Check(observer.Boxes.Count == 2 && observer.HasOpenTop, "stack view");
         int faces = 0;
         foreach (var face in observer.Interfaces()) { faces++; Check(face.AreaMm2 > 0 && face.DistanceMm == 9, "stack face"); }
-        Check(faces == 378, "stack face total");
+        Check(faces == 484, "stack face total");
         upper.TryInsert(Item(ItemKind.Lid)); lower.TryCombineFrom(upper);
         Check(!observer.HasOpenTop && observer.Lid.Kind == ItemKind.Lid, "lid boundary");
         Check(lower.TrySplitTo(1,target), "split");
@@ -153,8 +153,8 @@ public static class HiveSpatialGridTests
         Check(ReferenceEquals(own,frame.EquipmentGrid), "stable equipment grid");
         var brood = Item(ItemKind.BroodBox); var super = Item(ItemKind.Super);
         var space = brood.SpatialGrid; var otherSpace = super.SpatialGrid;
-        Check(brood.EquipmentGrid.CellCount == 926 && super.EquipmentGrid.CellCount == 490, "boxes own only shell");
-        Check(brood.EquipmentGrid.GetCell(3,3,5) == null, "box does not own interior air");
+        Check(brood.EquipmentGrid.CellCount == 1080 && super.EquipmentGrid.CellCount == 530, "boxes own only shell");
+        Check(brood.EquipmentGrid.GetCell(4,4,5) == null, "box does not own interior air");
         Check(ReferenceEquals(space.GetCell(0,0,0).SourceCell,brood.EquipmentGrid.GetCell(0,0,0)), "shell placed by reference");
         for (int slot = 0; slot < 10; slot++)
         {
@@ -165,15 +165,15 @@ public static class HiveSpatialGridTests
             for (int x = 0; x < HiveGridLayout.FrameSizeX; x++)
             {
                 var local = own.GetCell(x,y,z);
-                var placed = space.GetCell(x + 2,slot * 4 + y + 2,z + 3);
+                var placed = space.GetCell(x + HiveGridLayout.FirstFrameX,slot * 4 + y + HiveGridLayout.FirstSlotY + 1,z + 3);
                 Check(ReferenceEquals(local,placed.SourceCell) && ReferenceEquals(local.Frame,frameData), "exact local cell reference");
-                Check(local.VolumeMm3 == space.Layout.VolumeMm3(space.Layout.Index(x + 2,slot * 4 + y + 2,z + 3)), "placed cell volume");
+                Check(local.VolumeMm3 == space.Layout.VolumeMm3(space.Layout.Index(x + HiveGridLayout.FirstFrameX,slot * 4 + y + HiveGridLayout.FirstSlotY + 1,z + 3)), "placed cell volume");
                 volume += local.VolumeMm3;
             }
             Check(Math.Abs(volume - 440 * 25 * 220) < .001, "frame solid volume");
             Check(brood.InteriorSlots.GetSlot(slot).TryMoveTo(super.InteriorSlots.GetSlot(slot)), "move referenced frame");
-            Check(space.GetCell(3,slot * 4 + 3,5).SourceCell == null, "old space freed");
-            Check(ReferenceEquals(otherSpace.GetCell(3,slot * 4 + 3,3).SourceCell,own.GetCell(1,1,2)), "same cell after cross box movement");
+            Check(space.GetCell(4,slot * 4 + 4,5).SourceCell == null, "old space freed");
+            Check(ReferenceEquals(otherSpace.GetCell(4,slot * 4 + 4,3).SourceCell,own.GetCell(1,1,2)), "same cell after cross box movement");
             Check(ReferenceEquals(super.InteriorSlots.GetSlot(slot).Take(),frame), "detach same item");
             Check(ReferenceEquals(frame.EquipmentGrid,own), "detach retains geometry");
         }
@@ -184,12 +184,12 @@ public static class HiveSpatialGridTests
             var panel = Item(kind); var local = panel.EquipmentGrid;
             Check(local.CellCount == 30, "panel own cells");
             brood.InteriorSlots.GetSlot(0).TryInsert(panel);
-            Check(ReferenceEquals(space.GetCell(2,1 + local.SlotFirstY,3).SourceCell,local.GetCell(0,0,0)), "panel placement reference");
+            Check(ReferenceEquals(space.GetCell(HiveGridLayout.FirstFrameX,HiveGridLayout.FirstSlotY + local.SlotFirstY,3).SourceCell,local.GetCell(0,0,0)), "panel placement reference");
             brood.InteriorSlots.GetSlot(0).Take();
             Check(ReferenceEquals(panel.EquipmentGrid,local), "detached panel retained");
         }
         var queen = Item(ItemKind.QueenExcluder); var boundary = queen.EquipmentGrid;
-        Check(boundary.CellCount == 0 && boundary.FaceCount == 280 && boundary.SizeZ == 0, "queen zero-thickness face grid");
+        Check(boundary.CellCount == 0 && boundary.FaceCount == 378 && boundary.SizeZ == 0, "queen zero-thickness face grid");
         brood.TopSlot.TryInsert(queen);
         foreach (var edge in space.Edges())
         {
@@ -201,7 +201,7 @@ public static class HiveSpatialGridTests
         Check(brood.TopSlot.TryMoveTo(super.TopSlot), "queen move");
         Check(ReferenceEquals(queen.EquipmentGrid,boundary) && space.TopBoundaryEquipment == null, "queen geometry retained");
         var lid = Item(ItemKind.Lid);
-        Check(lid.EquipmentGrid.CellCount == 378 && ReferenceEquals(lid.SpatialGrid.GetCell(3,3,0).SourceCell,lid.EquipmentGrid.GetCell(3,3,0)), "lid owns and places cells");
+        Check(lid.EquipmentGrid.CellCount == 484 && ReferenceEquals(lid.SpatialGrid.GetCell(3,3,0).SourceCell,lid.EquipmentGrid.GetCell(3,3,0)), "lid owns and places cells");
         Check(Item(ItemKind.Generic).EquipmentGrid == null, "unsupported item no geometry");
     }
 
@@ -209,7 +209,7 @@ public static class HiveSpatialGridTests
     {
         var lid = Item(ItemKind.Lid); var grid = lid.SpatialGrid;
         Check(ReferenceEquals(grid,lid.SpatialGrid), "stable lid grid");
-        Check(grid.CellCount == 378 && grid.Layout.SizeZ == 1 && grid.Layout.Z[1] == 20, "single 20mm lid layer");
+        Check(grid.CellCount == 484 && grid.Layout.SizeZ == 1 && grid.Layout.Z[1] == 20, "single 20mm lid layer");
         Check(grid.Layout.IsLid && grid.Layout.SlotBottom == -1 && !grid.Layout.HasFloor, "lid has no interior slots or floor");
         Check(lid.InteriorSlots == null && lid.TopSlot == null && grid.TopBoundaryEquipment == null, "lid no equipment slots");
         double volume = 0;
@@ -219,10 +219,10 @@ public static class HiveSpatialGridTests
             Check(grid.Neighbour(i,4) == -1 && grid.Neighbour(i,5) == -1, "single layer Z boundaries");
             volume += grid.Layout.VolumeMm3(i);
         }
-        Check(volume == 496 * 390 * 20, "lid volume");
+        Check(volume == 500 * 400 * 20, "lid volume");
         int count = 0;
         foreach (var edge in grid.Edges()) { count++; Check(!edge.AllowsAir && !edge.HasQueenExcluder, "solid lid edges"); }
-        Check(count == 705 && count == grid.Layout.EdgeCount, "lid XY edge count");
+        Check(count == 913 && count == grid.Layout.EdgeCount, "lid XY edge count");
         var lower = new ItemSlot(); var upper = new ItemSlot(); var detached = new ItemSlot();
         var brood = Item(ItemKind.BroodBox);
         lower.TryInsert(brood); upper.TryInsert(lid);
@@ -237,13 +237,13 @@ public static class HiveSpatialGridTests
                 Check(ReferenceEquals(face.Upper,grid) && face.DistanceMm == 15, "lid contact distance");
                 Check(face.UpperCell >= 0 && face.UpperCell < grid.CellCount, "lid contact index");
             }
-            Check(count == 378 && brood.SpatialGrid.CellCount + grid.CellCount == 3024, "brood and lid totals");
+            Check(count == 484 && brood.SpatialGrid.CellCount + grid.CellCount == 3872, "brood and lid totals");
             Check(lower.TrySplitTo(1,detached) && observer.LidGrid == null && observer.HasOpenTop, "remove lid");
             count = 0; foreach (var face in observer.Interfaces()) count++;
             Check(count == 0 && ReferenceEquals(detached.Item.SpatialGrid,grid), "detach preserves lid removes faces");
             upper.TryInsert(Item(ItemKind.Super)); lower.TryCombineFrom(upper); lower.TryCombineFrom(detached);
             count = 0; foreach (var face in observer.Interfaces()) count++;
-            Check(count == 756 && observer.Boxes.Count == 2 && ReferenceEquals(observer.LidGrid,grid), "lid above super");
+            Check(count == 968 && observer.Boxes.Count == 2 && ReferenceEquals(observer.LidGrid,grid), "lid above super");
         }
         using (var standalone = new HiveSpatialAssembly(new ItemSlot()))
             Check(standalone.LidGrid == null, "empty assembly");
@@ -251,7 +251,7 @@ public static class HiveSpatialGridTests
         using (var standalone = new HiveSpatialAssembly(lidSlot))
         {
             count = 0; foreach (var face in standalone.Interfaces()) count++;
-            Check(standalone.LidGrid.CellCount == 378 && count == 0, "standalone lid");
+            Check(standalone.LidGrid.CellCount == 484 && count == 0, "standalone lid");
         }
     }
 }
