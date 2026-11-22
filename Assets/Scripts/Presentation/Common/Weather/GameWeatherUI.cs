@@ -101,20 +101,20 @@ public sealed class GameWeatherUI : MonoBehaviour
     private void Refresh()
     {
         var world=GameBootstrap.Instance?.GameWorld;
-        if(world?.Weather==null)return;
+        if(world?.Weather==null || GameBootstrap.Instance?.TimeSystem?.Scheduler?.IsInTick==true)return;
         var weather=world.Weather.Current;
         if(ReferenceEquals(world,displayedWorld)&&DisplayedMinute==weather.Minute)return;
         displayedWorld=world;DisplayedMinute=weather.Minute;date.text=world.Clock.ToString();
         weatherBody.SetActive(!showForage); forage.gameObject.SetActive(showForage);
         if(showForage) {
             var nectar=world.Weather.Nectar;
-            var lines=new System.Text.StringBuilder("밀원     개화율     현재 화밀량\n");
+            var lines=new System.Text.StringBuilder("밀원 · 개화율 · 화밀/화분 (mg)\n");
             double sum=0;
             for(int i=0;i<nectar.Sources.Length;i++) {
                 var s=nectar.Sources[i]; sum+=s.Total;
-                lines.AppendLine($"{SourceLabels[i]}    {s.bloom:P1}    {s.Total:N2}");
+                lines.AppendLine($"{SourceLabels[i]} · {s.bloom:P1} · {s.Total:N2}/{s.pollen:N2}");
             }
-            forage.text=lines.Append($"전체 화밀량    {sum:N2}\n당+물 · 엑셀 기준량").ToString(); return;
+            forage.text=lines.Append($"전체 화밀량    {sum:N2} mg\n화밀 = 당분+수분 · 채집 후 실제 잔량").ToString(); return;
         }
         var culture=CultureInfo.InvariantCulture;
         values[0].text=weather.TemperatureCelsius.ToString("0.0",culture)+" 도 (섭씨)";

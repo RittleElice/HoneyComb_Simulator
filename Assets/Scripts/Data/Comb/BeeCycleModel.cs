@@ -34,6 +34,11 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     public double larvaSugarPerTick=0.001, larvaPollenPerTick=0.0005, larvaEnergyPerTick=0.005;
     public double nurseRate=1, queenLayPerMinute=0.1, broodTarget=60, starvationDamage=0.01;
     public double maxDevelopment=200, broodReserveTicks=60, heatDeficitScale=10, storageHeightScale=20;
+    public void UpgradeForageFormula()
+    {
+        if(formulas!=null && !formulas.Exists(f=>f.name=="forageSourceWeight"))
+            formulas.Add(new CycleFormula("forageSourceWeight","available"));
+    }
     public void Validate()
     {
         foreach(var field in typeof(BeeCycleSettings).GetFields())
@@ -102,6 +107,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     public int pathIndex,topologyVersion;
     public double lastAcquired;
     public double tickActivity;
+    [CycleSince(2)] public int forageSource=-1;
 }
 [Serializable] public sealed class CycleCounters
 {

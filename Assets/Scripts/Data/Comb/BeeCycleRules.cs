@@ -70,6 +70,7 @@ public sealed class BeeCycleRules
         new CycleFormula("acquireAmount","min(acquireRate*time,amount)"),
         new CycleFormula("storeAmount","min(storeRate*time,amount)"),
         new CycleFormula("buildAmount","buildPoints*time"),
+        new CycleFormula("forageSourceWeight","available"),
         new CycleFormula("forageDuration","forageMinutes"),
         new CycleFormula("forageSugarAmount","forageSugar"),
         new CycleFormula("foragePollenAmount","foragePollen"),

@@ -12,7 +12,7 @@ public static class BeeCycleTests
     static void Check(bool value,string label){checks++;if(!value)throw new Exception("CHECK FAILED: "+label);}
     static void Near(double a,double b,double epsilon,string label)=>Check(Math.Abs(a-b)<=epsilon,$"{label}: {a:R} vs {b:R}");
     static GameWorld World()
-    {var w=new GameWorld(WeatherAssetLoader.Create(WeatherSimulator.DefaultSeed));w.PrepareThermal(ThermalMaterials.Load());w.BeeCycle.SeedDemo();w.Thermal.Refresh();return w;}
+    {var w=new GameWorld(WeatherAssetLoader.Create(WeatherSimulator.DefaultSeed));w.PrepareThermal(ThermalMaterials.Load());w.BeeCycle.SeedDemo();BeeForageTests.FiniteFixture(w);w.Thermal.Refresh();return w;}
     static void Tick(GameWorld w,int n,bool full=true)
     {
         var scheduler=full?GameTimeRuntime.CreateWorldScheduler(w):new SimulationScheduler(w.Clock);
