@@ -2,6 +2,8 @@ using System;
 
 public class GameWorld
 {
+    private BeeCycleRuntime beeCycle;
+    public BeeCycleRuntime BeeCycle => beeCycle ?? (beeCycle = new BeeCycleRuntime(this));
     public BeeSurfaceLocations BeeLocations { get; } = new BeeSurfaceLocations();
     public ThermalWorld Thermal { get; private set; }
     public void PrepareThermal(ThermalMaterials materials)

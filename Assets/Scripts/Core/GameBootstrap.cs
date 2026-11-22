@@ -81,6 +81,7 @@ public class GameBootstrap : MonoBehaviour
             cancellation.ThrowIfCancellationRequested();
             // Publish only a completed candidate. BeginWorld initializes equipment at the selected weather.
             IsPreparingNewGame = false;
+            candidate.BeeCycle.SeedDemo();
             TimeSystem.BeginWorld(candidate);
             GameWorld = candidate;
             GameFlow.ResetApiaryCamera();

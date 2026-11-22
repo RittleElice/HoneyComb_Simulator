@@ -35,13 +35,14 @@ public sealed class GameTimeRuntime : MonoBehaviour
     private void Awake() { Scheduler = new SimulationScheduler(Clock); nextTick = Time.realtimeSinceStartupAsDouble + 5; }
     public bool CanCaptureWorld(GameWorld world)
         => world != null && ReferenceEquals(world.Clock, Clock) && !Scheduler.IsInTick && Scheduler.Fault == null && failure == null &&
-           (world.Weather == null ? Scheduler.ParticipantCount == 0 : Scheduler.ContainsThermalAndWeather(world.Thermal, world.Weather) && world.Thermal.Failure == null && world.Weather.Minute == Clock.CurrentGameMinute);
+           (world.Weather == null ? Scheduler.ParticipantCount == 0 : Scheduler.ContainsCycle(world.Thermal, world.Weather, world.BeeCycle) && world.BeeCycle.Failure == null && world.BeeCycle.LastMinute == Clock.CurrentGameMinute && world.Thermal.Failure == null && world.Weather.Minute == Clock.CurrentGameMinute);
 
     public static SimulationScheduler CreateWorldScheduler(GameWorld world)
     {
         var scheduler=new SimulationScheduler(world.Clock);
         scheduler.Register(world.Thermal);
         scheduler.Register(world.Weather);
+        scheduler.Register(world.BeeCycle);
         return scheduler;
     }
     public void BeginWorld(GameWorld world)

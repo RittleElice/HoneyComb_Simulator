@@ -25,7 +25,7 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
-    public const int CurrentSchema = 18;
+    public const int CurrentSchema = 19;
     private int schema = CurrentSchema;
     public static byte[] Encode(WorldSaveSnapshot snapshot)
     {
@@ -57,6 +57,7 @@ public sealed class WorldSaveCodec
             for (int i = 0; i < world.Trash.Capacity; i++)
                 codec.WriteItem(w, world.Trash.GetSlot(i).Value, 0);
             world.BeeLocations.Write(w,world);
+            world.BeeCycle.Write(w);
             return stream.ToArray();
         }
     }
@@ -66,7 +67,7 @@ public sealed class WorldSaveCodec
         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
         {
             int schema=r.ReadInt32();
-            if(schema!=17 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
+            if(schema!=17 && schema!=18 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);
@@ -96,6 +97,7 @@ public sealed class WorldSaveCodec
                     Insert(trash.GetSlot(i), codec.ReadItem(r, 0));
             }
             if(schema>=14) snapshot.World.BeeLocations.Read(r,snapshot.World,schema);
+            if(schema >= 19) snapshot.World.BeeCycle.Read(r);
             ValidateTime(snapshot);
             if(stream.Position!=stream.Length) throw new InvalidDataException("Unexpected trailing save data.");
             return snapshot;
@@ -103,6 +105,8 @@ public sealed class WorldSaveCodec
     }
     private static void ValidateTime(WorldSaveSnapshot s)
     {
+        if(s.World != null && (s.World.BeeCycle.Failure != null || s.World.BeeCycle.LastMinute != s.World.CurrentGameMinute))
+            throw new InvalidDataException("Bee cycle is not at a complete save boundary.");
         if(s.World!=null && s.World.Weather!=null && s.World.Weather.Minute!=s.World.CurrentGameMinute)
             throw new InvalidDataException("날씨와 게임 시간의 저장 시점이 다릅니다.");
         if(s.World==null || s.UtcTicks<DateTime.MinValue.Ticks || s.UtcTicks>DateTime.MaxValue.Ticks || s.HighWaterUtcTicks<0 || s.HighWaterUtcTicks>DateTime.MaxValue.Ticks ||

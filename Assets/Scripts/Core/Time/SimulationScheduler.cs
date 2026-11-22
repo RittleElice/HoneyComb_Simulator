@@ -22,6 +22,8 @@ public sealed class SimulationScheduler
         => participant != null && participants.Count == 1 && ReferenceEquals(participants[0], participant);
     public bool ContainsThermalAndWeather(IGameMinuteParticipant thermal, IGameMinuteParticipant weather)
         => thermal != null && weather != null && participants.Count == 2 && ReferenceEquals(participants[0], thermal) && ReferenceEquals(participants[1], weather);
+    public bool ContainsCycle(IGameMinuteParticipant thermal, IGameMinuteParticipant weather, IGameMinuteParticipant bees)
+        => participants.Count == 3 && ReferenceEquals(participants[0], thermal) && ReferenceEquals(participants[1], weather) && ReferenceEquals(participants[2], bees);
     public Func<Task> CheckpointAsync { get; set; }
     public bool IsRunning => Volatile.Read(ref running) != 0;
     public Exception Fault { get; private set; }

@@ -1,0 +1,167 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37230c866841a6342b5dd102d3ded4b3, type: 3}
+  m_Name: BeeCycleParameters
+  m_EditorClassIdentifier: Assembly-CSharp::BeeCycleSettingsAsset
+  values:
+    formulas:
+    - name: deficit
+      expression: clamp(1-amount/max(available,0.000000001),0,1)
+    - name: commandChance
+      expression: 1
+    - name: feedDesire
+      expression: feedWeight * pow(clamp(ratio,0,1),2)
+    - name: restDesire
+      expression: restWeight * pow(clamp(ratio,0,1),2)
+    - name: recoverDesire
+      expression: recoverWeight * pow(clamp(ratio,0,1),2)
+    - name: storeDesire
+      expression: storeWeight * pow(clamp(ratio,0,1),2)
+    - name: buildCellWeight
+      expression: 1+amount
+    - name: layCellWeight
+      expression: band(ratio,0.5,2,1/(1+distance),1+amount,1+amount)
+    - name: larvaDevelopmentFactor
+      expression: ratio*min(available,amount)
+    - name: nurseNeed
+      expression: clamp(amount/max(available,0.000000001),0,1)
+    - name: heatNeed
+      expression: clamp(amount/heatDeficitScale,0,1)
+    - name: commandStimulus
+      expression: commandMaximum * clamp(need,0,1)
+    - name: desireNext
+      expression: max(0,amount+available-naturalDecay)
+    - name: interruptChance
+      expression: clamp(elapsed*interruptPerElapsedMinute,0,1)
+    - name: storagePreference
+      expression: available*(1+storageHeightBias*height)/(1+distance/storageDistanceMm)
+    - name: buildPreference
+      expression: 0.6+0.4*clamp(1-amount/20,0,1)
+    - name: development
+      expression: actionRate*time
+    - name: broodTemperature
+      expression: clamp(min((temperature-broodMinTemperature)/(broodIdealTemperature-broodMinTemperature),(broodMaxTemperature-temperature)/(broodMaxTemperature-broodIdealTemperature)),0,1)
+    - name: broodDevelopment
+      expression: broodTick*ratio*time
+    - name: basalHeat
+      expression: basalHeatJ*time
+    - name: additionalHeat
+      expression: extraHeatJ*time
+    - name: basalSugarCost
+      expression: basalSugar*time
+    - name: basalEnergyCost
+      expression: basalEnergy*time
+    - name: movementEnergyCost
+      expression: movementEnergy*time
+    - name: moveDistance
+      expression: speed*60*time
+    - name: feedAmount
+      expression: min(feedRate*time,amount)
+    - name: restAmount
+      expression: min(restRate*time,amount)
+    - name: recoverAmount
+      expression: min(recoveryRate*time,amount)
+    - name: acquireAmount
+      expression: min(acquireRate*time,amount)
+    - name: storeAmount
+      expression: min(storeRate*time,amount)
+    - name: buildAmount
+      expression: buildPoints*time
+    - name: forageDuration
+      expression: forageMinutes
+    - name: forageSugarAmount
+      expression: forageSugar
+    - name: foragePollenAmount
+      expression: foragePollen
+    - name: forageWaterAmount
+      expression: forageWater
+    - name: nurseAmount
+      expression: nurseRate*time
+    - name: starvation
+      expression: starvationDamage*time
+    - name: layChance
+      expression: clamp(queenLayPerMinute*time,0,1)
+    naturalDecay: 10
+    commandMaximum: 30
+    feedWeight: 40
+    restWeight: 40
+    recoverWeight: 40
+    storeWeight: 40
+    reserveTarget: 8
+    maxEnergy: 100
+    maxHealth: 100
+    carryCapacity: 20
+    basalSugar: 0.02
+    basalEnergy: 0.15
+    movementEnergy: 0.01
+    feedRate: 2
+    restRate: 8
+    energyPerSugar: 10
+    recoveryRate: 2
+    recoveryEnergy: 2
+    speed: 10
+    acquireRate: 5
+    storeRate: 5
+    forageMinutes: 8
+    forageSugar: 15
+    forageWater: 15
+    foragePollen: 15
+    stockSugarPerBee: 12
+    stockPollenPerBee: 4
+    buildPoints: 1
+    sugarPerBuildPoint: 8
+    desiredEmptyCellsPerBee: 5
+    interruptPerElapsedMinute: 0.0005
+    storageHeightBias: 2
+    storageDistanceMm: 200
+    demoWorkers: 48
+    forageSourceId: 0
+    demoFrames: 2
+    demoConstruction: 70
+    routeCacheEntries: 128
+    demoSugar: 300
+    demoWater: 300
+    demoPollen: 100
+    basalHeatJ: 0.02712
+    extraHeatJ: 0.6
+    heatEnergy: 0.1
+    broodTick: 0.0006944444444444445
+    eggEnd: 3
+    larvaEnd: 9
+    adultStart: 21
+    idleDevelopment: 0.0007
+    restDevelopment: 0.0007
+    recoverDevelopment: 0.0008
+    feedDevelopment: 0.001
+    moveDevelopment: 0.0035
+    acquireDevelopment: 0.0025
+    storeDevelopment: 0.0025
+    forageDevelopment: 0.0044
+    buildDevelopment: 0.0035
+    nurseDevelopment: 0.0025
+    heatDevelopment: 0.0035
+    layDevelopment: 0.0025
+    clearDevelopment: 0.003
+    broodMinTemperature: 20
+    broodIdealTemperature: 34
+    broodMaxTemperature: 40
+    larvaSugarPerTick: 0.001
+    larvaPollenPerTick: 0.0005
+    larvaEnergyPerTick: 0.005
+    nurseRate: 1
+    queenLayPerMinute: 0.1
+    broodTarget: 60
+    starvationDamage: 0.01
+    maxDevelopment: 200
+    broodReserveTicks: 60
+    heatDeficitScale: 10
+    storageHeightScale: 20

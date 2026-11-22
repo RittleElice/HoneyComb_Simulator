@@ -23,7 +23,7 @@ public readonly struct CellContentLoss
 // Owned by one surface, allocated only on the first quantitative write.
 // No references or per-cell objects. Nectar: 1-based linked-list head + water;
 // Pollen: mass; Brood: positive opaque 64-bit ID. Content discriminates the union.
-internal sealed class CellMaterialStore
+internal sealed partial class CellMaterialStore
 {
     [StructLayout(LayoutKind.Explicit, Size = 8)]
     private struct Payload

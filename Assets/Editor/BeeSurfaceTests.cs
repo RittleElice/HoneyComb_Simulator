@@ -8,7 +8,11 @@ public static class BeeSurfaceTests
 {
     static int checks;
     static void Check(bool value,string label) { checks++; if(!value) throw new Exception(label); }
-    static byte[] Save(GameWorld w)=>WorldSaveCodec.Encode(new WorldSaveSnapshot{World=w,UtcTicks=1,TargetMinute=w.CurrentGameMinute});
+    static byte[] Save(GameWorld w) {
+        var bytes=WorldSaveCodec.Encode(new WorldSaveSnapshot{World=w,UtcTicks=1,TargetMinute=w.CurrentGameMinute});
+        var legacy=bytes.Take(bytes.Length-w.BeeCycle.SnapshotSize()).ToArray();
+        Array.Copy(BitConverter.GetBytes(18),legacy,4); return legacy;
+    }
     static void Tick(GameWorld w,int minute)=>GameTimeRuntime.CreateWorldScheduler(w).RunToAsync(minute,()=>System.Threading.Tasks.Task.CompletedTask,()=>System.Threading.Tasks.Task.CompletedTask,CancellationToken.None).GetAwaiter().GetResult();
     static BeeGridPosition Frame(int id,int x,int y,int z) =>
         BeeGridPosition.FromSupport(id,x,y,z,y == 0 ? BeeFace.MinusY : BeeFace.PlusY);

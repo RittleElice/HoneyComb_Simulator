@@ -1,0 +1,44 @@
+Full world byte identical=False; max temperature difference after 10 resumed ticks=1.9073486328125E-06 C; bee state byte-identical
+120 full world ticks elapsed=3359.19ms; bee last=1.689ms; initial adults=49; live=49
+{
+    "completed": 317,
+    "resourceFailed": 2427,
+    "pathFailed": 0,
+    "interrupted": 14,
+    "commands": 60,
+    "deaths": 0,
+    "emerged": 0,
+    "eggs": 0,
+    "actions": [
+        2555,
+        940,
+        967,
+        148,
+        318,
+        0,
+        48,
+        1786,
+        446,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "externalSugar": 2236.2046871504244,
+    "externalPollen": 212.06438693628997,
+    "discardedWater": 2536.2013302168302,
+    "consumedSugar": 2404.027278576894,
+    "built": 282.0,
+    "heatJ": 129.5251199999874,
+    "lostSugar": 0.0,
+    "lostPollen": 0.0,
+    "consumedPollen": 0.0
+}
+No-bee control resume byte-identical=False; max temperature delta=4.76837158203125E-07 C
+N=100: bee mean=4.537ms max=11.903ms; weather+bee elapsed=136.5ms; managed heap delta=14528512 bytes (not peak/resident memory)
+N=1000: bee mean=37.673ms max=68.557ms; weather+bee elapsed=1131.0ms; managed heap delta=32108544 bytes (not peak/resident memory)
+1440 full-world minutes: 29716.0ms; sugar balance error=3.3760443329811096E-09mg; built=4342; completed=3406; living=49
+Existing PersistentThermalTests diagnostic: Persistent thermal: normal vs diagnostic and fresh vs reused bit exact (see separate original-source baseline control)
+PASS 32 bee checks plus existing BeeSurfaceTests and WorldSaveTests; thermal diagnostic reported separately

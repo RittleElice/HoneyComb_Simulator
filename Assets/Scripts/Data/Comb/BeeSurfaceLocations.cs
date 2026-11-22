@@ -295,6 +295,8 @@ internal sealed class BeeGridTopology
         moves.TryGetValue(p, out var list) ? list : Array.Empty<BeeGridMove>();
     internal IReadOnlyList<BeeGridPosition> AtAir(HiveSpatialGrid grid, int index) =>
         supports.TryGetValue((grid, index), out var list) ? list.AsReadOnly() : (IReadOnlyList<BeeGridPosition>)Array.Empty<BeeGridPosition>();
+    internal IEnumerable<BeeGridPosition> Positions => airByPosition.Keys;
+    internal Cell SupportCell(BeeGridPosition p) => solids[p.Support];
     internal bool TryAir(BeeGridPosition p, out Cell air) => airByPosition.TryGetValue(p, out air);
 
     internal BeeGridPosition FromLegacy(int id, int x, int y, int z)

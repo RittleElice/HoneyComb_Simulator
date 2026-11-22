@@ -1,0 +1,5 @@
+Original project sources, without bee cycle modifications:
+System.Exception: Persistent thermal: normal vs diagnostic and fresh vs reused bit exact
+  at PersistentThermalTests.Check (System.Boolean value, System.String message) [0x00014] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\bee-cycle-20261123\baseline\Assets\Editor\Tests\PersistentThermalTests.cs:7 
+  at PersistentThermalTests.Run (ThermalMaterials materials) [0x002f0] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\bee-cycle-20261123\baseline\Assets\Editor\Tests\PersistentThermalTests.cs:33 
+  at BeeBaselineControl.Run () [0x00000] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\bee-cycle-20261123\baseline\Assets\Editor\BeeBaselineControl.cs:8 
