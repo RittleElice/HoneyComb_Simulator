@@ -1,0 +1,1 @@
+PASS 2449 checks: prefab binding, front/back sprite reflection, offset/nonuniform scale/local mirror, all 600 cell identities and screen hit tests per configuration, gesture direction/edge switch/cancel/end. Geometry and cell-state regressions passed.

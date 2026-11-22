@@ -109,8 +109,8 @@ MonoBehaviour:
   cellArea: {fileID: 2522096634326158296}
   showCells: 1
   areaFill: 1
-  cellOffset: {x: 0.3, y: 28}
-  cellScale: {x: 0.9558, y: 0.9558}
+  cellOffset: {x: 0.23376465, y: 28.12091}
+  cellScale: {x: 0.9553503, y: 0.9553503}
   flipCellsX: 1
   outlineColor: {r: 0.5, g: 0.3, b: 0.1, a: 0.8}
   outlineWidth: 1

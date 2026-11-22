@@ -34,6 +34,31 @@ public static class FrameLayoutTests
             f.Front.TryAddNectar(0,0,0,100,100);f.Back.TryAddPollen(24,11,100);
             var sprite=view.Image.sprite;Canvas.ForceUpdateCanvases();
             var area=Get<RectTransform>(presenter,"cellArea");
+            var data=new SerializedObject(presenter);
+            foreach(bool mirror in new[]{false,true})
+            {
+                data.FindProperty("flipCellsX").boolValue=mirror;data.ApplyModifiedProperties();
+                FrameCellPresenterEditor.GetCorners(area,data,out var oldA,out var oldB);
+                var a=oldA+new Vector2(19,-23);
+                FrameCellPresenterEditor.ApplyCorners(area,data,a,oldB);
+                FrameCellPresenterEditor.GetCorners(area,data,out var actualA,out var actualB);
+                Check(Vector2.Distance(actualA,a)<.001f&&Vector2.Distance(actualB,oldB)<.001f,"top-left drag keeps opposite corner fixed");
+                var b=oldB+new Vector2(33,-41);
+                FrameCellPresenterEditor.ApplyCorners(area,data,a,b);
+                FrameCellPresenterEditor.GetCorners(area,data,out actualA,out actualB);
+                Check(Vector2.Distance(actualA,a)<.001f&&Vector2.Distance(actualB,b)<.001f,"bottom-right drag keeps opposite corner fixed");
+                Check(data.FindProperty("flipCellsX").boolValue==mirror,"corners preserve mirror setting");
+                Undo.IncrementCurrentGroup();
+                FrameCellPresenterEditor.ApplyCorners(area,data,a+new Vector2(10,-10),b);
+                Undo.FlushUndoRecordObjects();Undo.PerformUndo();data.Update();
+                FrameCellPresenterEditor.GetCorners(area,data,out actualA,out actualB);
+                Check(Vector2.Distance(actualA,a)<.001f&&Vector2.Distance(actualB,b)<.001f,"corner edit Undo");
+                Undo.PerformRedo();data.Update();
+                FrameCellPresenterEditor.GetCorners(area,data,out actualA,out actualB);
+                Check(Vector2.Distance(actualA,a+new Vector2(10,-10))<.001f,"corner edit Redo");
+                FrameCellPresenterEditor.ApplyCorners(area,data,oldA,oldB);
+            }
+
             foreach(bool flip in new[]{false,true})foreach(var side in new[]{FrameSide.Front,FrameSide.Back})
             {
                 f.SetFacingSide(side);Set(presenter,"cellOffset",new Vector2(31,-17));Set(presenter,"cellScale",new Vector2(.73f,1.13f));Set(presenter,"flipCellsX",flip);
