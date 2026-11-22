@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-public sealed partial class BeeCycleRuntime : IGameMinuteParticipant
+public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
 {
     public readonly GameWorld World;
     public BeeCycleSettings Settings { get; private set; }=new BeeCycleSettings();
@@ -149,18 +149,22 @@ public sealed partial class BeeCycleRuntime : IGameMinuteParticipant
     public bool BelongsTo(CycleBee b,ISet<int> equipment)
     {return b.outside?equipment.Contains(b.homeBox):World.BeeLocations.TryGet(b.id,out var p)&&equipment.Contains(p.EquipmentId);}
     public Task CalculateMinuteAsync(long minute,CancellationToken cancellation)
+        => CalculateMinuteSlicedAsync(minute,cancellation,null);
+    public async Task CalculateMinuteSlicedAsync(long minute,CancellationToken cancellation,SimulationSlice slice)
     {
         if(Failure!=null)throw new InvalidOperationException("Bee cycle requires restore.",Failure);
         var watch=System.Diagnostics.Stopwatch.StartNew();
+        double initialWait=slice?.WaitMilliseconds??0;
         try
         {
             if(minute!=LastMinute+1)throw new InvalidOperationException("Bee minute mismatch.");
             cancellation.ThrowIfCancellationRequested();
-            if(Bees.Count==0){LastMinute=minute;return Task.CompletedTask;}
-            World.Thermal.Refresh();RefreshRegions();RefreshCommands();requests.Clear();heat.Clear();
+            if(Bees.Count==0){LastMinute=minute;return;}
+            World.Thermal.Refresh();RefreshRegions();RefreshCommands();stimulusCache.Clear();decayCache.Clear();requests.Clear();heat.Clear();
             int count=Bees.Count;
             for(int i=0;i<count;i++)
             {
+                if(slice!=null && (i&15)==0)await slice.CheckpointAsync();
                 var b=Bees[i];if(b.stage==CycleStage.Dead)continue;b.action=CycleAction.Idle;b.tickActivity=0;b.lastAcquired=0;
                 if(b.health<=0||b.development>=Settings.maxDevelopment){Die(b);continue;}
                 if(b.stage!=CycleStage.Adult){DevelopBrood(b);BaseHeat(b);continue;}
@@ -170,13 +174,13 @@ public sealed partial class BeeCycleRuntime : IGameMinuteParticipant
                 UpdateDesires(b);Run(b);BaseHeat(b);
                 if(b.health<=0||b.development>=Settings.maxDevelopment)Die(b);
             }
-            ResolveRequests();
+            await ResolveRequestsAsync(slice);
             foreach(var h in heat)h.Key.Item1.RestoreEnergy(h.Key.Item2,(float)(h.Key.Item1.EnergyJ[h.Key.Item2]+h.Value));
             LastMinute=minute;
         }
         catch(Exception e){Failure=e;throw;}
-        finally{LastMilliseconds=watch.Elapsed.TotalMilliseconds;}
-        return Task.CompletedTask;
+        finally{LastMilliseconds=watch.Elapsed.TotalMilliseconds-((slice?.WaitMilliseconds??0)-initialWait);}
+        return;
     }
     public List<CycleCommand> Commands { get; private set; }=new List<CycleCommand>();
     readonly HashSet<(CycleTask,BeeGridPosition)> activeCommands=new HashSet<(CycleTask,BeeGridPosition)>();
@@ -212,6 +216,21 @@ public sealed partial class BeeCycleRuntime : IGameMinuteParticipant
         }
         Commands.RemoveAll(c=>!activeCommands.Contains((c.task,c.target.Grid)));
     }
+    // Per-minute memoization of pure formulas; no state/RNG or iteration order changes.
+    readonly Dictionary<CycleCommand,double> stimulusCache=new Dictionary<CycleCommand,double>();
+    readonly Dictionary<double,double> decayCache=new Dictionary<double,double>();
+    double Stimulus(CycleCommand command)
+    {
+        if(!stimulusCache.TryGetValue(command,out var value))
+            stimulusCache.Add(command,value=F("commandStimulus",new CycleInputs{need=command.need}));
+        return value;
+    }
+    double Decay(double amount)
+    {
+        if(!decayCache.TryGetValue(amount,out var value))
+            decayCache.Add(amount,value=F("desireNext",new CycleInputs{amount=amount}));
+        return value;
+    }
     void UpdateDesires(CycleBee b)
     {
         if(b.desireIndex==null){b.desireIndex=new Dictionary<(CycleTask,BeeGridPosition),CycleDesire>();foreach(var d in b.desires)b.desireIndex[(d.task,d.target.Grid)]=d;}
@@ -220,9 +239,9 @@ public sealed partial class BeeCycleRuntime : IGameMinuteParticipant
         {
             if(command.group!=air.Group||(command.localOnly&&!command.target.Grid.Equals(p))||(b.queen!=(command.task==CycleTask.Lay)))continue;
             if(!b.desireIndex.TryGetValue((command.task,command.target.Grid),out var desire)){desire=new CycleDesire{task=command.task,target=command.target};b.desires.Add(desire);b.desireIndex.Add((command.task,command.target.Grid),desire);}
-            desire.weight+=F("commandStimulus",new CycleInputs{need=command.need});
+            desire.weight+=Stimulus(command);
         }
-        for(int i=b.desires.Count-1;i>=0;i--){var d=b.desires[i];d.weight=F("desireNext",new CycleInputs{amount=d.weight});if(d.weight==0){b.desireIndex.Remove((d.task,d.target.Grid));b.desires.RemoveAt(i);}}
+        for(int i=b.desires.Count-1;i>=0;i--){var d=b.desires[i];d.weight=Decay(d.weight);if(d.weight==0){b.desireIndex.Remove((d.task,d.target.Grid));b.desires.RemoveAt(i);}}
     }
     void Choose(CycleBee b)
     {

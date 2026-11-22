@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
+public sealed class ThermalWorld : ISlicedGameMinuteParticipant, IDisposable
 {
     private object[] topologyStamp;
     private ThermalTransferCoefficients appliedTransfers;
@@ -123,7 +123,9 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
     public Task CalculateLegacyThermalBenchmark(long nextMinute,CancellationToken cancellation)
         => AdvanceMinute(nextMinute,cancellation,true);
 #endif
-    private Task AdvanceMinute(long nextMinute,CancellationToken cancellation,bool legacyBenchmark)
+    public Task CalculateMinuteSlicedAsync(long nextMinute,CancellationToken cancellation,SimulationSlice slice)
+        => AdvanceMinute(nextMinute,cancellation,false,slice);
+    private async Task AdvanceMinute(long nextMinute,CancellationToken cancellation,bool legacyBenchmark,SimulationSlice slice=null)
     {
         if (Failure != null) throw new InvalidOperationException("Thermal recovery required: " + Failure);
         try
@@ -139,13 +141,13 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
             {
                 SupplyItemHeating(minuteItems,60);
                 Exchange.StepPrepared(60,outside);
-                return Task.CompletedTask;
+                return;
             }
             int topology=TopologyBuilds+LocalTopologyUpdates;
             if(climate==null || climateTopology!=topology || climateRevision!=Exchange.CoefficientBuilds)
             {
                 FlushClimate();
-                climate=new ClimateDomain(Exchange,minuteItems,materials,world.Weather.Current.RelativeHumidityPercent/100);
+                climate=await ClimateDomain.CreateAsync(Exchange,minuteItems,materials,world.Weather.Current.RelativeHumidityPercent/100,climateTopology==topology?climate:null,slice);
                 climateTopology=topology;
                 climateRevision=Exchange.CoefficientBuilds;
             }
@@ -155,9 +157,10 @@ public sealed class ThermalWorld : IGameMinuteParticipant, IDisposable
                 climate.SetFlowTargets(new HashSet<EquipmentThermalState>(flowObservers.Values));
                 flowConfiguredClimate=climate;flowConfiguredRevision=flowObserverRevision;
             }
+            if(slice!=null)await slice.CheckpointAsync();
             climate.Advance(outside,world.Weather.Current.RelativeHumidityPercent/100,world.Weather.Current.WindSpeed);
             flowMinute=nextMinute;
-            return Task.CompletedTask;
+            return;
         }
         catch (Exception e) { Failure = e.Message; throw; }
     }

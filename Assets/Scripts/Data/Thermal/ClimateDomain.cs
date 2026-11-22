@@ -60,15 +60,28 @@ internal sealed class ClimatePartition
 
 internal sealed class ClimateDomain
 {
-    readonly HiveClimate.Model[] models;
-    internal ClimateDomain(ThermalExchange ex,List<ItemData> items,ThermalMaterials materials,double humidity)
+    HiveClimate.Model[] models;
+    ClimatePartition[] partitions;
+    ThermalExchange exchange;
+    private ClimateDomain() { }
+    internal static async Task<ClimateDomain> CreateAsync(ThermalExchange ex,List<ItemData> items,ThermalMaterials materials,
+        double humidity,ClimateDomain previous,SimulationSlice slice)
     {
+        var domain=new ClimateDomain();
         var owners=items.Where(i=>i.EquipmentGrid!=null).ToDictionary(i=>i.ThermalState);
-        models=ClimatePartition.Split(ex).Select(part=>{
-            var m=new HiveClimate.Model(part,owners,materials,false,humidity);
-            m.Bind(part);
-            return m;
-        }).ToArray();
+        domain.exchange=ex;
+        if(previous!=null && !ReferenceEquals(previous.exchange,ex))previous=null;
+        domain.partitions=previous?.partitions??ClimatePartition.Split(ex);
+        domain.models=new HiveClimate.Model[domain.partitions.Length];
+        for(int index=0;index<domain.partitions.Length;index++)
+        {
+            if(slice!=null)await slice.CheckpointAsync();
+            var part=domain.partitions[index];
+            var m=await HiveClimate.Model.CreateAsync(part,owners,materials,humidity,previous?.models[index],slice);
+            await m.BindAsync(part,slice);
+            domain.models[index]=m;
+        }
+        return domain;
     }
     internal void SetFlowTargets(HashSet<EquipmentThermalState> owners)
     {
@@ -143,13 +156,15 @@ public static partial class HiveClimate
         int[] sharedRows;
         readonly HashSet<int> importedRows=new HashSet<int>();
 
-        internal void Bind(ClimatePartition grid)
+        internal void Bind(ClimatePartition grid) => BindAsync(grid,null).GetAwaiter().GetResult();
+        internal async Task BindAsync(ClimatePartition grid,SimulationSlice slice)
         {
             flowGrid=grid;
             contacts=null; // exterior and interior pyramids must share one mass budget
             physical=new ThermalExchange.Cell[n];published=new float[n];
             outsideHeatContacts=new HiveClimateKernels.ExteriorHeatContact[grid.BoundaryCount];
             for(int j=0;j<outsideHeatContacts.Length;j++){
+                if(slice!=null && (j&127)==0)await slice.CheckpointAsync();
                 var b=grid.GetBoundary(j);var c=grid.GetCell(b.Cell);
                 outsideHeatContacts[j]=new HiveClimateKernels.ExteriorHeatContact{row=b.Cell,area=b.AreaM2,
                     baseConductance=b.AreaM2*exteriorTransfers.Outside(c.Owner.ExchangeMaterial(c.Index)),
@@ -160,6 +175,7 @@ public static partial class HiveClimate
             var memberMap=new Dictionary<EquipmentThermalState,List<(int row,int index)>>();
             var shared=new List<int>();
             for(int i=0;i<n;i++){
+                if(slice!=null && (i&63)==0)await slice.CheckpointAsync();
                 var c=physical[i]=grid.GetCell(i);published[i]=c.EnergyJ;
                 if(c.MemberCount>1)shared.Add(i);
                 for(int k=0;k<c.MemberCount;k++){

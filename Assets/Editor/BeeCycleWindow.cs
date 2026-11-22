@@ -25,6 +25,8 @@ public sealed class BeeCycleWindow : EditorWindow
         EditorGUILayout.LabelField(Application.isPlaying?"실제 플레이 월드":"분리된 시험 월드 — 플레이어 저장과 무관",EditorStyles.boldLabel);
         using(new EditorGUI.DisabledScope(busy||Application.isPlaying))
             if(GUILayout.Button("시험 월드 만들기")){testWorld?.Thermal?.Dispose();testWorld=new GameWorld(WeatherAssetLoader.Create(WeatherSimulator.DefaultSeed));testWorld.PrepareThermal(ThermalMaterials.Load());testWorld.BeeCycle.SeedDemo();draft=null;}
+        if(busy || (Application.isPlaying && GameBootstrap.Instance?.TimeSystem?.Scheduler?.IsInTick==true))
+        {EditorGUILayout.HelpBox("현재 틱을 계산 중입니다. 완료 후 상태를 표시합니다.",MessageType.Info);return;}
         var w=World;if(w==null){EditorGUILayout.HelpBox("Play에서 새 게임을 시작하거나 시험 월드를 만드세요.",MessageType.Info);return;}
         using(new EditorGUI.DisabledScope(busy||Application.isPlaying))
         {EditorGUILayout.BeginHorizontal();foreach(int n in new[]{1,10,60,1440})if(GUILayout.Button(n+"분 진행"))Step(n);EditorGUILayout.EndHorizontal();}

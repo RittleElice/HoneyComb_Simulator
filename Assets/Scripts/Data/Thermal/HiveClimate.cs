@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
@@ -20,25 +20,49 @@ public static partial class HiveClimate
 
     public sealed partial class Model
     {
-        readonly int n;
-        readonly Link[] links;
-        readonly double[] mass,limit,pressure,delta,energy,dE,temperature,volume,dry,sugar;
-        readonly double[] contentFreeVolume,capacity,heatCapacityAtLastExchange,heatCoefficients,phaseEnergy;
-        readonly int[] nectarRows;
+        // Immutable constructor inputs only. Dynamic mass/energy are always restored normally.
+        struct RowInput { public double wood,insulation,sugar,water,volume,dry; }
+        RowInput[] rowInputs;
+        float[] faceCapacities;
+        HiveMaterial[] faceMaterials;
+        Dictionary<EquipmentThermalState,int> inputRevisions;
+        ThermalMaterials inputMaterials;
+        int inputBalanceRevision;
+        int n;
+        Link[] links;
+        double[] mass,limit,pressure,delta,energy,dE,temperature,volume,dry,sugar;
+        double[] contentFreeVolume,capacity,heatCapacityAtLastExchange,heatCoefficients,phaseEnergy;
+        int[] nectarRows;
         bool stateReady;
         bool[] fixedExteriorAir,activeExteriorAir;
         int[] exteriorAirRows;
         double[] exteriorAirArea,exteriorAirCorrection;
-        readonly bool[] capacityChanged;
-        readonly double waterDensity, airCv, woodDryDensity;
-        readonly double liquidCp;
-        readonly ThermalTransferCoefficients exteriorTransfers;
+        bool[] capacityChanged;
+        double waterDensity, airCv, woodDryDensity;
+        double liquidCp;
+        ThermalTransferCoefficients exteriorTransfers;
         public Model(ThermalExchange ex, Dictionary<EquipmentThermalState,ItemData> owners,ThermalMaterials materials,bool warmGradient=false)
             : this(new ClimatePartition(ex),owners,materials,warmGradient,null) {}
         internal Model(ClimatePartition ex, Dictionary<EquipmentThermalState,ItemData> owners,ThermalMaterials materials,
-            bool warmGradient,double? initialRh)
+            bool warmGradient,double? initialRh,Model previous=null)
+        { InitializeAsync(ex,owners,materials,warmGradient,initialRh,previous,null).GetAwaiter().GetResult(); }
+        private Model() { }
+        internal static async Task<Model> CreateAsync(ClimatePartition ex, Dictionary<EquipmentThermalState,ItemData> owners,
+            ThermalMaterials materials,double humidity,Model previous,SimulationSlice slice)
+        {
+            var model=new Model();
+            await model.InitializeAsync(ex,owners,materials,false,humidity,previous,slice);
+            return model;
+        }
+        async Task InitializeAsync(ClimatePartition ex, Dictionary<EquipmentThermalState,ItemData> owners,
+            ThermalMaterials materials,bool warmGradient,double? initialRh,Model previous,SimulationSlice slice)
         {
             n=ex.CellCount;exteriorTransfers=materials.Transfers;
+            inputMaterials=materials;inputBalanceRevision=CombBalance.Revision;
+            faceCapacities=new float[n];faceMaterials=new HiveMaterial[n];
+            rowInputs=new RowInput[n];inputRevisions=new Dictionary<EquipmentThermalState,int>();
+            if(previous!=null && (previous.n!=n || !ReferenceEquals(previous.inputMaterials,materials) || previous.inputBalanceRevision!=inputBalanceRevision))previous=null;
+            foreach(var owner in owners.Keys)inputRevisions[owner]=owner.CacheRevision;
             phaseEnergy=new double[n];capacity=new double[n];heatCapacityAtLastExchange=new double[n];capacityChanged=new bool[n];
             heatCoefficients=new double[ex.FaceCount];slope=new double[n*Kinds];
             links=new Link[ex.FaceCount];
@@ -52,8 +76,22 @@ public static partial class HiveClimate
             liquidCp=balance.WaterSpecificHeatJPerKgK;
             for(int i=0;i<n;i++)
             {
+                if(slice!=null && (i&63)==0)await slice.CheckpointAsync();
                 var c=ex.GetCell(i);
-                for(int k=0;k<c.MemberCount;k++)
+                faceCapacities[i]=c.HeatCapacityJPerK;faceMaterials[i]=c.Owner.ExchangeMaterial(c.Index);
+                bool reuse=previous!=null;
+                if(reuse)for(int k=0;k<c.MemberCount;k++) {
+                    var owner=c.MemberOwner(k);
+                    // Evaporation adjusts frame contents/capacity without a cache revision.
+                    // Re-read frame inputs; only unchanged non-frame inputs may be reused.
+                    if(owner.ClimateItem.Kind==ItemKind.Frame || !previous.inputRevisions.TryGetValue(owner,out int revision) || revision!=owner.CacheRevision){reuse=false;break;}
+                }
+                if(reuse) {
+                    var cached=previous.rowInputs[i];
+                    limit[i*Kinds+Wood]=cached.wood;limit[i*Kinds+Insulation]=cached.insulation;
+                    sugar[i]=cached.sugar;mass[i*Kinds+Nectar]=cached.water;volume[i]=cached.volume;dry[i]=cached.dry;
+                }
+                else for(int k=0;k<c.MemberCount;k++)
                 {
                     var o=c.MemberOwner(k);int j=c.MemberIndex(k);var g=owners[o].EquipmentGrid;
                     var r=g.GetContentThermalMass(j);
@@ -72,6 +110,7 @@ public static partial class HiveClimate
                 }
                 if(volume[i]<-1e-12)throw new InvalidOperationException("Contents exceed available volume");
                 volume[i]=Math.Max(0,volume[i]);
+                rowInputs[i]=new RowInput{wood=limit[i*Kinds+Wood],insulation=limit[i*Kinds+Insulation],sugar=sugar[i],water=mass[i*Kinds+Nectar],volume=volume[i],dry=dry[i]};
                 contentFreeVolume[i]=volume[i]+mass[i*Kinds+Nectar]/waterDensity;
                 double t=c.EnergyJ/c.HeatCapacityJPerK,rh=initialRh ?? (.4+.3*(i%2));
                 if(warmGradient)
@@ -91,7 +130,12 @@ public static partial class HiveClimate
             nectarRows=Enumerable.Range(0,n).Where(i=>mass[i*Kinds+Nectar]>0).ToArray();
             for(int j=0;j<links.Length;j++)
             {
+                if(slice!=null && (j&127)==0)await slice.CheckpointAsync();
                 var f=ex.GetFace(j);
+                // Same geometry, material and float capacities produce identical face fractions.
+                if(previous!=null && faceCapacities[f.A]==previous.faceCapacities[f.A] && faceCapacities[f.B]==previous.faceCapacities[f.B]
+                    && faceMaterials[f.A]==previous.faceMaterials[f.A] && faceMaterials[f.B]==previous.faceMaterials[f.B])
+                { links[j]=previous.links[j];continue; }
                 links[j]=new Link{a=f.A,b=f.B,area=f.AreaM2,halfA=f.HalfAM,halfB=f.HalfBM,fa=ex.FacePyramidCapacity(f.A,f.Axis,f.AreaM2)/ex.GetCell(f.A).HeatCapacityJPerK,
                     fb=ex.FacePyramidCapacity(f.B,f.Axis,f.AreaM2)/ex.GetCell(f.B).HeatCapacityJPerK,
                     heat=f.AreaM2*materials.Transfers.Between(ex.GetCell(f.A).Owner.ExchangeMaterial(ex.GetCell(f.A).Index),ex.GetCell(f.B).Owner.ExchangeMaterial(ex.GetCell(f.B).Index))};

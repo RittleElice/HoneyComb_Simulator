@@ -11,6 +11,35 @@ public interface IGameMinuteParticipant
 {
     Task CalculateMinuteAsync(long nextMinute, CancellationToken cancellation);
 }
+public interface ISlicedGameMinuteParticipant : IGameMinuteParticipant
+{
+    Task CalculateMinuteSlicedAsync(long nextMinute, CancellationToken cancellation, SimulationSlice slice);
+}
+
+// Cooperatively yields on the caller context. Never reorders or retries simulation work.
+public sealed class SimulationSlice
+{
+    readonly Func<Task> yieldFrame, waitUntilForeground;
+    readonly CancellationToken cancellation;
+    readonly double budget;
+    readonly Stopwatch watch = Stopwatch.StartNew();
+    public double WaitMilliseconds { get; private set; }
+    public SimulationSlice(Func<Task> yieldFrame, Func<Task> waitUntilForeground, CancellationToken cancellation, double budget)
+    { this.yieldFrame=yieldFrame; this.waitUntilForeground=waitUntilForeground; this.cancellation=cancellation; this.budget=budget; }
+    public Task CheckpointAsync()
+    {
+        cancellation.ThrowIfCancellationRequested();
+        return watch.Elapsed.TotalMilliseconds >= budget ? YieldAsync() : Task.CompletedTask;
+    }
+    async Task YieldAsync()
+    {
+        long start=Stopwatch.GetTimestamp();
+        try { await yieldFrame(); await waitUntilForeground(); cancellation.ThrowIfCancellationRequested(); }
+        finally { WaitMilliseconds+=(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency; watch.Restart(); }
+    }
+
+}
+
 public sealed class SimulationScheduler
 {
     private readonly GameClock clock;
@@ -24,6 +53,7 @@ public sealed class SimulationScheduler
         => thermal != null && weather != null && participants.Count == 2 && ReferenceEquals(participants[0], thermal) && ReferenceEquals(participants[1], weather);
     public bool ContainsCycle(IGameMinuteParticipant thermal, IGameMinuteParticipant weather, IGameMinuteParticipant bees)
         => participants.Count == 3 && ReferenceEquals(participants[0], thermal) && ReferenceEquals(participants[1], weather) && ReferenceEquals(participants[2], bees);
+    public double SliceBudgetMilliseconds { get; set; } = 2;
     public Func<Task> CheckpointAsync { get; set; }
     public bool IsRunning => Volatile.Read(ref running) != 0;
     public Exception Fault { get; private set; }
@@ -45,7 +75,9 @@ public sealed class SimulationScheduler
             if (Fault != null) throw new InvalidOperationException("World requires full recovery.", Fault);
             if (target < clock.CurrentGameMinute) throw new ArgumentOutOfRangeException(nameof(target), "Rewind requires a complete world snapshot.");
             Completed = 0; Total = target - clock.CurrentGameMinute;
-            var budget = Stopwatch.StartNew();
+
+            if (!(SliceBudgetMilliseconds > 0) || double.IsInfinity(SliceBudgetMilliseconds)) throw new InvalidOperationException("Invalid slice budget.");
+            var slice = new SimulationSlice(yieldFrame, waitUntilForeground, cancellation, SliceBudgetMilliseconds);
             while (clock.CurrentGameMinute < target)
             {
                 cancellation.ThrowIfCancellationRequested();
@@ -54,16 +86,17 @@ public sealed class SimulationScheduler
                 long next = checked(clock.CurrentGameMinute + 1);
                 tickStarted = true; IsInTick = true;
                 foreach (var participant in participants)
-                    await participant.CalculateMinuteAsync(next, cancellation);
+                {
+                    await slice.CheckpointAsync();
+                    if (participant is ISlicedGameMinuteParticipant sliced)
+                        await sliced.CalculateMinuteSlicedAsync(next, cancellation, slice);
+                    else await participant.CalculateMinuteAsync(next, cancellation);
+                }
                 clock.Commit(next); // Never publish an unfinished minute.
                 tickStarted = false; IsInTick = false;
                 Completed++;
                 if (CheckpointAsync != null) await CheckpointAsync();
-                if (budget.ElapsedMilliseconds >= 4)
-                {
-                    await yieldFrame();
-                    budget.Restart();
-                }
+                await slice.CheckpointAsync();
             }
         }
         catch (OperationCanceledException e) { if (tickStarted) Fault = e; throw; }

@@ -4,10 +4,11 @@ using System.Collections.Generic;
 public sealed partial class BeeCycleRuntime
 {
     readonly List<Request> batch=new List<Request>();
-    void ResolveRequests()
+    async System.Threading.Tasks.Task ResolveRequestsAsync(SimulationSlice slice)
     {
         foreach(var r in regions)
         {
+            if(slice!=null)await slice.CheckpointAsync();
             for(int kind=0;kind<=4;kind++)
             {
                 batch.Clear();double total=0;
