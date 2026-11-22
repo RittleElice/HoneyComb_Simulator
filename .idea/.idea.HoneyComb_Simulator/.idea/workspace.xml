@@ -4,19 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.HoneyComb_Simulator/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Editor/CombBalanceSettingsEditor.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Editor/CombBalanceSettingsEditor.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Editor/ThermalExchangeSettingsMenu.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Editor/ThermalExchangeSettingsMenu.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Resources/Thermal/ExchangeSettings.asset" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Resources/Thermal/ExchangeSettings.asset" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/EquipmentThermalState.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/EquipmentThermalState.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalExchange.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalExchange.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalExchangeSettings.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalExchangeSettings.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalMaterialAsset.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalMaterialAsset.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalTopology.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalTopology.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalWorld.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalWorld.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/World/GameWorld.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/World/GameWorld.cs" afterDir="false" />
-    </list>
+    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -52,7 +40,7 @@
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "열교환-방식-테스트",
+    "git-widget-placeholder": "main",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
@@ -141,6 +129,7 @@
       <workItem from="1793308929636" duration="8540000" />
       <workItem from="1793446247877" duration="1458000" />
       <workItem from="1793585716017" duration="3132000" />
+      <workItem from="1795376388903" duration="31000" />
     </task>
     <servers />
   </component>

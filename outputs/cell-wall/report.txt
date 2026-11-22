@@ -1,0 +1,13 @@
+Implemented: SVG-style shared-corner wall units, IsComplete fill image, nectar image scaled from 30% to 100% using GetCapacityFillRatio.
+Inspector: PF_Frame_Hand > FrameCellPresenter > 소방 상태 이미지:
+  Wall Minimum Alpha = 0
+  Wall Maximum Alpha = 1
+  Nectar Minimum Scale = 0.3
+A corner with one construction-positive adjacent cell uses the two-arm unit. Two or three use one three-arm unit. No construction-positive neighbors => no unit. Unit opacity uses maximum adjacent construction, mapped to the configured alpha range.
+No cell data, biological behavior, saves, existing frame layout, or prefab artwork were modified.
+Update: only bound facing surface, revision-gated comparison; dirty only changed mesh ranges plus shared-corner owners. Not one GameObject per cell.
+Source art: D:/Desktop/HoneyComb Simulator/아트/Cell_Unit_001.png, Cell_Unit_002.png, 완성소방.png, 화밀.png. Original pixels packed without resampling into Resources/CellObservationAtlas.png (256 x 128).
+Atlas rectangles (top-left origin): A 4,4,40,18; B 52,4,40,34; complete 4,48,60,69; nectar 76,48,57,63. Source geometry radius 40.
+Validation: Unity 6000.5.1f1 isolated copy of current Assets/Packages/ProjectSettings; 28 focused checks and 2449 existing frame-layout checks passed; existing geometry and cell-state regression suites also passed. Render captured in unity-preview.png.
+Validated runtime source and atlas hashes equal original project files.
+Not validated: mobile device touch/performance or interactive play in the user's already-open editor. Nectar removal uses existing clear API in the test; no new bee-consumption system was introduced.

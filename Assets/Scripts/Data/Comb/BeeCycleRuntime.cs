@@ -68,6 +68,9 @@ public sealed partial class BeeCycleRuntime : IGameMinuteParticipant
             if(k==0){frame.Front.TryAddNectar(0,0,Settings.forageSourceId,(float)Settings.demoSugar,(float)Settings.demoWater);frame.Front.TryAddPollen(1,0,(float)Settings.demoPollen);}
             slot.TryInsert(new ItemData(++highest,"벌 시험 소비장",ItemKind.Frame,frame));
         }
+        // New-game weather preparation has no thermal participant yet. Refresh after
+        // inserting frames so region temperature reads also include the new equipment.
+        World.PrepareThermal(ThermalMaterials.Load());
         RefreshRegions();if(regions.Count==0)return;
         var r=regions.Find(v=>v.box==box.Id);if(r==null)return;
         for(int i=0;i<Settings.demoWorkers;i++){var b=Add(r.position,box.Id);b.reserve*=0.4+0.6*Random();b.energy*=0.5+0.5*Random();}

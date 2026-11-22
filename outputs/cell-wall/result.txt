@@ -1,0 +1,1 @@
+PASS 28 cell wall checks. Art/topology/alpha/completion/storage/clear/face/range invalidation/render/prefab binding.

@@ -30,6 +30,14 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
     [SerializeField, Min(0.01f)]
     private float outlineWidth = 0.5f;
 
+    [Header("소방 상태 이미지")]
+    [Tooltip("건설 중인 소방벽의 최소 투명도. 건설도 0인 소방만 접한 곳은 숨깁니다.")]
+    [SerializeField, Range(0f, 1f)] private float wallMinimumAlpha = 0f;
+    [Tooltip("건설도 100일 때 소방벽의 투명도. 공유 유닛은 인접 소방의 최대 건설도를 사용합니다.")]
+    [SerializeField, Range(0f, 1f)] private float wallMaximumAlpha = 1f;
+    [Tooltip("화밀이 조금이라도 있을 때 표시할 최소 가로·세로 크기. 최대 크기에 대한 비율입니다.")]
+    [SerializeField, Range(0.01f, 1f)] private float nectarMinimumScale = 0.3f;
+
     [Header("Performance")]
     [SerializeField, Range(50, 500)]
     private int cellsPerMesh = 400;
@@ -38,6 +46,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
     private ItemData boundItem;
     private FrameSide lastSide;
     private int lastRevision = -1;
+    private int lastBalanceRevision = -1;
     private float displayScale;
     private RectTransform visualRoot;
 
@@ -66,12 +75,13 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         if (frame == null || cellArea == null)
             return;
 
-        if (lastSide != frame.FacingSide || lastRevision != frame.GetFacingSurface().Revision)
+        if (lastSide != frame.FacingSide || lastRevision != frame.GetFacingSurface().Revision || lastBalanceRevision != CombBalance.Revision)
         {
             ApplyFacingSide();
             foreach (var mesh in meshes) mesh.SetSurface(frame.GetFacingSurface());
             lastSide = frame.FacingSide;
             lastRevision = frame.GetFacingSurface().Revision;
+            lastBalanceRevision = CombBalance.Revision;
         }
         Vector2 size = cellArea.rect.size;
 
@@ -124,6 +134,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
 
         int total = columns * rows;
         int chunkSize = Mathf.Clamp(cellsPerMesh, 50, 500);
+        var topology = FrameCellMesh.BuildJunctions(columns, rows, radius, origin);
 
         for (int start = 0; start < total; start += chunkSize)
         {
@@ -148,15 +159,8 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
 
             FrameCellMesh mesh = go.AddComponent<FrameCellMesh>();
 
-            mesh.Configure(
-                columns,
-                rows,
-                start,
-                end,
-                radius,
-                outlineWidth,
-                origin,
-                outlineColor);
+            mesh.ConfigureArt(columns, start, end, radius, origin, topology,
+                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale);
 
             mesh.SetSurface(frame.GetFacingSurface());
             meshes.Add(mesh);
@@ -166,6 +170,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         lastFill = areaFill;
         lastOffset = cellOffset; lastCellScale = cellScale; lastFlipCellsX = flipCellsX;
         lastSide = frame.FacingSide; lastRevision = frame.GetFacingSurface().Revision;
+        lastBalanceRevision = CombBalance.Revision;
     }
 
     private void ApplyFacingSide()
@@ -211,6 +216,9 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         cellScale.x = Mathf.Max(0.01f, cellScale.x);
         cellScale.y = Mathf.Max(0.01f, cellScale.y);
         outlineWidth = Mathf.Max(0.01f, outlineWidth);
+        wallMinimumAlpha = Mathf.Clamp01(wallMinimumAlpha);
+        wallMaximumAlpha = Mathf.Clamp(wallMaximumAlpha, wallMinimumAlpha, 1f);
+        nectarMinimumScale = Mathf.Clamp(nectarMinimumScale, .01f, 1f);
 
         if (Application.isPlaying && isActiveAndEnabled)
             Rebuild();
