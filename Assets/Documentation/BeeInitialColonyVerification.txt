@@ -1,0 +1,69 @@
+초기 조건 변경 및 2mg 장기 분석 — 2026-11-23
+새 게임: 성충49 + 알20/애벌레20/번데기20. 저장 당분5000mg/수분5000mg/화분1000mg.
+벌통의 초기 소비장2개에서 완성80소방 유지, 미완성1120개 건설도0. 단계별 초기 발달도0/3/9.
+원본 건설 비용 기본8mg 유지. 아래 시험만2mg. 완성 판정80, 남은 건설량·배분상한100 유지.
+같은 시드,30일. 기본1월 자연밀원 조건과 유한 당분/수분/화분 각1000000mg 시험재고(생산/손실 비활성) 조건.
+봉충 초기 내부 먹이는 추가하지 않음. 초기 자원은 완성 소방 용량에 맞춰 여러 소방에 분배.
+
+기존초기조건(봉충0/저장당분300/미완성70)
+winter
+day0: adults49, brood0, queenTrue, storedSugar300.000mg, empty78, failure0, built0.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day1: adults49, brood0, queenTrue, storedSugar0.000mg, empty79, failure69076, built119.0, heatActions0, eggs0, emerged0, maxDesire4316.726
+day2: adults49, brood0, queenTrue, storedSugar0.000mg, empty79, failure139597, built119.0, heatActions0, eggs0, emerged0, maxDesire8636.726
+day5: adults49, brood0, queenTrue, storedSugar0.000mg, empty79, failure351156, built119.0, heatActions0, eggs0, emerged0, maxDesire21596.726
+day7: adults49, brood0, queenTrue, storedSugar0.000mg, empty79, failure492202, built119.0, heatActions0, eggs0, emerged0, maxDesire30236.726
+day8: adults0, brood0, queenFalse, storedSugar0.000mg, empty79, failure518029, built119.0, heatActions0, eggs0, emerged0, maxDesire0.000
+supplied
+day0: adults49, brood0, queenTrue, storedSugar300.000mg, empty78, failure0, built0.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day1: adults49, brood0, queenTrue, storedSugar1523.348mg, empty296, failure24781, built8668.0, heatActions0, eggs0, emerged0, maxDesire1089.448
+day2: adults49, brood0, queenTrue, storedSugar1013.726mg, empty345, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day5: adults49, brood0, queenTrue, storedSugar581.604mg, empty363, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire0.139
+day7: adults49, brood0, queenTrue, storedSugar691.319mg, empty340, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day8: adults49, brood0, queenTrue, storedSugar670.905mg, empty352, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day10: adults49, brood0, queenTrue, storedSugar568.331mg, empty323, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire1.971
+day11: adults49, brood0, queenTrue, storedSugar590.811mg, empty337, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day12: adults49, brood0, queenTrue, storedSugar641.249mg, empty346, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day13: adults49, brood0, queenTrue, storedSugar709.682mg, empty322, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day14: adults49, brood0, queenTrue, storedSugar629.311mg, empty317, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day21: adults49, brood0, queenTrue, storedSugar576.716mg, empty360, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire0.237
+day30: adults49, brood0, queenTrue, storedSugar705.597mg, empty322, failure24781, built8717.0, heatActions0, eggs0, emerged0, maxDesire0.000
+승인한새초기조건
+winter
+day0: adults49, brood60, queenTrue, storedSugar5000.000mg, empty16, failure0, built0.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day1: adults49, brood60, queenTrue, storedSugar0.000mg, empty19, failure53047, built2465.0, heatActions11179, eggs0, emerged0, maxDesire4320.000
+day2: adults49, brood60, queenTrue, storedSugar0.000mg, empty19, failure123571, built2465.0, heatActions11179, eggs0, emerged0, maxDesire8601.000
+day5: adults49, brood60, queenTrue, storedSugar0.000mg, empty19, failure335130, built2465.0, heatActions11179, eggs0, emerged0, maxDesire21392.000
+day7: adults49, brood60, queenTrue, storedSugar0.000mg, empty19, failure476175, built2465.0, heatActions11179, eggs0, emerged0, maxDesire29928.000
+day8: adults0, brood60, queenFalse, storedSugar0.000mg, empty19, failure493978, built2465.0, heatActions11179, eggs0, emerged0, maxDesire0.000
+day10: adults0, brood60, queenFalse, storedSugar0.000mg, empty19, failure493978, built2465.0, heatActions11179, eggs0, emerged0, maxDesire0.000
+day11: adults0, brood60, queenFalse, storedSugar0.000mg, empty19, failure493978, built2465.0, heatActions11179, eggs0, emerged0, maxDesire0.000
+day12: adults0, brood60, queenFalse, storedSugar0.000mg, empty19, failure493978, built2465.0, heatActions11179, eggs0, emerged0, maxDesire0.000
+day13: adults0, brood60, queenFalse, storedSugar0.000mg, empty19, failure493978, built2465.0, heatActions11179, eggs0, emerged0, maxDesire0.000
+day14: adults0, brood60, queenFalse, storedSugar0.000mg, empty19, failure493978, built2465.0, heatActions11179, eggs0, emerged0, maxDesire0.000
+day21: adults0, brood60, queenFalse, storedSugar0.000mg, empty19, failure493978, built2465.0, heatActions11179, eggs0, emerged0, maxDesire0.000
+day30: adults0, brood60, queenFalse, storedSugar0.000mg, empty19, failure493978, built2465.0, heatActions11179, eggs0, emerged0, maxDesire0.000
+supplied
+day0: adults49, brood60, queenTrue, storedSugar5000.000mg, empty16, failure0, built0.0, heatActions0, eggs0, emerged0, maxDesire0.000
+day1: adults49, brood60, queenTrue, storedSugar0.000mg, empty19, failure26348, built6774.0, heatActions25479, eggs0, emerged0, maxDesire4320.000
+day2: adults49, brood60, queenTrue, storedSugar0.000mg, empty19, failure59286, built12586.0, heatActions46177, eggs0, emerged0, maxDesire8640.000
+day5: adults49, brood60, queenTrue, storedSugar0.000mg, empty19, failure152690, built30357.0, heatActions112293, eggs0, emerged0, maxDesire21587.000
+day7: adults49, brood60, queenTrue, storedSugar0.000mg, empty19, failure216092, built41832.0, heatActions156112, eggs0, emerged0, maxDesire30175.000
+day8: adults48, brood60, queenFalse, storedSugar0.000mg, empty20, failure246389, built47883.0, heatActions178111, eggs0, emerged0, maxDesire34495.000
+day10: adults48, brood60, queenFalse, storedSugar0.000mg, empty23, failure306384, built59684.0, heatActions221748, eggs0, emerged0, maxDesire43122.000
+day11: adults39, brood60, queenFalse, storedSugar0.000mg, empty46, failure334987, built65629.0, heatActions242658, eggs0, emerged0, maxDesire47442.000
+day12: adults2, brood60, queenFalse, storedSugar0.000mg, empty64, failure345775, built67974.0, heatActions250620, eggs0, emerged0, maxDesire51632.000
+day13: adults0, brood60, queenFalse, storedSugar0.000mg, empty64, failure345952, built68017.0, heatActions250708, eggs0, emerged0, maxDesire0.000
+day14: adults0, brood60, queenFalse, storedSugar0.000mg, empty64, failure345952, built68017.0, heatActions250708, eggs0, emerged0, maxDesire0.000
+day21: adults0, brood60, queenFalse, storedSugar0.000mg, empty64, failure345952, built68017.0, heatActions250708, eggs0, emerged0, maxDesire0.000
+day30: adults0, brood60, queenFalse, storedSugar0.000mg, empty64, failure345952, built68017.0, heatActions250708, eggs0, emerged0, maxDesire0.000
+
+핵심: 기존 공급충분 조건은30일 성충49, 평균Energy96.14/Health100, 첫날 이후 자원실패추가0.
+새 조건은 외부공급없음8일관측 성충0, 공급충분13일관측 성충0. 여왕은 양쪽8일관측 사망.
+새 공급충분: 당분139371.776mg 채집, 건설68017포인트×2=136034mg 소비.12일 최대명령욕구51632.
+새 조건은 건설도가0이라 완성까지의 작업이 커졌고 봉충가온도 지속. 세 초기변수(봉충/식량/건설도)를 함께 바꾼 비교이므로 각 원인의 독립적 기여율은 측정하지 않음.
+공급충분 상태에서도 첫날 이후 내부저장당분0. 30일 봉충60은 우화·새산란0인 저온발육정지 상태이며 정상 봉군유지로 해석하지 않음.
+저온에서 기존 모델의 발육계수가0. 알/번데기에 저온사망이 없고, 먹이를 받은 애벌레는 발육이 멈추면 소비도 멈추는 현재 규칙의 한계.
+일별종료 관측이므로 사망시점은 날짜구간 단위. 단계별/개체별 정확한 사망분은 이번 로그에 없음.
+새 조건 전체 당분보존오차 최대1.0924122761934996E-07mg.
+초기화/소방용량/봉충연결/구형21저장보존/신형22왕복 PASS. 유한채집4054, 벌32, 표면93, WorldSave 회귀PASS. 기존 열버퍼 진단 실패는 별도 유지.
+실제 플레이 UI/모바일 및 다른계절·난수시드 검증은 하지 않음.

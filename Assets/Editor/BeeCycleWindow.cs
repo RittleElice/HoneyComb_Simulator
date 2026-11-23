@@ -77,6 +77,7 @@ public sealed class BeeCycleWindow : EditorWindow
         EditorGUILayout.LabelField("목표",chosen.hasTarget?chosen.target.Grid.ToString():"없음");
         EditorGUILayout.LabelField("다음 이동",chosen.pathIndex<chosen.path.Count?chosen.path[chosen.pathIndex].Grid.ToString():"없음");
         foreach(var d in chosen.desires)EditorGUILayout.LabelField($"{d.task} → {d.target.Grid}",d.weight.ToString("F3"));
+        EditorGUILayout.LabelField($"운반 용량: 당분 {chosen.cargo.Sugar:F2}/{w.BeeCycle.Settings.carryCapacity:F2} mg · 화분 {chosen.cargo.pollen:F2}/{w.BeeCycle.Settings.pollenCarryCapacity:F2} mg");
         foreach(var s in chosen.cargo.sugars)EditorGUILayout.LabelField($"화원 {s.source} 당분",$"{s.mass:F4}mg");
     }
     void Frames(GameWorld w,List<ItemData> equipment)
@@ -116,15 +117,7 @@ public sealed class BeeCycleWindow : EditorWindow
         if(draft==null)draft=JsonUtility.FromJson<BeeCycleSettings>(JsonUtility.ToJson(w.BeeCycle.Settings));
         EditorGUILayout.HelpBox("임시 모델입니다. 시간 단위는 게임 1분 틱, 질량 mg, 거리 mm, 발열 J입니다. 수식은 + - * / 및 min/max/pow/clamp 등을 지원합니다. 적용은 틱 경계에서만 가능합니다.",MessageType.Info);
         EditorGUILayout.HelpBox("수식 입력: ratio=상태 부족/적재 비율(발육식에서는 온도 계수), need=명령 필요도, time=해당 틱의 사용 시간 비율, amount=요구량·현재량, available=가용량·목표량, distance=이동 거리(산란식에서는 중앙까지 소방 거리), height=높이/기준 높이, temperature=°C, elapsed=Task 경과 분, actionRate=행동별 발달도/틱. 각 식의 기본 형태와 연결은 BeeCycleGuide.txt에 정리되어 있습니다.",MessageType.None);
-        foreach(var f in typeof(BeeCycleSettings).GetFields())
-        {
-            if(f.Name=="forageWater")continue;
-            if(f.FieldType==typeof(double))f.SetValue(draft,EditorGUILayout.DoubleField(f.Name,(double)f.GetValue(draft)));
-            else if(f.FieldType==typeof(int))f.SetValue(draft,EditorGUILayout.IntField(f.Name,(int)f.GetValue(draft)));
-        }
-        EditorGUILayout.HelpBox("밀원량 단위는 mg입니다. forageSourceWeight의 available은 해당 자원 잔량이며 기본값은 잔량 비례입니다. forageSourceId는 시험 초기 먹이에만 사용하며, 기존 고정 수분량 설정은 저장 호환용입니다.",MessageType.Info);
-        EditorGUILayout.Space();EditorGUILayout.LabelField("계산식",EditorStyles.boldLabel);
-        foreach(var f in draft.formulas){if(f.name=="forageWaterAmount")continue;EditorGUILayout.LabelField(f.name);f.expression=EditorGUILayout.TextField(f.expression);}
+        BeeParameterPanel.Draw(draft);
         using(new EditorGUI.DisabledScope(busy||(Application.isPlaying&&GameTimeRuntime.InputBlocked)))
         if(GUILayout.Button("검사 후 현재 월드에 적용"))try{var copy=JsonUtility.FromJson<BeeCycleSettings>(JsonUtility.ToJson(draft));w.BeeCycle.ApplySettings(copy);message="수치·수식을 현재 월드에 적용했습니다. 저장 시 함께 보존됩니다.";}catch(Exception e){message=e.Message;}
         if(GUILayout.Button("JSON으로 표시"))json=JsonUtility.ToJson(draft,true);

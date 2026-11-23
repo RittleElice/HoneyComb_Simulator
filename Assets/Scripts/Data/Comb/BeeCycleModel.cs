@@ -10,7 +10,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
 [Serializable] public sealed class BeeCycleSettings
 {
     public List<CycleFormula> formulas=BeeCycleRules.Defaults();
-    public double naturalDecay=10, commandMaximum=30;
+    public double naturalDecay=10, commandMaximum=3;
     public double feedWeight=40,restWeight=40,recoverWeight=40,storeWeight=40;
     public double reserveTarget=8, maxEnergy=100, maxHealth=100, carryCapacity=20;
     public double basalSugar=0.02, basalEnergy=0.15, movementEnergy=0.01;
@@ -21,9 +21,9 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     public double buildPoints=1, sugarPerBuildPoint=8, desiredEmptyCellsPerBee=5;
     public double interruptPerElapsedMinute=0.0005, storageHeightBias=2, storageDistanceMm=200;
     public int demoWorkers=48, forageSourceId=0;
-    public int demoFrames=2,demoConstruction=70;
+    public int demoFrames=2,demoConstruction=0;
     public int routeCacheEntries=128;
-    public double demoSugar=300,demoWater=300,demoPollen=100;
+    public double demoSugar=5000,demoWater=5000,demoPollen=1000;
     public double basalHeatJ=0.02712, extraHeatJ=0.6, heatEnergy=0.1;
     public double broodTick=1.0/1440, eggEnd=3, larvaEnd=9, adultStart=21;
     public double idleDevelopment=0.0007, restDevelopment=0.0007, recoverDevelopment=0.0008;
@@ -34,6 +34,9 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     public double larvaSugarPerTick=0.001, larvaPollenPerTick=0.0005, larvaEnergyPerTick=0.005;
     public double nurseRate=1, queenLayPerMinute=0.1, broodTarget=60, starvationDamage=0.01;
     public double maxDevelopment=200, broodReserveTicks=60, heatDeficitScale=10, storageHeightScale=20;
+    // carryCapacity retains its serialized name and now limits nectar-derived sugar only.
+    [CycleSince(3)] public double pollenCarryCapacity=15;
+    [CycleSince(4)] public int demoEggs=20,demoLarvae=20,demoPupae=20;
     public void UpgradeForageFormula()
     {
         if(formulas!=null && !formulas.Exists(f=>f.name=="forageSourceWeight"))
@@ -47,7 +50,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
             double v=Convert.ToDouble(field.GetValue(this));
             if(double.IsNaN(v)||double.IsInfinity(v)||v<0)throw new ArgumentException("Invalid setting: "+field.Name);
         }
-        if(reserveTarget<=0||maxEnergy<=0||maxHealth<=0||carryCapacity<=0||energyPerSugar<=0||speed<=0||storageDistanceMm<=0||stockSugarPerBee<=0||stockPollenPerBee<=0||desiredEmptyCellsPerBee<=0||sugarPerBuildPoint<=0||recoveryEnergy<=0||heatEnergy<=0||broodTarget<=0||larvaSugarPerTick<=0||larvaPollenPerTick<=0||larvaEnergyPerTick<=0||heatDeficitScale<=0||storageHeightScale<=0||broodMinTemperature>=broodIdealTemperature||broodIdealTemperature>=broodMaxTemperature||eggEnd>=larvaEnd||larvaEnd>=adultStart||adultStart>=maxDevelopment)
+        if(reserveTarget<=0||maxEnergy<=0||maxHealth<=0||carryCapacity<=0||pollenCarryCapacity<=0||energyPerSugar<=0||speed<=0||storageDistanceMm<=0||stockSugarPerBee<=0||stockPollenPerBee<=0||desiredEmptyCellsPerBee<=0||sugarPerBuildPoint<=0||recoveryEnergy<=0||heatEnergy<=0||broodTarget<=0||larvaSugarPerTick<=0||larvaPollenPerTick<=0||larvaEnergyPerTick<=0||heatDeficitScale<=0||storageHeightScale<=0||broodMinTemperature>=broodIdealTemperature||broodIdealTemperature>=broodMaxTemperature||eggEnd>=larvaEnd||larvaEnd>=adultStart||adultStart>=maxDevelopment)
             throw new ArgumentException("Positive capacity/rate denominator required.");
         if(routeCacheEntries<1||demoConstruction>100||demoFrames>8)throw new ArgumentException("Invalid cache/demo limits.");
     }
@@ -84,6 +87,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
 [Serializable] public sealed class CycleDesire
 {
     public CycleTask task;public CyclePoint target;public double weight;
+    internal bool stimulatedThisTick;
 }
 [Serializable] public sealed class CycleBee
 {
@@ -97,7 +101,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     public CycleTask task;
     public CycleAction action;
     public List<CycleDesire> desires=new List<CycleDesire>();
-    internal Dictionary<(CycleTask,BeeGridPosition),CycleDesire> desireIndex;
+    internal Dictionary<int,CycleDesire> desireIndex;
     public CyclePoint target,waypoint,returnPoint;
     public bool hasTarget,hasWaypoint,outside,returning,interruptAfterReturn;
     public bool hasStoreExclusion;

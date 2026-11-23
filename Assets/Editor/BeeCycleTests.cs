@@ -12,7 +12,7 @@ public static class BeeCycleTests
     static void Check(bool value,string label){checks++;if(!value)throw new Exception("CHECK FAILED: "+label);}
     static void Near(double a,double b,double epsilon,string label)=>Check(Math.Abs(a-b)<=epsilon,$"{label}: {a:R} vs {b:R}");
     static GameWorld World()
-    {var w=new GameWorld(WeatherAssetLoader.Create(WeatherSimulator.DefaultSeed));w.PrepareThermal(ThermalMaterials.Load());w.BeeCycle.SeedDemo();BeeForageTests.FiniteFixture(w);w.Thermal.Refresh();return w;}
+    {var w=new GameWorld(WeatherAssetLoader.Create(WeatherSimulator.DefaultSeed));w.PrepareThermal(ThermalMaterials.Load());w.BeeCycle.SeedDemo(new BeeCycleSettings{demoConstruction=70,demoSugar=300,demoWater=300,demoPollen=100,demoEggs=0,demoLarvae=0,demoPupae=0});BeeForageTests.FiniteFixture(w);w.Thermal.Refresh();return w;}
     static void Tick(GameWorld w,int n,bool full=true)
     {
         var scheduler=full?GameTimeRuntime.CreateWorldScheduler(w):new SimulationScheduler(w.Clock);
@@ -108,9 +108,10 @@ public static class BeeCycleTests
             foreach(var bee in w.BeeCycle.Bees){bee.task=CycleTask.None;bee.reserve=cfg.reserveTarget;bee.energy=cfg.maxEnergy;}
             var a=w.BeeCycle.Bees[0];var b=w.BeeCycle.Bees[1];a.task=b.task=CycleTask.Feed;a.reserve=b.reserve=0;
             Tick(w,1,false);Near(a.lastAcquired,b.lastAcquired,1e-9,"equal demand proportional sharing");Check(a.lastAcquired>0,"acquired from frame");
-            a.cargo=new CycleCargo{pollen=16};b.cargo=new CycleCargo();cfg.acquireRate=100;w.BeeCycle.ApplySettings(cfg);
+            a.cargo=new CycleCargo();a.cargo.Add(0,16);b.cargo=new CycleCargo();cfg.acquireRate=100;w.BeeCycle.ApplySettings(cfg);
             foreach(var item in ThermalWorld.Items(w))if(item.GetContent<FrameData>() is FrameData f)foreach(var face in new[]{f.Front,f.Back})for(int yy=0;yy<12;yy++)for(int xx=0;xx<25;xx++)if(face.GetCell(xx,yy).Content==CellContentKind.Nectar)face.TryClearContent(xx,yy);
             var firstFrame=ThermalWorld.Items(w).First(i=>i.Kind==ItemKind.Frame&&i.GetContent<FrameData>().Front.GetCell(0,0).IsComplete);firstFrame.GetContent<FrameData>().Front.TryAddNectar(0,0,0,6,6);
+            foreach(var bee in new[]{a,b}){w.BeeLocations.TryGet(bee.id,out var pos);bee.task=CycleTask.Clear;bee.target=new CyclePoint(pos);bee.hasTarget=true;}
             Tick(w,1,false);Near(a.lastAcquired,1,1e-8,"scarcity share 4/24");Near(b.lastAcquired,5,1e-8,"scarcity share 20/24");
         }finally{w.Thermal.Dispose();}
     }

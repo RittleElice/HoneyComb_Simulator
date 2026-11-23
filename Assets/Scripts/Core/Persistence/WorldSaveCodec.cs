@@ -17,7 +17,7 @@ internal static class SaveBinary
     public static string Text(BinaryReader r)
     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
 }
-/// <summary>Schema 20 adds persistent forage destinations; schemas 17-19 migrate on read.
+/// <summary>Schema 22 persists initial brood settings; schemas 17-21 migrate on read.
 /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
 public sealed class WorldSaveCodec
 {
@@ -25,7 +25,7 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
-    public const int CurrentSchema = 20;
+    public const int CurrentSchema = 22;
     private int schema = CurrentSchema;
     public static byte[] Encode(WorldSaveSnapshot snapshot)
     {
@@ -67,7 +67,7 @@ public sealed class WorldSaveCodec
         using(var r=new BinaryReader(stream,Encoding.UTF8,true))
         {
             int schema=r.ReadInt32();
-            if(schema!=17 && schema!=18 && schema!=19 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
+            if(schema!=17 && schema!=18 && schema!=19 && schema!=20 && schema!=21 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);

@@ -4,12 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="">
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Comb/BeeCycleRuntime.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Comb/BeeCycleRuntime.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ClimateDomain.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ClimateDomain.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/HiveClimate.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/HiveClimate.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalWorld.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/Scripts/Data/Thermal/ThermalWorld.cs" afterDir="false" />
-    </list>
+    <list default="true" id="38817dce-5365-4ce0-93cb-c1a2ee839437" name="변경" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -137,6 +132,7 @@
       <workItem from="1793585716017" duration="3132000" />
       <workItem from="1795376388903" duration="31000" />
       <workItem from="1795379241065" duration="317000" />
+      <workItem from="1795379916230" duration="612000" />
     </task>
     <servers />
   </component>

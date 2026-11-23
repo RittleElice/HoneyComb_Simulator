@@ -9,14 +9,14 @@ public sealed partial class BeeCycleRuntime
     internal void Write(BinaryWriter w)
     {
         if(Failure!=null||LastMinute!=World.CurrentGameMinute)throw new InvalidDataException("Incomplete bee tick.");
-        w.Write(2);w.Write(LastMinute);w.Write(RandomState);w.Write(nextId);
+        w.Write(4);w.Write(LastMinute);w.Write(RandomState);w.Write(nextId);
         CycleBinary.Write(w,typeof(BeeCycleSettings),Settings);CycleBinary.Write(w,Bees.GetType(),Bees);CycleBinary.Write(w,typeof(CycleCounters),Counters);CycleBinary.Write(w,Commands.GetType(),Commands);
     }
     internal void Read(BinaryReader r)
     {
-        int version=r.ReadInt32();if(version!=1&&version!=2)throw new InvalidDataException("Unknown bee cycle version.");
+        int version=r.ReadInt32();if(version!=1&&version!=2&&version!=3&&version!=4)throw new InvalidDataException("Unknown bee cycle version.");
         LastMinute=r.ReadInt64();RandomState=r.ReadUInt32();nextId=r.ReadInt64();
-        Settings=(BeeCycleSettings)CycleBinary.Read(r,typeof(BeeCycleSettings),version);if(version==1)Settings.UpgradeForageFormula();rules=new BeeCycleRules(Settings);
+        Settings=(BeeCycleSettings)CycleBinary.Read(r,typeof(BeeCycleSettings),version);if(version==1)Settings.UpgradeForageFormula();if(version<4)Settings.demoEggs=Settings.demoLarvae=Settings.demoPupae=0;rules=new BeeCycleRules(Settings);
         Bees=(System.Collections.Generic.List<CycleBee>)CycleBinary.Read(r,typeof(System.Collections.Generic.List<CycleBee>),version);
         Counters=(CycleCounters)CycleBinary.Read(r,typeof(CycleCounters),version);Commands=(System.Collections.Generic.List<CycleCommand>)CycleBinary.Read(r,typeof(System.Collections.Generic.List<CycleCommand>),version);byId.Clear();
         if(LastMinute!=World.CurrentGameMinute||RandomState==0||nextId<=0||Counters.actions.Length!=15)throw new InvalidDataException("Invalid bee clock.");
@@ -38,20 +38,55 @@ internal sealed class CycleSinceAttribute : Attribute
 }
 internal static class CycleBinary
 {
-    static FieldInfo[] Fields(Type t)=>t.GetFields(BindingFlags.Instance|BindingFlags.Public);
+    sealed class FieldPlan
+    {
+        public FieldInfo Field; public int Since;
+    }
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<Type,FieldPlan[]> fieldPlans
+        =new System.Collections.Concurrent.ConcurrentDictionary<Type,FieldPlan[]>();
+    static FieldPlan[] Fields(Type t)=>fieldPlans.GetOrAdd(t,type=>
+    {
+        var fields=type.GetFields(BindingFlags.Instance|BindingFlags.Public);
+        var result=new FieldPlan[fields.Length];
+        for(int i=0;i<fields.Length;i++)result[i]=new FieldPlan { Field=fields[i], Since=fields[i].GetCustomAttribute<CycleSinceAttribute>()?.Version??1 };
+        return result;
+    });
+    // Keep the original reflected wire order. Fall back if these public layouts change.
+    static bool Layout(Type type,params string[] names)
+    {
+        var fields=Fields(type);if(fields.Length!=names.Length)return false;
+        for(int i=0;i<fields.Length;i++)if(fields[i].Field.Name!=names[i]||fields[i].Since!=1)return false;
+        return true;
+    }
+    static readonly bool fastPoint=Layout(typeof(CyclePoint),"equipment","x","y","z","face");
+    static readonly bool fastDesire=fastPoint&&Layout(typeof(CycleDesire),"task","target","weight");
+    static readonly System.Collections.Generic.HashSet<int> tasks=TaskValues();
+    static System.Collections.Generic.HashSet<int> TaskValues()
+    {
+        var values=new System.Collections.Generic.HashSet<int>();
+        foreach(CycleTask value in Enum.GetValues(typeof(CycleTask)))values.Add((int)value);
+        return values;
+    }
+    static void Point(BinaryWriter w,CyclePoint p){w.Write(p.equipment);w.Write(p.x);w.Write(p.y);w.Write(p.z);w.Write(p.face);}
+    static CyclePoint Point(BinaryReader r)=>new CyclePoint{equipment=r.ReadInt32(),x=r.ReadInt32(),y=r.ReadInt32(),z=r.ReadInt32(),face=r.ReadInt32()};
+    static double Finite(double n){if(double.IsNaN(n)||double.IsInfinity(n))throw new InvalidDataException("Nonfinite value.");return n;}
     public static void Write(BinaryWriter w,Type t,object v)
     {
+        if(t==typeof(CycleDesire)&&fastDesire){var d=(CycleDesire)v;w.Write((int)d.task);Point(w,d.target);w.Write(Finite(d.weight));return;}
+        if(t==typeof(CyclePoint)&&fastPoint){Point(w,(CyclePoint)v);return;}
         if(t==typeof(double)){double n=(double)v;if(double.IsNaN(n)||double.IsInfinity(n))throw new InvalidDataException("Nonfinite value.");w.Write(n);}
         else if(t==typeof(int))w.Write((int)v);else if(t==typeof(long))w.Write((long)v);else if(t==typeof(bool))w.Write((bool)v);else if(t==typeof(string))SaveBinary.Text(w,(string)v);else if(t.IsEnum)w.Write(Convert.ToInt32(v));
         else if(t.IsArray||typeof(IList).IsAssignableFrom(t)){var a=(IList)v;w.Write(a.Count);var item=t.IsArray?t.GetElementType():t.GetGenericArguments()[0];foreach(var x in a)Write(w,item,x);}
-        else foreach(var f in Fields(t))Write(w,f.FieldType,f.GetValue(v));
+        else foreach(var f in Fields(t))Write(w,f.Field.FieldType,f.Field.GetValue(v));
     }
-    public static object Read(BinaryReader r,Type t,int version=2)
+    public static object Read(BinaryReader r,Type t,int version=4)
     {
+        if(t==typeof(CycleDesire)&&fastDesire){int task=r.ReadInt32();if(!tasks.Contains(task))throw new InvalidDataException("Invalid enum.");return new CycleDesire{task=(CycleTask)task,target=Point(r),weight=Finite(r.ReadDouble())};}
+        if(t==typeof(CyclePoint)&&fastPoint)return Point(r);
         if(t==typeof(double)){double n=r.ReadDouble();if(double.IsNaN(n)||double.IsInfinity(n))throw new InvalidDataException("Nonfinite value.");return n;}
         if(t==typeof(int))return r.ReadInt32();if(t==typeof(long))return r.ReadInt64();if(t==typeof(bool))return r.ReadBoolean();if(t==typeof(string))return SaveBinary.Text(r);
         if(t.IsEnum){int n=r.ReadInt32();if(!Enum.IsDefined(t,n))throw new InvalidDataException("Invalid enum.");return Enum.ToObject(t,n);}
         if(t.IsArray||typeof(IList).IsAssignableFrom(t)){int n=SaveBinary.Count(r,1000000);var item=t.IsArray?t.GetElementType():t.GetGenericArguments()[0];var a=(IList)(t.IsArray?Array.CreateInstance(item,n):Activator.CreateInstance(t));for(int i=0;i<n;i++){var v=Read(r,item,version);if(t.IsArray)a[i]=v;else a.Add(v);}return a;}
-        var result=Activator.CreateInstance(t);foreach(var f in Fields(t))if((f.GetCustomAttribute<CycleSinceAttribute>()?.Version??1)<=version)f.SetValue(result,Read(r,f.FieldType,version));return result;
+        var result=Activator.CreateInstance(t);foreach(var f in Fields(t))if(f.Since<=version)f.Field.SetValue(result,Read(r,f.Field.FieldType,version));return result;
     }
 }

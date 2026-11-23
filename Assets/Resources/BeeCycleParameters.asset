@@ -91,7 +91,7 @@ MonoBehaviour:
     - name: layChance
       expression: clamp(queenLayPerMinute*time,0,1)
     naturalDecay: 10
-    commandMaximum: 30
+    commandMaximum: 3
     feedWeight: 40
     restWeight: 40
     recoverWeight: 40
@@ -100,6 +100,7 @@ MonoBehaviour:
     maxEnergy: 100
     maxHealth: 100
     carryCapacity: 20
+    pollenCarryCapacity: 15
     basalSugar: 0.02
     basalEnergy: 0.15
     movementEnergy: 0.01
@@ -126,11 +127,11 @@ MonoBehaviour:
     demoWorkers: 48
     forageSourceId: 0
     demoFrames: 2
-    demoConstruction: 70
+    demoConstruction: 0
     routeCacheEntries: 128
-    demoSugar: 300
-    demoWater: 300
-    demoPollen: 100
+    demoSugar: 5000
+    demoWater: 5000
+    demoPollen: 1000
     basalHeatJ: 0.02712
     extraHeatJ: 0.6
     heatEnergy: 0.1
@@ -165,3 +166,6 @@ MonoBehaviour:
     broodReserveTicks: 60
     heatDeficitScale: 10
     storageHeightScale: 20
+    demoEggs: 20
+    demoLarvae: 20
+    demoPupae: 20

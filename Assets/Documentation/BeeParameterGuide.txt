@@ -1,0 +1,151 @@
+벌 행동별 파라미터 화면 안내
+Tools > HoneyComb > 벌 시뮬레이션 관찰 > 수치·수식
+행동명·한글 항목명·변수명·수식명 검색. 전체 펼치기/접기. 변수명은 수치 라벨 툴팁에서도 확인.
+각 그룹에서 수치를 먼저, 관련 수식을 그 아래 표시. 공유 값은 같은 설정 원본을 수정하며 중복된 독립 파라미터가 아님.
+기존 현재 월드 적용/JSON 표시·읽기/새 게임 기본값 저장 흐름 유지. 값과 계산식·런타임·저장형식 변경 없음.
+
+공통 · 명령과 욕구
+명령 자극은 모든 행동이 공유합니다. 양의 자극이 있는 욕구에는 자연 감소를 적용하지 않습니다.
+- naturalDecay|무자극 틱 자연 감소
+- commandMaximum|명령 최대 자극
+- interruptPerElapsedMinute|경과 시간당 중단 계수
+수식: deficit commandChance commandStimulus desireNext interruptChance
+
+섭식
+보유 당분을 체내 당분으로 옮깁니다. 당분 획득 속도는 자원 획득·운반 항목을 사용합니다.
+- feedWeight|섭식 욕구 강도
+- reserveTarget|체내 당분 목표 (mg)
+- feedRate|섭식 속도 (mg/분)
+- feedDevelopment|섭식 발달도 증가 (/분)
+수식: feedDesire feedAmount
+
+휴식
+체내 당분을 소비해 Energy를 회복합니다.
+- restWeight|휴식 욕구 강도
+- maxEnergy|최대 Energy
+- restRate|Energy 회복 속도 (/분)
+- energyPerSugar|당분당 Energy (Energy/mg)
+- restDevelopment|휴식 발달도 증가 (/분)
+수식: restDesire restAmount
+
+건강 회복
+Energy를 소비해 Health를 회복합니다.
+- recoverWeight|회복 욕구 강도
+- maxHealth|최대 Health
+- recoveryRate|Health 회복 속도 (/분)
+- recoveryEnergy|회복당 Energy 비용
+- recoverDevelopment|회복 발달도 증가 (/분)
+수식: recoverDesire recoverAmount
+
+이동
+다른 Task의 하위 행동입니다. 수식 time은 해당 틱에서 사용하는 시간 비율입니다.
+- speed|이동 속도 (mm/초)
+- movementEnergy|이동 Energy 비용 (/분)
+- moveDevelopment|이동 발달도 증가 (/분)
+- routeCacheEntries|경로 캐시 항목 수
+수식: moveDistance movementEnergyCost
+
+자원 획득 · 운반
+당분과 화분은 독립 용량입니다. 화밀 수분은 획득 시 폐기합니다. 획득 속도는 정리 행동에서도 공유합니다.
+- carryCapacity|화밀 유래 당분 용량 (mg)
+- pollenCarryCapacity|화분 용량 (mg)
+- acquireRate|자원 획득 속도 (mg/분)
+- acquireDevelopment|획득 발달도 증가 (/분)
+수식: acquireAmount
+
+외부 채집
+출발 시 현재 잔량으로 밀원을 선택하고 귀환 시 실제 재고를 차감합니다. 식물 생산·개화 파라미터는 NectarSettings에서 관리합니다.
+- stockSugarPerBee|성충당 당분 비축 목표 (mg)
+- stockPollenPerBee|성충당 화분 비축 목표 (mg)
+- forageMinutes|외부 채집 시간 (분)
+- forageSugar|당분 채집 요청 상한 (mg)
+- foragePollen|화분 채집 요청 상한 (mg)
+- forageDevelopment|채집 발달도 증가 (/분)
+수식: forageSourceWeight forageDuration forageSugarAmount foragePollenAmount
+
+저장
+저장 욕구 ratio는 두 자원 적재율의 최댓값입니다. 운반 용량은 자원 획득·운반 항목과 공유합니다.
+- storeWeight|저장 욕구 강도
+- storeRate|저장 속도 (합계 mg/분)
+- storageHeightBias|높이 선호 강도
+- storageHeightScale|높이 정규화 기준
+- storageDistanceMm|거리 정규화 기준 (mm)
+- storeDevelopment|저장 발달도 증가 (/분)
+수식: storeDesire storagePreference storeAmount
+
+건설
+신규 명령에만 저장 당분 > 성충 수 × 비축 기준을 검사합니다. 기존 명령은 이 조건으로 종료하지 않습니다. 완성 판정 80, 남은 작업량·배분 상한 100은 기존 소방 규칙입니다.
+- desiredEmptyCellsPerBee|성충당 목표 빈 소방 수
+- buildPoints|건설 속도 (포인트/분)
+- sugarPerBuildPoint|건설 비용 (당분 mg/포인트)
+- stockSugarPerBee|신규 명령 비축 기준 (공유 mg/성충)
+- buildDevelopment|건설 발달도 증가 (/분)
+수식: buildPreference buildCellWeight buildAmount
+
+산란
+봉충 목표 수는 정리 명령도 공유합니다. 온도 조건은 봉충 발육·육아 항목의 broodTemperature를 사용합니다.
+- queenLayPerMinute|산란 기본 확률 (/분)
+- broodTarget|목표 봉충 수
+- layDevelopment|산란 발달도 증가 (/분)
+수식: layChance layCellWeight
+
+봉충 발육 · 육아
+당분과 화분은 각각 부족량에 비례해 분배합니다. 각 단계의 발달도와 온도 수식은 초기 봉충 설정에도 연결됩니다.
+- broodTick|기본 봉충 발달도 증가 (/분)
+- eggEnd|알 단계 종료 발달도
+- larvaEnd|애벌레 단계 종료 발달도
+- adultStart|성충 우화 발달도
+- broodMinTemperature|최저 발육 온도 (℃)
+- broodIdealTemperature|최적 발육 온도 (℃)
+- broodMaxTemperature|최고 발육 온도 (℃)
+- larvaSugarPerTick|애벌레 당분 요구 (mg/분)
+- larvaPollenPerTick|애벌레 화분 요구 (mg/분)
+- larvaEnergyPerTick|애벌레 Energy 요구 (/분)
+- broodReserveTicks|애벌레 먹이 비축 기준 (틱)
+- nurseRate|육아 공급 속도 (mg/분)
+- nurseDevelopment|육아 발달도 증가 (/분)
+수식: broodTemperature broodDevelopment larvaDevelopmentFactor nurseNeed nurseAmount
+
+가온 · 기초 발열
+가온 목표 온도는 봉충 발육의 최적 발육 온도와 공유합니다. 기초 발열은 가온 행동과 별도로 적용됩니다.
+- basalHeatJ|기초 발열 (J/분)
+- extraHeatJ|가온 추가 발열 (J/분)
+- heatEnergy|가온 Energy 비용 (/분)
+- heatDeficitScale|온도 부족 정규화 (℃)
+- heatDevelopment|가온 발달도 증가 (/분)
+수식: basalHeat additionalHeat heatNeed
+
+저장 자원 정리
+산란 공간 확보용 정리입니다. 획득한 자원의 재저장은 별도 저장 Task가 담당합니다.
+- clearDevelopment|정리 발달도 증가 (/분)
+- acquireRate|획득 속도 (공유 mg/분)
+- broodTarget|봉충 목표 수 (공유)
+수식: 
+
+기초 대사 · 발달 · 사망
+행동별 발달 속도는 각 행동 항목에 있습니다. Health 0 또는 최대 발달도 도달 시 사망합니다.
+- basalSugar|기초 당분 소비 (mg/분)
+- basalEnergy|기초 Energy 소비 (/분)
+- starvationDamage|기아 Health 손상 (/분)
+- maxDevelopment|사망 발달도
+- idleDevelopment|Idle 발달도 증가 (/분)
+수식: basalSugarCost basalEnergyCost starvation development
+
+새 게임 초기 상태
+새 게임 생성에만 사용합니다. 진행 중 월드에 적용해도 개체·먹이를 추가하거나 소방을 재설정하지 않습니다.
+- demoWorkers|초기 일벌 수
+- demoEggs|초기 알 수
+- demoLarvae|초기 애벌레 수
+- demoPupae|초기 번데기 수
+- demoFrames|초기 소비장 수
+- demoConstruction|초기 미완성 소방 건설도
+- demoSugar|초기 저장 당분 (mg)
+- demoWater|초기 저장 수분 (mg)
+- demoPollen|초기 저장 화분 (mg)
+- forageSourceId|초기 먹이 화원 ID
+수식: 
+
+호환용 · 현재 사용하지 않음
+기존 저장·JSON 호환용 값입니다. 현재 채집에서는 실제 밀원 수분 비율을 사용하므로 편집을 비활성화했습니다.
+- forageWater|구형 고정 채집 수분 (미사용)
+수식: forageWaterAmount

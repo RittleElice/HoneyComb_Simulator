@@ -19,7 +19,7 @@ public static class BeeForageTests
         }
     }
     static GameWorld World(){
-        var w=new GameWorld(new WeatherSimulator(WeatherSimulator.DefaultSeed,WeatherAssetLoader.LoadBaseline(),null,123456789UL));w.BeeCycle.SeedDemo();
+        var w=new GameWorld(new WeatherSimulator(WeatherSimulator.DefaultSeed,WeatherAssetLoader.LoadBaseline(),null,123456789UL));w.BeeCycle.SeedDemo(new BeeCycleSettings{demoConstruction=70,demoSugar=300,demoWater=300,demoPollen=100,demoEggs=0,demoLarvae=0,demoPupae=0});
         w.BeeLocations.TryGet(w.BeeCycle.Bees[0].id,out testPosition);
         foreach(var b in w.BeeCycle.Bees)w.BeeLocations.Remove(b.id);
         w.BeeCycle.Bees.Clear();return w;
@@ -28,7 +28,7 @@ public static class BeeForageTests
         // Use the ordinary creation path and a valid return location from the topology.
         var pos=testPosition;
         var b=w.BeeCycle.Add(pos,pos.EquipmentId);b.task=pollen?CycleTask.ForagePollen:CycleTask.ForageNectar;b.returnPoint=new CyclePoint(pos);b.forageSource=source;b.outside=true;b.outsideRemaining=1;b.returning=interrupted;b.interruptAfterReturn=interrupted;
-        b.cargo.pollen=w.BeeCycle.Settings.carryCapacity-demand;w.BeeLocations.Remove(b.id);return b;
+        if(pollen)b.cargo.pollen=w.BeeCycle.Settings.pollenCarryCapacity-demand;else b.cargo.Add(0,w.BeeCycle.Settings.carryCapacity-demand);w.BeeLocations.Remove(b.id);return b;
     }
     static void Tick(GameWorld w){w.BeeCycle.CalculateMinuteAsync(w.BeeCycle.LastMinute+1,CancellationToken.None).GetAwaiter().GetResult();}
     static void Quiet(GameWorld w){var s=w.BeeCycle.Settings;s.interruptPerElapsedMinute=0;s.commandMaximum=0;s.feedWeight=s.restWeight=s.recoverWeight=s.storeWeight=0;s.basalSugar=s.basalEnergy=0;w.BeeCycle.ApplySettings(s);}
