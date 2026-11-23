@@ -12,7 +12,9 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
     private bool requested;
     private readonly CheckpointPolicy policy = new CheckpointPolicy();
     public bool IsLoading { get; private set; }
-    public bool IsSaving => write != null;
+    private System.Threading.CancellationTokenSource captureCancellation;
+    public bool IsCapturing => captureCancellation!=null;
+    public bool IsSaving => IsCapturing || write != null;
     public bool HasSave => store != null && store.HasFiles;
     public string Status { get; private set; } = "아직 저장되지 않았습니다.";
     public string SaveDirectory => store.DirectoryPath;
@@ -45,11 +47,12 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
     private void Update()
     {
         if(write!=null && write.IsCompleted) Complete(write);
-        if(!CanSnapshot || write!=null || Time.realtimeSinceStartupAsDouble<retryAfter) return;
+        if(!CanSnapshot || IsSaving || Time.realtimeSinceStartupAsDouble<retryAfter) return;
         if(requested || policy.IsDue(Time.realtimeSinceStartupAsDouble-lastWrite)) _ = SaveBoundaryAsync(false);
     }
     public async Task SaveBoundaryAsync(bool force)
     {
+        if(IsCapturing){if(force)requested=true;return;}
         while(write!=null) { var existing=write; try { await existing; } catch { } Complete(existing); }
         if(!CanSnapshot)
         {
@@ -59,13 +62,22 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
         if(Time.realtimeSinceStartupAsDouble<retryAfter || (!force && !requested && !policy.IsDue(Time.realtimeSinceStartupAsDouble-lastWrite))) return;
         try
         {
-            // Capture on the main thread at a complete minute boundary. IO uses only detached bytes.
+            // Keep authoritative state frozen while streaming a large capture across frames.
             started=Time.realtimeSinceStartupAsDouble;
-            byte[] payload=WorldSaveCodec.Encode(GameBootstrap.Instance.TimeSystem.CaptureTimeline(GameBootstrap.Instance.GameWorld));
-            requested=false; Status="저장 중...";
+            var time=GameBootstrap.Instance.TimeSystem;
+            var snapshot=time.CaptureTimeline(GameBootstrap.Instance.GameWorld);
+            byte[] payload;
+            requested=false;Status="저장 중...";
+            var cancellation=new System.Threading.CancellationTokenSource();captureCancellation=cancellation;
+            try{
+                var slice=new SimulationSlice(time.NextFrame,time.WaitForResumeAsync,cancellation.Token,2);
+                payload=await WorldSaveCodec.EncodeAsync(snapshot,slice.CheckpointAsync);
+            }finally{if(ReferenceEquals(captureCancellation,cancellation))captureCancellation=null;cancellation.Dispose();}
+            Status="저장 중...";
             write=Task.Run(()=>store.Save(payload)); var task=write;
             try { await task; } catch { } Complete(task);
         }
+        catch(OperationCanceledException) { }
         catch(Exception e) { Failed(e); }
     }
     private void Complete(Task task)
@@ -87,6 +99,8 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
     }
     public void SaveSynchronously()
     {
+        // Cancel a yielded capture before an OS pause/quit synchronous boundary; never wait for future frames.
+        captureCancellation?.Cancel();
         // OS shutdown callbacks are best effort. Previously flushed generations remain recoverable.
         if(write!=null) { var task=write; try { task.GetAwaiter().GetResult(); } catch { } Complete(task); }
         if(!CanSnapshot) { requested=true; return; }
@@ -115,3 +129,4 @@ public sealed class GamePersistenceRuntime : MonoBehaviour
     }
     private void OnApplicationQuit() => SaveSynchronously();
 }
+

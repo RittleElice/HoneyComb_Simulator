@@ -4,15 +4,20 @@ using System.Collections.Generic;
 public sealed partial class BeeCycleRuntime
 {
     readonly List<Request> batch=new List<Request>();
+    readonly Dictionary<(Region,int),List<Request>> requestBuckets=new Dictionary<(Region,int),List<Request>>();
+    readonly List<List<Request>> requestBucketPool=new List<List<Request>>();
     async System.Threading.Tasks.Task ResolveRequestsAsync(SimulationSlice slice)
     {
+        foreach(var bucket in requestBucketPool)bucket.Clear();requestBuckets.Clear();int used=0;
+        int visited=0;foreach(var q in requests){if(slice!=null&&(visited++&255)==0)await slice.CheckpointAsync();var key=(q.region,q.kind);if(!requestBuckets.TryGetValue(key,out var bucket)){if(used==requestBucketPool.Count)requestBucketPool.Add(new List<Request>());bucket=requestBucketPool[used++];requestBuckets.Add(key,bucket);}bucket.Add(q);}
         foreach(var r in regions)
         {
             if(slice!=null)await slice.CheckpointAsync();
             for(int kind=0;kind<=4;kind++)
             {
                 batch.Clear();double total=0;
-                foreach(var q in requests)if(q.region==r&&q.kind==kind&&q.bee.stage!=CycleStage.Dead){batch.Add(q);total+=q.amount;}
+                if(!requestBuckets.TryGetValue((r,kind),out var bucket))continue;
+                foreach(var q in bucket)if(q.bee.stage!=CycleStage.Dead){batch.Add(q);total+=q.amount;}
                 if(total<=0)continue;
                 if(kind<=1)
                 {

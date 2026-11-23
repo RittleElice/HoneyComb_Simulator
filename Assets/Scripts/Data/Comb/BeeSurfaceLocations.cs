@@ -41,12 +41,12 @@ public readonly struct BeeGridMove
 
 public sealed class BeeSurfaceLocations
 {
-    readonly SortedDictionary<long, BeeGridPosition> positions = new SortedDictionary<long, BeeGridPosition>();
+    readonly Dictionary<long, BeeGridPosition> positions = new Dictionary<long, BeeGridPosition>();
     readonly Dictionary<BeeGridPosition, int> counts = new Dictionary<BeeGridPosition, int>();
     BeeGridTopology topology;
     public int Count => positions.Count;
     public int TopologyBuilds => topology?.Builds ?? 0;
-    public IEnumerable<KeyValuePair<long, BeeGridPosition>> Entries { get { Refresh(); return positions.Select(p => p); } }
+    public IEnumerable<KeyValuePair<long, BeeGridPosition>> Entries { get { Refresh(); return positions.OrderBy(p => p.Key); } }
     public bool TryGet(long id, out BeeGridPosition p) { Refresh(); return positions.TryGetValue(id, out p); }
     public int CountAt(BeeGridPosition p) { Refresh(); return counts.TryGetValue(p, out int n) ? n : 0; }
     public bool HasEquipment(int id) => counts.Keys.Any(p => p.EquipmentId == id);
@@ -96,12 +96,14 @@ public sealed class BeeSurfaceLocations
             if (move.Target.Equals(destination) && (!isQueen || move.AllowsQueen)) { Store(id, destination); return true; }
         return false;
     }
-    internal void Write(BinaryWriter w, GameWorld world)
+    internal void Write(BinaryWriter w, GameWorld world)=>WriteAsync(w,world,null).GetAwaiter().GetResult();
+    internal async System.Threading.Tasks.Task WriteAsync(BinaryWriter w,GameWorld world,Func<System.Threading.Tasks.Task> checkpoint)
     {
         w.Write(positions.Count); if (positions.Count == 0) return;
         var t = Topology(world);
-        foreach (var pair in positions)
+        int visited=0;foreach (var pair in positions.OrderBy(p => p.Key))
         {
+            if(checkpoint!=null&&(visited++&255)==0)await checkpoint();
             t.Validate(pair.Value); w.Write(pair.Key); w.Write(pair.Value.EquipmentId);
             w.Write(pair.Value.X); w.Write(pair.Value.Y); w.Write(pair.Value.Z); w.Write((byte)pair.Value.Face);
         }

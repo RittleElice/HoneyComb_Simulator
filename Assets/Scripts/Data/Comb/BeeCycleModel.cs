@@ -100,7 +100,17 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     public CycleCargo cargo=new CycleCargo();
     public CycleTask task;
     public CycleAction action;
-    public List<CycleDesire> desires=new List<CycleDesire>();
+    internal CycleDesireState desireState=CycleDesireState.Empty;
+    [UnityEngine.SerializeField, UnityEngine.Serialization.FormerlySerializedAs("desires")]
+    internal List<CycleDesire> mutableDesires;
+    public List<CycleDesire> desires
+    {
+        get { if(mutableDesires==null){mutableDesires=(desireState??CycleDesireState.Empty).Materialize();desireState=null;desireIndex=null;}return mutableDesires; }
+        set { mutableDesires=value;desireState=null;desireIndex=null; }
+    }
+    internal int DesireCount=>mutableDesires?.Count??(desireState?.Values.Length??0);
+    internal CycleDesireState.Entry DesireAt(int index){if(mutableDesires==null)return desireState.Values[index];var d=mutableDesires[index];return new CycleDesireState.Entry(d.task,d.target,d.weight);}
+    internal void ClearDesires(){if(mutableDesires!=null)mutableDesires.Clear();else desireState=CycleDesireState.Empty;desireIndex?.Clear();}
     internal Dictionary<int,CycleDesire> desireIndex;
     public CyclePoint target,waypoint,returnPoint;
     public bool hasTarget,hasWaypoint,outside,returning,interruptAfterReturn;

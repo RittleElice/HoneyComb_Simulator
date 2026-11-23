@@ -10,8 +10,10 @@ public sealed class BeeFormula
     readonly HashSet<string> names = new HashSet<string>();
     string source; int at;
     public IEnumerable<string> Variables => names;
-    public BeeFormula(string expression)
+    readonly Func<string,Func<double>> bind;
+    public BeeFormula(string expression,Func<string,Func<double>> bind=null)
     {
+        this.bind=bind;
         source=expression??throw new ArgumentNullException(nameof(expression));
         if(source.Length>2048)throw new ArgumentException("Formula exceeds 2048 characters.");
         root=Sum(); White(); if(at!=source.Length)throw new ArgumentException("Unexpected formula token at "+at);
@@ -38,7 +40,7 @@ public sealed class BeeFormula
             while(at<source.Length&&(char.IsLetterOrDigit(source[at])||source[at]=='_'))at++;
             if(start==at)throw new ArgumentException("Expected number/variable at "+at);
             string name=source.Substring(start,at-start);
-            if(!Eat('(')){names.Add(name);return v=>v(name);}
+            if(!Eat('(')){names.Add(name);var bound=bind?.Invoke(name);return bound==null?(Node)(v=>v(name)):(v=>bound());}
             var args=new List<Node>();if(!Eat(')')){do{args.Add(Sum());}while(Eat(','));if(!Eat(')'))throw new ArgumentException("Missing function ).");}
             int arity=name=="abs"||name=="sqrt"||name=="exp"||name=="log"?1:name=="min"||name=="max"||name=="pow"?2:name=="clamp"?3:name=="band"?6:-1;
             if(args.Count!=arity)throw new ArgumentException("Unknown function or wrong arguments: "+name);

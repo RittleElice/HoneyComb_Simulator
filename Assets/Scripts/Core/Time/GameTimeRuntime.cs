@@ -12,7 +12,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     public GameClock Clock { get; private set; } = new GameClock();
     public SimulationScheduler Scheduler { get; private set; }
     public static bool InputBlocked => GameBootstrap.Instance != null && GameBootstrap.Instance.TimeSystem != null && GameBootstrap.Instance.TimeSystem.Blocked;
-    public bool Blocked => suspended || operation || pendingMinutes > 0 || failure != null || (GameBootstrap.Instance?.SaveSystem?.IsLoading ?? false);
+    public bool Blocked => (GameBootstrap.Instance?.SaveSystem?.IsCapturing ?? false) || suspended || operation || pendingMinutes > 0 || failure != null || (GameBootstrap.Instance?.SaveSystem?.IsLoading ?? false);
     // A live minute may wait for a checkpoint while gameplay input is locked.
     public bool ShowProgressOverlay => progressOperation || pendingMinutes > 0 || failure != null ||
         (GameBootstrap.Instance?.SaveSystem?.IsLoading ?? false);
@@ -62,7 +62,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     private void Update()
     {
         RefreshInputLock();
-        if (!HasWorld || suspended || operation || failure != null || (GameBootstrap.Instance?.IsPreparingNewGame ?? false)) return;
+        if (!HasWorld || (GameBootstrap.Instance?.SaveSystem?.IsCapturing ?? false) || suspended || operation || failure != null || (GameBootstrap.Instance?.IsPreparingNewGame ?? false)) return;
         try { thermalWorld?.Thermal?.Refresh(); } catch (Exception e) { Fail(e); return; }
         if (pendingMinutes > 0)
         {

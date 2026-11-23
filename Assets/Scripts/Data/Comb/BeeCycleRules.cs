@@ -24,7 +24,7 @@ public sealed class BeeCycleRules
         foreach(var f in settings.formulas)
         {
             if(formulas.ContainsKey(f.name))throw new ArgumentException("Duplicate formula "+f.name);
-            var parsed=new BeeFormula(f.expression);
+            var parsed=new BeeFormula(f.expression,BindVariable);
             foreach(var v in parsed.Variables)if(!values.ContainsKey(v)&&Array.IndexOf(Inputs,v)<0)throw new ArgumentException("Unknown variable "+v);
             formulas.Add(f.name,parsed);
         }
@@ -32,6 +32,10 @@ public sealed class BeeCycleRules
         foreach(var name in formulas.Keys)Eval(name,new CycleInputs{ratio=0.5,need=0.5,time=1,available=1,amount=1,distance=100,height=0.5,temperature=34,elapsed=1,actionRate=0.001});
     }
     static readonly string[] Inputs={"ratio","need","time","available","amount","distance","height","temperature","elapsed","actionRate"};
+    Func<double> BindVariable(string name)
+    {
+        switch(name){case "ratio":return ()=>input.ratio;case "need":return ()=>input.need;case "time":return ()=>input.time;case "available":return ()=>input.available;case "amount":return ()=>input.amount;case "distance":return ()=>input.distance;case "height":return ()=>input.height;case "temperature":return ()=>input.temperature;case "elapsed":return ()=>input.elapsed;case "actionRate":return ()=>input.actionRate;default:if(values.TryGetValue(name,out var constant))return ()=>constant;return null;}
+    }
     double Lookup(string n)
     {
         switch(n){case "ratio":return input.ratio;case "need":return input.need;case "time":return input.time;case "available":return input.available;case "amount":return input.amount;case "distance":return input.distance;case "height":return input.height;case "temperature":return input.temperature;case "elapsed":return input.elapsed;case "actionRate":return input.actionRate;default:return values[n];}

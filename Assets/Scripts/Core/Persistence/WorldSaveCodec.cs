@@ -17,7 +17,7 @@ internal static class SaveBinary
     public static string Text(BinaryReader r)
     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
 }
-/// <summary>Schema 22 persists initial brood settings; schemas 17-21 migrate on read.
+/// <summary>Schema 23 stores shared desire vectors without loss; schemas 17-22 remain readable.
 /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
 public sealed class WorldSaveCodec
 {
@@ -25,18 +25,32 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
-    public const int CurrentSchema = 22;
+    public const int CurrentSchema = 23;
     private int schema = CurrentSchema;
-    public static byte[] Encode(WorldSaveSnapshot snapshot)
+    private const int CompressedMagic=0x5A434832;
+    public static byte[] Encode(WorldSaveSnapshot snapshot)=>EncodeCore(snapshot,true);
+    // Canonical legacy bytes support migration audits; gameplay saves use compact schema 23.
+    public static byte[] EncodeLegacy(WorldSaveSnapshot snapshot)=>EncodeCore(snapshot,false);
+    static byte[] EncodeCore(WorldSaveSnapshot snapshot,bool compact)
     {
         ValidateTime(snapshot);
-        if (snapshot.World.Thermal?.Failure != null)
-            throw new InvalidDataException("Unsafe thermal tick cannot be saved: " + snapshot.World.Thermal.Failure);
-        using (var stream = new MemoryStream())
-        using (var w = new BinaryWriter(stream,Encoding.UTF8,true))
-        {
+        if(snapshot.World.Thermal?.Failure!=null)throw new InvalidDataException("Unsafe thermal tick cannot be saved: "+snapshot.World.Thermal.Failure);
+        bool compress=compact&&snapshot.World.BeeCycle.Bees.Count>=10000;
+        using(var destination=new MemoryStream()){
+            if(compress){
+                using(var header=new BinaryWriter(destination,Encoding.UTF8,true))header.Write(CompressedMagic);
+                using(var gzip=new System.IO.Compression.GZipStream(destination,System.IO.Compression.CompressionLevel.Fastest,true))
+                using(var writer=new BinaryWriter(gzip,Encoding.UTF8,true))WriteSnapshot(writer,snapshot,compact);
+            }else using(var writer=new BinaryWriter(destination,Encoding.UTF8,true))WriteSnapshot(writer,snapshot,compact);
+            return destination.ToArray();
+        }
+    }
+    static void WriteSnapshot(BinaryWriter w,WorldSaveSnapshot snapshot,bool compact)
+    {WritePrefix(w,snapshot,compact);snapshot.World.BeeLocations.Write(w,snapshot.World);snapshot.World.BeeCycle.Write(w,compact);}
+    static void WritePrefix(BinaryWriter w,WorldSaveSnapshot snapshot,bool compact)
+    {
             snapshot.World.Thermal?.FlushClimate();
-            const int version = CurrentSchema;
+            int version = compact?CurrentSchema:22;
             w.Write(version); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
             var world = snapshot.World; w.Write(world.CurrentGameMinute);
             var codec = new WorldSaveCodec { hives = world.Apiary.Hives, schema = version };
@@ -56,18 +70,38 @@ public sealed class WorldSaveCodec
                 codec.WriteItem(w, world.Warehouse.GetSlot(i).Value, 0);
             for (int i = 0; i < world.Trash.Capacity; i++)
                 codec.WriteItem(w, world.Trash.GetSlot(i).Value, 0);
-            world.BeeLocations.Write(w,world);
-            world.BeeCycle.Write(w);
-            return stream.ToArray();
+
+
+    }
+    public static async System.Threading.Tasks.Task<byte[]> EncodeAsync(WorldSaveSnapshot snapshot,Func<System.Threading.Tasks.Task> checkpoint)
+    {
+        ValidateTime(snapshot);if(snapshot.World.Thermal?.Failure!=null)throw new InvalidDataException("Unsafe thermal tick.");
+        bool compress=snapshot.World.BeeCycle.Bees.Count>=10000;
+        using(var destination=new MemoryStream()){
+            if(compress){
+                using(var header=new BinaryWriter(destination,Encoding.UTF8,true))header.Write(CompressedMagic);
+                using(var gzip=new System.IO.Compression.GZipStream(destination,System.IO.Compression.CompressionLevel.Fastest,true))
+                using(var writer=new BinaryWriter(gzip,Encoding.UTF8,true)){WritePrefix(writer,snapshot,true);await snapshot.World.BeeLocations.WriteAsync(writer,snapshot.World,checkpoint);await snapshot.World.BeeCycle.WriteAsync(writer,checkpoint);}
+            }else using(var writer=new BinaryWriter(destination,Encoding.UTF8,true)){WritePrefix(writer,snapshot,true);await snapshot.World.BeeLocations.WriteAsync(writer,snapshot.World,checkpoint);await snapshot.World.BeeCycle.WriteAsync(writer,checkpoint);}
+            return destination.ToArray();
         }
     }
-    public static WorldSaveSnapshot Decode(byte[] bytes)
+    public static WorldSaveSnapshot Decode(byte[] bytes)=>DecodeCore(bytes,false);
+    public static void Validate(byte[] bytes){var snapshot=DecodeCore(bytes,true);snapshot.World.Thermal?.Dispose();}
+    static WorldSaveSnapshot DecodeCore(byte[] bytes,bool validateOnly)
     {
-        using(var stream=new MemoryStream(bytes,false))
-        using(var r=new BinaryReader(stream,Encoding.UTF8,true))
-        {
-            int schema=r.ReadInt32();
-            if(schema!=17 && schema!=18 && schema!=19 && schema!=20 && schema!=21 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
+        using(var stream=new MemoryStream(bytes,false))using(var reader=new BinaryReader(stream,Encoding.UTF8,true)){
+            int schema=reader.ReadInt32();
+            if(schema==CompressedMagic){
+                using(var gzip=new System.IO.Compression.GZipStream(stream,System.IO.Compression.CompressionMode.Decompress,true))
+                using(var r=new BinaryReader(gzip,Encoding.UTF8,true))return ReadSnapshot(r,r.ReadInt32(),validateOnly);
+            }
+            return ReadSnapshot(reader,schema,validateOnly);
+        }
+    }
+    static WorldSaveSnapshot ReadSnapshot(BinaryReader r,int schema,bool validateOnly)
+    {
+            if(schema!=17 && schema!=18 && schema!=19 && schema!=20 && schema!=21 && schema!=22 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);
@@ -97,11 +131,10 @@ public sealed class WorldSaveCodec
                     Insert(trash.GetSlot(i), codec.ReadItem(r, 0));
             }
             if(schema>=14) snapshot.World.BeeLocations.Read(r,snapshot.World,schema);
-            if(schema >= 19) snapshot.World.BeeCycle.Read(r);
+            if(schema >= 19) snapshot.World.BeeCycle.Read(r,validateOnly);
             ValidateTime(snapshot);
-            if(stream.Position!=stream.Length) throw new InvalidDataException("Unexpected trailing save data.");
+            if(r.BaseStream.ReadByte()!=-1) throw new InvalidDataException("Unexpected trailing save data.");
             return snapshot;
-        }
     }
     private static void ValidateTime(WorldSaveSnapshot s)
     {
