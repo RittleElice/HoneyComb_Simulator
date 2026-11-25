@@ -1,33 +1,35 @@
-using System;
+﻿using System;
 using System.Linq;
 public static partial class HiveClimate {
 public sealed partial class Model {
 ClimateBalanceSolver waterBalance,heatBalance;int[] waterSlots,waterMap;
+double[] waterSaturation;
 double[] nextMass,nextEnergy,waterStart,waterPressure,waterTrial,waterExterior,heatExterior;
 void EnsureBalances(){if(waterBalance!=null)return;waterSlots=contacts.SelectMany(c=>new[]{c.a,c.b}).Concat(exteriorContacts.Select(c=>c.reservoir)).Distinct().OrderBy(p=>p).ToArray();waterMap=Enumerable.Repeat(-1,mass.Length).ToArray();for(int i=0;i<waterSlots.Length;i++)waterMap[waterSlots[i]]=i;
 waterBalance=new ClimateBalanceSolver(waterSlots.Length,contacts.Select(c=>waterMap[c.a]).ToArray(),contacts.Select(c=>waterMap[c.b]).ToArray(),contacts.Select(c=>c.conductance).ToArray(),60);
 heatBalance=new ClimateBalanceSolver(n,links.Select(f=>f.a).ToArray(),links.Select(f=>f.b).ToArray(),links.Select(f=>f.heat).ToArray(),60);
-nextMass=new double[mass.Length];nextEnergy=new double[n];waterStart=new double[waterSlots.Length];waterPressure=new double[waterSlots.Length];waterTrial=new double[waterSlots.Length];waterExterior=new double[exteriorContacts.Length];heatExterior=new double[outsideHeatContacts?.Length??0];}
-double WaterMass(int slot,double vapor,out double derivative){int row=slot/Kinds,kind=slot%Kinds;double sat=Psat(temperature[row]);if(kind==Air){double v=contentFreeVolume[row]-nextMass[row*Kinds+Nectar]/waterDensity;derivative=v/(Rv*(273.15+temperature[row]));return vapor*derivative;}if(kind!=Wood){derivative=limit[slot]/sat;return vapor*derivative;}
-double rh=vapor/sat;double ratio=HiveClimateKernels.WoodMoistureRatio(rh);double epsilon=1e-7;derivative=limit[slot]/HiveClimateKernels.WoodCapacityRatio*(HiveClimateKernels.WoodMoistureRatio(rh+epsilon)-HiveClimateKernels.WoodMoistureRatio(rh-epsilon))/(2*epsilon*sat);return limit[slot]/HiveClimateKernels.WoodCapacityRatio*ratio;}
-double WaterResidual(double[] p){var wb=waterBalance;for(int i=0;i<waterSlots.Length;i++)wb.Rhs[i]=WaterMass(waterSlots[i],p[i],out _)-waterStart[i];for(int j=0;j<contacts.Length;j++){int a=wb.A[j],b=wb.B[j];double dm=60*wb.G[j]*(p[a]-p[b]);wb.Rhs[a]+=dm;wb.Rhs[b]-=dm;}for(int j=0;j<waterExterior.Length;j++){int i=waterMap[exteriorContacts[j].reservoir];wb.Rhs[i]+=60*waterExterior[j]*(p[i]-outsideVaporPressure);}double e=0;for(int i=0;i<waterSlots.Length;i++)e+=Math.Abs(wb.Rhs[i]);return e;}
-void AccumulateBalance(){EnsureBalances();for(int p=0;p<mass.Length;p++)nextMass[p]=mass[p]+delta[p];Array.Copy(dE,nextEnergy,n);var wb=waterBalance;
-for(int i=0;i<waterSlots.Length;i++){int p=waterSlots[i];waterStart[i]=nextMass[p];double sat=Psat(temperature[p/Kinds]);waterPressure[i]=p%Kinds==Air?nextMass[p]*Rv*(273.15+temperature[p/Kinds])/(contentFreeVolume[p/Kinds]-nextMass[p/Kinds*Kinds+Nectar]/waterDensity):p%Kinds==Wood?sat*HiveClimateKernels.WoodActivity(nextMass[p],limit[p]):sat*nextMass[p]/limit[p];}
+waterSaturation=new double[n];nextMass=new double[mass.Length];nextEnergy=new double[n];waterStart=new double[waterSlots.Length];waterPressure=new double[waterSlots.Length];waterTrial=new double[waterSlots.Length];waterExterior=new double[exteriorContacts.Length];heatExterior=new double[outsideHeatContacts?.Length??0];}
+double WaterMass(int slot,double vapor,out double derivative,bool needDerivative=true){int row=slot/Kinds,kind=slot%Kinds;double sat=waterSaturation[row];if(kind==Air){double v=contentFreeVolume[row]-nextMass[row*Kinds+Nectar]/waterDensity;derivative=v/(Rv*(273.15+temperature[row]));return vapor*derivative;}if(kind!=Wood){derivative=limit[slot]/sat;return vapor*derivative;}
+double rh=vapor/sat;double ratio=HiveClimateKernels.WoodMoistureRatio(rh);double epsilon=1e-7;derivative=needDerivative?limit[slot]/HiveClimateKernels.WoodCapacityRatio*(HiveClimateKernels.WoodMoistureRatio(rh+epsilon)-HiveClimateKernels.WoodMoistureRatio(rh-epsilon))/(2*epsilon*sat):0;return limit[slot]/HiveClimateKernels.WoodCapacityRatio*ratio;}
+double WaterResidual(double[] p){var wb=waterBalance;for(int i=0;i<waterSlots.Length;i++)wb.Rhs[i]=WaterMass(waterSlots[i],p[i],out _,false)-waterStart[i];for(int j=0;j<contacts.Length;j++){int a=wb.A[j],b=wb.B[j];double dm=60*wb.G[j]*(p[a]-p[b]);wb.Rhs[a]+=dm;wb.Rhs[b]-=dm;}for(int j=0;j<waterExterior.Length;j++){int i=waterMap[exteriorContacts[j].reservoir];wb.Rhs[i]+=60*waterExterior[j]*(p[i]-outsideVaporPressure);}double e=0;for(int i=0;i<waterSlots.Length;i++)e+=Math.Abs(wb.Rhs[i]);return e;}
+// Temperature stays fixed throughout the water solve; refresh this derived cache each tick.
+void AccumulateBalance(){EnsureBalances();for(int row=0;row<n;row++)waterSaturation[row]=Psat(temperature[row]);for(int p=0;p<mass.Length;p++)nextMass[p]=mass[p]+delta[p];Array.Copy(dE,nextEnergy,n);var wb=waterBalance;
+for(int i=0;i<waterSlots.Length;i++){int p=waterSlots[i];waterStart[i]=nextMass[p];double sat=waterSaturation[p/Kinds];waterPressure[i]=p%Kinds==Air?nextMass[p]*Rv*(273.15+temperature[p/Kinds])/(contentFreeVolume[p/Kinds]-nextMass[p/Kinds*Kinds+Nectar]/waterDensity):p%Kinds==Wood?sat*HiveClimateKernels.WoodActivity(nextMass[p],limit[p]):sat*nextMass[p]/limit[p];}
 Array.Clear(waterExterior,0,waterExterior.Length);if(exteriorMoistureEnabled)for(int j=0;j<waterExterior.Length;j++){var c=exteriorContacts[j];waterExterior[j]=HiveClimateKernels.ExteriorMoistureConductance(c,c.reservoir%Kinds,outsideWind,outdoors,exteriorTransfers.MoistureWindCoefficient,exteriorTransfers.MoistureAirPermeability,exteriorTransfers.MoistureExteriorAirFilmM);}
-bool converged=waterSlots.Length==0;double total=waterStart.Sum();
+bool converged=waterSlots.Length==0;double total=waterStart.Sum();double acceptedWaterError=double.NaN;
 for(int iteration=0;iteration<exteriorTransfers.BalanceNonlinearIterations&&!converged;iteration++){
 for(int i=0;i<waterSlots.Length;i++){double m=WaterMass(waterSlots[i],waterPressure[i],out double slope);wb.Base[i]=slope;wb.Rhs[i]=waterStart[i]-m+slope*waterPressure[i];wb.X[i]=waterPressure[i];}
 for(int j=0;j<waterExterior.Length;j++){int i=waterMap[exteriorContacts[j].reservoir];double g=60*waterExterior[j];wb.Base[i]+=g;wb.Rhs[i]+=g*outsideVaporPressure;}
 wb.Solve(exteriorTransfers.BalanceRelativeTolerance,exteriorTransfers.BalanceLinearIterations);
 double tolerance=Math.Max(exteriorTransfers.BalanceMassAbsoluteToleranceKg,total*exteriorTransfers.BalanceMassTolerance);
-double previousError=WaterResidual(waterPressure),damping=1,error=double.PositiveInfinity;
+double previousError=double.IsNaN(acceptedWaterError)?WaterResidual(waterPressure):acceptedWaterError,damping=1,error=double.PositiveInfinity;
 for(int backtrack=0;backtrack<40;backtrack++){
     bool positive=true;for(int i=0;i<waterSlots.Length;i++){waterTrial[i]=waterPressure[i]+damping*(wb.X[i]-waterPressure[i]);positive &= waterTrial[i]>=0;}
     if(positive){error=WaterResidual(waterTrial);if(error<previousError || error<=tolerance)break;}
     damping*=.5;
 }
 if(!ThermalExchange.Finite(error)||error>previousError&&error>tolerance)throw new InvalidOperationException("Water balance line search failed");
-Array.Copy(waterTrial,waterPressure,waterPressure.Length);converged=error<=tolerance;
+Array.Copy(waterTrial,waterPressure,waterPressure.Length);acceptedWaterError=error;converged=error<=tolerance;
 
 }
 if(!converged)throw new InvalidOperationException("Nonlinear water balance did not converge: residual="+WaterResidual(waterPressure)+" threshold="+Math.Max(exteriorTransfers.BalanceMassAbsoluteToleranceKg,total*exteriorTransfers.BalanceMassTolerance)+" slots="+waterSlots.Length);
