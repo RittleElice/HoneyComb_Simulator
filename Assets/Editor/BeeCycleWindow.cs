@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using UnityEditor;
 using UnityEngine;
 
-public sealed class BeeCycleWindow : EditorWindow
+public sealed partial class BeeCycleWindow : EditorWindow
 {
     GameWorld testWorld;
     int x,y,tab,page,frameIndex,side,cellX,cellY;
@@ -18,15 +18,16 @@ public sealed class BeeCycleWindow : EditorWindow
     [MenuItem("Tools/HoneyComb/벌 시뮬레이션 관찰")]
     public static void Open()
     {var window=GetWindow<BeeCycleWindow>("벌·소비장 관찰");window.minSize=new Vector2(900,600);if(window.position.width<900)window.position=new Rect(120,100,1000,800);window.Show();}
+    void OnEnable(){SimulationScheduler.ObservationBoundary+=CaptureBoundary;}
     void OnInspectorUpdate(){Repaint();}
-    void OnDisable(){if(!busy){testWorld?.Thermal?.Dispose();testWorld=null;}}
+    void OnDisable(){SimulationScheduler.ObservationBoundary-=CaptureBoundary;if(!busy){testWorld?.Thermal?.Dispose();testWorld=null;}}
     void OnGUI()
     {
         EditorGUILayout.LabelField(Application.isPlaying?"실제 플레이 월드":"분리된 시험 월드 — 플레이어 저장과 무관",EditorStyles.boldLabel);
         using(new EditorGUI.DisabledScope(busy||Application.isPlaying))
             if(GUILayout.Button("시험 월드 만들기")){testWorld?.Thermal?.Dispose();testWorld=new GameWorld(WeatherAssetLoader.Create(WeatherSimulator.DefaultSeed));testWorld.PrepareThermal(ThermalMaterials.Load());testWorld.BeeCycle.SeedDemo();draft=null;}
         if(busy || (Application.isPlaying && GameBootstrap.Instance?.TimeSystem?.Scheduler?.IsInTick==true))
-        {EditorGUILayout.HelpBox("현재 틱을 계산 중입니다. 완료 후 상태를 표시합니다.",MessageType.Info);return;}
+        {DrawCompletedView();return;}
         var w=World;if(w==null){EditorGUILayout.HelpBox("Play에서 새 게임을 시작하거나 시험 월드를 만드세요.",MessageType.Info);return;}
         using(new EditorGUI.DisabledScope(busy||Application.isPlaying))
         {EditorGUILayout.BeginHorizontal();foreach(int n in new[]{1,10,60,1440})if(GUILayout.Button(n+"분 진행"))Step(n);EditorGUILayout.EndHorizontal();}
@@ -133,7 +134,7 @@ public sealed class BeeCycleWindow : EditorWindow
     }
     async void Step(int minutes)
     {
-        if(busy||testWorld==null)return;busy=true;
+        if(busy||testWorld==null)return;CaptureCompletedView(testWorld);busy=true;
         try{await GameTimeRuntime.CreateWorldScheduler(testWorld).RunToAsync(testWorld.CurrentGameMinute+minutes,async()=>await System.Threading.Tasks.Task.Yield(),()=>System.Threading.Tasks.Task.CompletedTask,CancellationToken.None);message=$"{minutes}분 진행 완료";}
         catch(Exception e){message=e.ToString();}finally{busy=false;Repaint();}
     }

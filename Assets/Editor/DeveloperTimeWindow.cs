@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEditor;
 using UnityEngine;
 public sealed class DeveloperTimeWindow : EditorWindow
@@ -26,6 +26,17 @@ public sealed class DeveloperTimeWindow : EditorWindow
             EditorGUILayout.HelpBox("예약 시간은 게임 시간입니다. 진행 중인 이동의 남은 시간과 복귀·불러오기로 추가된 대기 시간을 합산합니다. 실제 계산에 걸릴 시간의 예측값은 아닙니다.", MessageType.None);
         }
         EditorGUILayout.HelpBox("날씨는 게임 시간 1분마다 생성됩니다. 시간 점프 중에도 날씨 상태를 포함한 전체 월드 체크포인트를 저장합니다.", MessageType.Info);
+        using(new EditorGUI.DisabledScope(!Application.isPlaying || runtime==null || !runtime.HasWorld || runtime.Failure!=null))
+        {
+            if(runtime?.DeveloperStopped==true)
+            {
+                EditorGUILayout.HelpBox(runtime.DeveloperStopPending?"현재 틱 완료 후 정지 중…":"시간 진행 정지됨 · 남은 기간 이동 예약은 취소되었습니다.",MessageType.Info);
+                using(new EditorGUI.DisabledScope(runtime.Blocked))
+                    if(GUILayout.Button("시간 진행 다시 시작"))Try(()=>runtime.ResumeDeveloperTime());
+            }
+            else if(GUILayout.Button("현재 틱 완료 후 정지"))Try(()=>runtime.StopAfterCurrentTick());
+        }
+        EditorGUILayout.HelpBox("정지는 계산 중인 1분 틱을 끝낸 뒤 적용합니다. 남은 이동 예약은 취소하며, 다시 시작하거나 새 이동을 요청할 때까지 시간이 흐르지 않습니다.",MessageType.None);
         using (new EditorGUI.DisabledScope(!Application.isPlaying || runtime == null || !runtime.HasWorld || runtime.Blocked))
         {
             if(runtime != null) speed = runtime.DeveloperSpeed;

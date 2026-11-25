@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -42,6 +42,17 @@ public sealed class SimulationSlice
 
 public sealed class SimulationScheduler
 {
+#if UNITY_EDITOR
+    // Observation only: never serialize, yield, or expose an unfinished minute.
+    public static event Action<GameClock> ObservationBoundary;
+    void PublishObservation()
+    {
+        var handlers=ObservationBoundary;
+        if(handlers==null)return;
+        foreach(Action<GameClock> observer in handlers.GetInvocationList())
+            try { observer(clock); } catch(Exception e) { UnityEngine.Debug.LogException(e); }
+    }
+#endif
     private readonly GameClock clock;
     private readonly List<IGameMinuteParticipant> participants = new List<IGameMinuteParticipant>();
     private int running;
@@ -66,7 +77,7 @@ public sealed class SimulationScheduler
         if (participant == null || participants.Contains(participant)) throw new ArgumentException(nameof(participant));
         participants.Add(participant);
     }
-    public async Task RunToAsync(long target, Func<Task> yieldFrame, Func<Task> waitUntilForeground, CancellationToken cancellation)
+    public async Task RunToAsync(long target, Func<Task> yieldFrame, Func<Task> waitUntilForeground, CancellationToken cancellation, Func<bool> stopBeforeNextTick = null)
     {
         if (Interlocked.CompareExchange(ref running, 1, 0) != 0) throw new InvalidOperationException("A tick operation is already running.");
         bool tickStarted = false;
@@ -77,12 +88,17 @@ public sealed class SimulationScheduler
             Completed = 0; Total = target - clock.CurrentGameMinute;
 
             if (!(SliceBudgetMilliseconds > 0) || double.IsInfinity(SliceBudgetMilliseconds)) throw new InvalidOperationException("Invalid slice budget.");
+#if UNITY_EDITOR
+            PublishObservation();
+#endif
             var slice = new SimulationSlice(yieldFrame, waitUntilForeground, cancellation, SliceBudgetMilliseconds);
             while (clock.CurrentGameMinute < target)
             {
+                if (stopBeforeNextTick?.Invoke() == true) break;
                 cancellation.ThrowIfCancellationRequested();
                 await waitUntilForeground();
                 cancellation.ThrowIfCancellationRequested();
+                if (stopBeforeNextTick?.Invoke() == true) break;
                 long next = checked(clock.CurrentGameMinute + 1);
                 tickStarted = true; IsInTick = true;
                 foreach (var participant in participants)
@@ -95,6 +111,9 @@ public sealed class SimulationScheduler
                 clock.Commit(next); // Never publish an unfinished minute.
                 tickStarted = false; IsInTick = false;
                 Completed++;
+#if UNITY_EDITOR
+                PublishObservation();
+#endif
                 if (CheckpointAsync != null) await CheckpointAsync();
                 await slice.CheckpointAsync();
             }

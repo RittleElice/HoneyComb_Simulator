@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -35,12 +35,14 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         public bool Ready;
         public string Status;
         public double NextSample;
+        public long Minute=-1;
         public int SliceRevision = -1;
         public ulong YStarts;
     }
     private readonly Dictionary<HiveSpatialGrid,Pane> panes=new Dictionary<HiveSpatialGrid,Pane>();
     private GameWorld sampledWorld;
     private string sampleStatus;
+    private GUIStyle statusStyle;
     private bool sampleReady;
     private static readonly Color Cold=new Color(.12f,.35f,.9f),Hot=new Color(.95f,.2f,.08f);
     private static readonly Color SelectedLine=new Color(1,.65f,.15f),OutsideLine=new Color(.2f,.8f,.95f);
@@ -56,8 +58,8 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         string title=live?$"Hive Grid ({apiaryX}, {apiaryY})":"Hive Grid 샘플";
         if(titleContent.text!=title) titleContent=new GUIContent(title);
     }
-    private void OnEnable() { minSize=new Vector2(500,420);RefreshTitle(); }
-    private void OnDisable(){flowWorld?.ObserveMoistureFlow(this,null);}
+    private void OnEnable() { SimulationScheduler.ObservationBoundary+=CaptureBoundary; minSize=new Vector2(500,420);RefreshTitle(); }
+    private void OnDisable(){SimulationScheduler.ObservationBoundary-=CaptureBoundary;flowWorld?.ObserveMoistureFlow(this,null);}
     private void RefreshFlow()
     {
         var world=live && displayMode==2 && recordFlow?GameBootstrap.Instance?.GameWorld?.Thermal:null;
@@ -83,6 +85,14 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             flowSampleMinute=minute;
         }
     }
+    private void CaptureBoundary(GameClock clock)
+    {
+        var world=GameBootstrap.Instance?.GameWorld;
+        if(!live || world==null || !ReferenceEquals(world.Clock,clock))return;
+        if(!ReferenceEquals(sampledWorld,world)){panes.Clear();sampledWorld=world;}
+        foreach(var grid in PlacementGrids(world.Apiary.Grid.GetItemSlot(apiaryX,apiaryY)?.Value))Sample(grid);
+        RefreshFlow();Repaint();
+    }
     private void OnInspectorUpdate() { if(live) Repaint(); }
     // All root parts in placement order. Inserted equipment is already projected into each box grid.
     public static List<HiveSpatialGrid> PlacementGrids(MovableItem value)
@@ -103,7 +113,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         if(!live) {sampleStatus="샘플은 구조 미리보기입니다. 실제 온도는 Play 중인 양봉장에서 확인하세요.";return;}
         if(!EditorApplication.isPlaying || world?.Thermal==null) {sampleStatus="Bootstrap에서 Play를 시작하고 새 게임 또는 이어하기를 실행하세요.";return;}
         if(bootstrap.TimeSystem?.Scheduler?.IsInTick==true || world.Weather==null || world.Weather.Minute!=world.CurrentGameMinute)
-        {sampleStatus="계산이 완료된 시점의 온도를 기다리는 중입니다.";return;}
+        {sampleReady=pane.Ready && monitor.Matches(grid);sampleStatus=sampleReady?$"계산 중 · 표시: 완료된 {pane.Minute}분 상태":"첫 완료 상태를 기다리는 중입니다.";return;}
         if(world.Thermal.Failure!=null || bootstrap.TimeSystem?.Failure!=null)
         {sampleStatus="시뮬레이션 오류: "+(world.Thermal.Failure ?? bootstrap.TimeSystem.Failure);return;}
         if(EditorApplication.timeSinceStartup>=pane.NextSample || !monitor.Matches(grid))
@@ -111,6 +121,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
             pane.NextSample=EditorApplication.timeSinceStartup+.25;
             pane.Ready=monitor.Capture(grid,world.CurrentGameMinute,world.Weather.Current.TemperatureCelsius,out pane.Status);
             pane.Vapor.Capture(grid,world);
+            pane.Minute=world.CurrentGameMinute;
 
         }
         sampleReady=pane.Ready;sampleStatus=pane.Status;
@@ -187,14 +198,19 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         foreach(var grid in grids)
         {
             Sample(grid);
-            if(sampleReady && monitor.Matches(grid)) ready.Add(grid);
+            if(sampleReady && monitor.Matches(grid)) {ready.Add(grid);if(GameBootstrap.Instance?.TimeSystem?.Scheduler?.IsInTick==true)status=sampleStatus;}
             else status=sampleStatus;
         }
         int count=grids.Sum(g=>g.ActiveCellCount);
         if(ready.Count==grids.Count)
             count=count-grids.Sum(g=>panes[g].Monitor.SharedLocalCount)+grids.SelectMany(g=>panes[g].Monitor.SharedIds).Distinct().Count();
         EditorGUILayout.LabelField($"선택 칸 전체: 상자·뚜껑 {grids.Count}개 / {count:N0}개 {(ready.Count==grids.Count?"계산 셀":"부품 공간 셀")}");
-        if(status!=null) EditorGUILayout.HelpBox(status,MessageType.Info);
+        // Reserve one identical row in both calculating and completed states.
+        // A changing HelpBox height used to move the entire grid on every tick.
+        if(statusStyle==null)statusStyle=new GUIStyle(EditorStyles.helpBox){wordWrap=false,clipping=TextClipping.Clip};
+        string statusText=status ?? (ready.Count>0?$"표시: 완료된 {ready.Min(g=>panes[g].Minute)}분 상태":"표시 준비 중");
+        Rect statusRect=EditorGUILayout.GetControlRect(false,EditorGUIUtility.singleLineHeight+8);
+        GUI.Label(statusRect,new GUIContent(statusText,statusText),statusStyle);
         double low=rangeLow,high=rangeHigh;
         if(displayMode==1)
         {

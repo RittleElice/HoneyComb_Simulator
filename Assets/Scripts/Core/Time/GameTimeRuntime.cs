@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
@@ -29,6 +29,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     private double nextTick;
     private string failure;
     private float speed = 1;
+    private bool developerStopped;
     private readonly Dictionary<EventSystem, bool> lockedEvents = new Dictionary<EventSystem, bool>();
 
     private GameWorld thermalWorld;
@@ -57,12 +58,12 @@ public sealed class GameTimeRuntime : MonoBehaviour
         // Reject unsafe thermal steps before advancing weather or its random generator.
         offline = new OfflineTimeManager();
         Scheduler.CheckpointAsync = () => GameBootstrap.Instance?.SaveSystem?.SaveBoundaryAsync(false) ?? Task.CompletedTask;
-        pendingMinutes = 0; operationTarget = 0; HasWorld = true; nextTick = Time.realtimeSinceStartupAsDouble + 5 / speed;
+        pendingMinutes = 0; operationTarget = 0; developerStopped = false; HasWorld = true; nextTick = Time.realtimeSinceStartupAsDouble + 5 / speed;
     }
     private void Update()
     {
         RefreshInputLock();
-        if (!HasWorld || (GameBootstrap.Instance?.SaveSystem?.IsCapturing ?? false) || suspended || operation || failure != null || (GameBootstrap.Instance?.IsPreparingNewGame ?? false)) return;
+        if (!HasWorld || developerStopped || (GameBootstrap.Instance?.SaveSystem?.IsCapturing ?? false) || suspended || operation || failure != null || (GameBootstrap.Instance?.IsPreparingNewGame ?? false)) return;
         try { thermalWorld?.Thermal?.Refresh(); } catch (Exception e) { Fail(e); return; }
         if (pendingMinutes > 0)
         {
@@ -88,10 +89,10 @@ public sealed class GameTimeRuntime : MonoBehaviour
                 RefreshInputLock(); await NextFrame();
                 if (GameBootstrap.Instance?.SaveSystem != null) await GameBootstrap.Instance.SaveSystem.SaveBoundaryAsync(true);
             }
-            Task work = Scheduler.RunToAsync(target, NextFrame, WaitForForeground, lifetime.Token);
+            Task work = Scheduler.RunToAsync(target, NextFrame, WaitForForeground, lifetime.Token, () => developerStopped);
             if (!work.IsCompleted) RefreshInputLock();
             await work;
-            if (showProgress && GameBootstrap.Instance?.SaveSystem != null) await GameBootstrap.Instance.SaveSystem.SaveBoundaryAsync(true);
+            if ((showProgress || developerStopped) && GameBootstrap.Instance?.SaveSystem != null) await GameBootstrap.Instance.SaveSystem.SaveBoundaryAsync(true);
         }
         catch (OperationCanceledException) { if (!lifetime.IsCancellationRequested) Fail(new Exception("Unexpected cancellation")); }
         catch (Exception e) { Fail(e); }
@@ -139,7 +140,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
         }
         else
         {
-            try { if (HasWorld) pendingMinutes = checked(pendingMinutes + offline.Resume(DateTime.UtcNow)); }
+            try { if (HasWorld) { long elapsed=offline.Resume(DateTime.UtcNow); if(!developerStopped) pendingMinutes=checked(pendingMinutes+elapsed); } }
             catch (Exception e) { Fail(e); }
             nextTick = Time.realtimeSinceStartupAsDouble + 5 / speed;
             foreground?.TrySetResult(true);
@@ -199,6 +200,28 @@ public sealed class GameTimeRuntime : MonoBehaviour
     }
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
     public float DeveloperSpeed => speed;
+    public bool DeveloperStopped => developerStopped;
+    public bool DeveloperStopPending => developerStopped && operation;
+    // Do not cancel the lifetime token: a partially calculated minute cannot be saved.
+    public async void StopAfterCurrentTick()
+    {
+        if(!HasWorld || failure!=null || developerStopped)return;
+        developerStopped=true;
+        pendingMinutes=0;
+        operationTarget=Scheduler.IsInTick?checked(Clock.CurrentGameMinute+1):Clock.CurrentGameMinute;
+        RefreshInputLock();
+        // Active operations save at their normal boundary/finalization. Idle stops must
+        // also persist removal of a previously queued jump target.
+        if(!operation && GameBootstrap.Instance?.SaveSystem!=null)
+            try { await GameBootstrap.Instance.SaveSystem.SaveBoundaryAsync(true); }
+            catch(Exception e) { Fail(e); }
+    }
+    public void ResumeDeveloperTime()
+    {
+        if(!HasWorld || Blocked)throw new InvalidOperationException("현재 틱과 저장이 완료된 후 다시 진행하세요.");
+        developerStopped=false;
+        nextTick=Time.realtimeSinceStartupAsDouble+5/speed;
+    }
     // Read-only view of the same target used by CaptureTimeline. An in-flight minute
     // remains outstanding until the clock commits it; queued offline time is additional.
     public long DeveloperActiveRemainingMinutes => Math.Max(0, operationTarget - Clock.CurrentGameMinute);
@@ -221,6 +244,7 @@ public sealed class GameTimeRuntime : MonoBehaviour
     {
         if (!HasWorld || Blocked || pendingMinutes > 0) throw new InvalidOperationException("Time system is busy or no game is active.");
         if (target < Clock.CurrentGameMinute) throw new ArgumentException("과거로 이동하려면 전체 상태 복원이 필요합니다.");
+        developerStopped=false;
         StartOperation(target, true);
     }
 #endif
