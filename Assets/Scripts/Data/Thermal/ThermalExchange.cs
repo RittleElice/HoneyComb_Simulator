@@ -333,10 +333,18 @@ public sealed class ThermalExchange : IDisposable
     }
     // Stable evaluation of 1-exp(-x), including very weak connections.
     private static float Relaxation(float x) => x < 0.01f ? x * (1f - x * (0.5f - x * (1f / 6f - x / 24f))) : 1f - MathF.Exp(-x);
+    public double InternalConductance(Face f)
+    {
+        return InternalConductance(f,cells[f.A],cells[f.B]);
+    }
+    public static double InternalConductance(Face f,Cell a,Cell b)
+    {
+        return Conductance(f.AreaM2,f.HalfAM,a.Owner.Conductivity(a.Index,f.Axis),f.HalfBM,b.Owner.Conductivity(b.Index,f.Axis));
+    }
     private float FaceConductance(Face f)
     {
         var a=cells[f.A];var b=cells[f.B];
-        float g=f.AreaM2*(float)transfers.Between(a.Owner.ExchangeMaterial(a.Index),b.Owner.ExchangeMaterial(b.Index));
+        float g=(float)InternalConductance(f);
         float ca=FacePyramidCapacity(f.A,f.Axis,f.AreaM2),cb=FacePyramidCapacity(f.B,f.Axis,f.AreaM2),reduced=ca*cb/(ca+cb);
         return reduced*Relaxation(coefficientSeconds*g/reduced)/coefficientSeconds;
     }

@@ -132,13 +132,10 @@ public static partial class HiveClimate
             {
                 if(slice!=null && (j&127)==0)await slice.CheckpointAsync();
                 var f=ex.GetFace(j);
-                // Same geometry, material and float capacities produce identical face fractions.
-                if(previous!=null && faceCapacities[f.A]==previous.faceCapacities[f.A] && faceCapacities[f.B]==previous.faceCapacities[f.B]
-                    && faceMaterials[f.A]==previous.faceMaterials[f.A] && faceMaterials[f.B]==previous.faceMaterials[f.B])
-                { links[j]=previous.links[j];continue; }
+                // Recompute from geometry and current axis-specific conductivity, including conductivity-only edits.
                 links[j]=new Link{a=f.A,b=f.B,area=f.AreaM2,halfA=f.HalfAM,halfB=f.HalfBM,fa=ex.FacePyramidCapacity(f.A,f.Axis,f.AreaM2)/ex.GetCell(f.A).HeatCapacityJPerK,
                     fb=ex.FacePyramidCapacity(f.B,f.Axis,f.AreaM2)/ex.GetCell(f.B).HeatCapacityJPerK,
-                    heat=f.AreaM2*materials.Transfers.Between(ex.GetCell(f.A).Owner.ExchangeMaterial(ex.GetCell(f.A).Index),ex.GetCell(f.B).Owner.ExchangeMaterial(ex.GetCell(f.B).Index))};
+                    heat=ThermalExchange.InternalConductance(f,ex.GetCell(f.A),ex.GetCell(f.B))};
             }
         }
         double Cp(int s)=>s==Air?VaporCp:s==Nectar?liquidCp:LiquidCp;

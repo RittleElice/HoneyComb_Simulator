@@ -19,7 +19,7 @@ public static class PyramidThermalTests
         using(var e=new ThermalExchange(cells,faces,null,m.Transfers)){
             e.RefreshCoefficients();SetTemperature(e,i=>i==0?25:5);double before=Energy(e).Sum();
             double center=cells[0].EnergyJ,capacity=cells[0].HeatCapacityJPerK,q=0;
-            foreach(var f in faces){double ca=capacity/6,cb=cells[f.B].HeatCapacityJPerK/6,cr=ca*cb/(ca+cb);double g=f.AreaM2*m.Transfers.Between(cells[0].Owner.ExchangeMaterial(0),cells[f.B].Owner.ExchangeMaterial(0));q+=cr*(1-Math.Exp(-60*g/cr))*(cells[f.B].EnergyJ/cells[f.B].HeatCapacityJPerK-center/capacity);}
+            foreach(var f in faces){double ca=capacity/6,cb=cells[f.B].HeatCapacityJPerK/6,cr=ca*cb/(ca+cb);double g=ThermalExchange.Conductance(f.AreaM2,f.HalfAM,cells[0].Owner.Conductivity(0,f.Axis),f.HalfBM,cells[f.B].Owner.Conductivity(0,f.Axis));q+=cr*(1-Math.Exp(-60*g/cr))*(cells[f.B].EnergyJ/cells[f.B].HeatCapacityJPerK-center/capacity);}
             e.Step();Near(cells[0].EnergyJ,(float)(center+q),1e-5,"six independent pyramids");Near(Energy(e).Sum(),before,Math.Abs(before)*2e-7,"closed energy");
             for(int n=0;n<100;n++)e.Step();foreach(var c in cells)Check(c.EnergyJ/c.HeatCapacityJPerK>=5-1e-4&&c.EnergyJ/c.HeatCapacityJPerK<=25+1e-4,"strong links bounded");
             e.Step(.1);e.Step(60);Check(e.CoefficientBuilds==3,"timestep refresh");
