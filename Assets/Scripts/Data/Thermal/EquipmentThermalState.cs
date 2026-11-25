@@ -299,6 +299,14 @@ public sealed class EquipmentThermalState : IReadOnlyList<float>
             throw new InvalidOperationException("Invalid contents heat capacity");
     }
     // Uniform volumetric heat source across the owned panel.
+    internal double[] PendingBeeHeatJ { get; private set; }
+    internal void QueueBeeHeat(int index, double joules)
+    {
+        if(index < 0 || index >= Count || !ThermalExchange.Finite(joules) || joules < 0)
+            throw new ArgumentOutOfRangeException();
+        if(PendingBeeHeatJ == null) PendingBeeHeatJ = new double[Count];
+        PendingBeeHeatJ[index] += joules;
+    }
     internal double[] PendingHeaterJ { get; private set; }
     internal void SupplyHeat(double joules,bool defer=false)
     {

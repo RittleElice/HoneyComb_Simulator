@@ -317,12 +317,26 @@ public static partial class HiveClimate
             return true;
         }
 
+        internal double LastBeeHeatJ;
         internal void LiveMinute(double outside,double humidity,double wind=0)
         {
             // The legacy sensible-energy view also receives heater and manual energy inputs.
             if(!ThermalExchange.Finite(outside) || outside<=-273.15 || !ThermalExchange.Finite(humidity) || humidity<0 || humidity>1 || !ThermalExchange.Finite(wind) || wind<0)
                 throw new ArgumentOutOfRangeException("Invalid exterior climate");
             outdoors=outside;outsideWind=wind;outsideVaporPressure=humidity*Psat(outside);exteriorMoistureEnabled=true;
+            LastBeeHeatJ=0;
+            foreach(var group in equipmentRows)
+            {
+                var pending=group.Owner.PendingBeeHeatJ;
+                if(pending==null)continue;
+                foreach(var entry in group.Entries)
+                {
+                    double supplied=pending[entry.index];
+                    dE[entry.row]+=supplied;
+                    LastBeeHeatJ+=supplied;
+                    pending[entry.index]=0;
+                }
+            }
             importedRows.Clear();
             foreach(var group in equipmentRows)
             {

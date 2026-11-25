@@ -212,7 +212,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             activePositionBee=null;
             await ResolveForageRequestsAsync(slice);
             await ResolveRequestsAsync(slice);
-            foreach(var h in heat)h.Key.Item1.RestoreEnergy(h.Key.Item2,(float)(h.Key.Item1.EnergyJ[h.Key.Item2]+h.Value));
+            foreach(var h in heat)h.Key.Item1.QueueBeeHeat(h.Key.Item2,h.Value);
             LastMinute=minute;
         }
         catch(Exception e){Failure=e;throw;}

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -63,7 +63,7 @@ public sealed class SimulationScheduler
     public bool ContainsThermalAndWeather(IGameMinuteParticipant thermal, IGameMinuteParticipant weather)
         => thermal != null && weather != null && participants.Count == 2 && ReferenceEquals(participants[0], thermal) && ReferenceEquals(participants[1], weather);
     public bool ContainsCycle(IGameMinuteParticipant thermal, IGameMinuteParticipant weather, IGameMinuteParticipant bees)
-        => participants.Count == 3 && ReferenceEquals(participants[0], thermal) && ReferenceEquals(participants[1], weather) && ReferenceEquals(participants[2], bees);
+        => participants.Count == 3 && ReferenceEquals(participants[0], bees) && ReferenceEquals(participants[1], thermal) && ReferenceEquals(participants[2], weather);
     public double SliceBudgetMilliseconds { get; set; } = 2;
     public Func<Task> CheckpointAsync { get; set; }
     public bool IsRunning => Volatile.Read(ref running) != 0;

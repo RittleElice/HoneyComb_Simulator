@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
@@ -41,9 +41,9 @@ public sealed class GameTimeRuntime : MonoBehaviour
     public static SimulationScheduler CreateWorldScheduler(GameWorld world)
     {
         var scheduler=new SimulationScheduler(world.Clock);
+        scheduler.Register(world.BeeCycle);
         scheduler.Register(world.Thermal);
         scheduler.Register(world.Weather);
-        scheduler.Register(world.BeeCycle);
         return scheduler;
     }
     public void BeginWorld(GameWorld world)
