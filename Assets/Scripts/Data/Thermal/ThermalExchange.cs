@@ -5,8 +5,8 @@ using Unity.Collections;
 using Unity.Burst;
 using Unity.Jobs;
 
-// Six centre-to-face pyramids per cell, pairwise exponential exchange, then instantaneous remixing.
-// Cached J/K transfer factors divided by their timestep reuse the existing Burst energy kernel.
+// Sparse whole-cell heat balance with distance/material-based conductance.
+// Geometry and conductances are cached; external contacts remain finite boundaries.
 public sealed class ThermalExchange : IDisposable
 {
     public readonly struct Cell
@@ -331,8 +331,6 @@ public sealed class ThermalExchange : IDisposable
         if(!Positive(fraction)||fraction>1+1e-6)throw new InvalidOperationException("Contact exceeds pyramid face: "+c.Label);
         return c.HeatCapacityJPerK*fraction/6;
     }
-    // Stable evaluation of 1-exp(-x), including very weak connections.
-    private static float Relaxation(float x) => x < 0.01f ? x * (1f - x * (0.5f - x * (1f / 6f - x / 24f))) : 1f - MathF.Exp(-x);
     public double InternalConductance(Face f)
     {
         return InternalConductance(f,cells[f.A],cells[f.B]);
@@ -341,20 +339,8 @@ public sealed class ThermalExchange : IDisposable
     {
         return Conductance(f.AreaM2,f.HalfAM,a.Owner.Conductivity(a.Index,f.Axis),f.HalfBM,b.Owner.Conductivity(b.Index,f.Axis));
     }
-    private float FaceConductance(Face f)
-    {
-        var a=cells[f.A];var b=cells[f.B];
-        float g=(float)InternalConductance(f);
-        float ca=FacePyramidCapacity(f.A,f.Axis,f.AreaM2),cb=FacePyramidCapacity(f.B,f.Axis,f.AreaM2),reduced=ca*cb/(ca+cb);
-        return reduced*Relaxation(coefficientSeconds*g/reduced)/coefficientSeconds;
-    }
-    private float BoundaryConductance(Boundary b,out float raw)
-    {
-        var c=cells[b.Cell];float capacity=FacePyramidCapacity(b.Cell,b.Direction/2,b.AreaM2);
-        // Fixed-temperature weather reservoir; independently tuned material-to-exterior coefficients.
-        raw=b.AreaM2*(float)transfers.Outside(c.Owner.ExchangeMaterial(c.Index));
-        return capacity*Relaxation(coefficientSeconds*raw/capacity)/coefficientSeconds;
-    }
+    private float FaceConductance(Face f)=>(float)InternalConductance(f);
+    private float BoundaryConductance(Boundary b,out float raw){var c=cells[b.Cell];raw=b.AreaM2*(float)transfers.Outside(c.Owner.ExchangeMaterial(c.Index));return raw;}
     private string Detail(int i,string reason)=>reason+"; "+cells[i].Label;
     private sealed class WorkSet
     {
@@ -388,7 +374,7 @@ public sealed class ThermalExchange : IDisposable
     private void SumCell(int i)
     {
         float sum=exterior[i];for(int p=offsets[i];p<offsets[i+1];p++)sum+=coefficients[p];sums[i]=sum;
-        if(!Finite(sum)||coefficientSeconds*sum>cachedCapacities[i]*(1+1e-6))throw new InvalidOperationException(Detail(i,"Overlapping pyramid capacity"));
+        if(!Finite(sum)||sum<0)throw new InvalidOperationException(Detail(i,"Invalid total conductance"));
     }
     private void InitializeCoefficients()
     {
@@ -428,113 +414,25 @@ public sealed class ThermalExchange : IDisposable
         changedCells.Clear();rawWork.Clear();finalWork.Clear();
     }
     public void ValidateStep(double seconds)=>RefreshCoefficients(seconds);
-    [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard, CompileSynchronously = true)]
-    private struct ConvertTemperatures : IJobParallelFor
-    {
-        [ReadOnly] public NativeArray<float> Energy;
-        [ReadOnly] public NativeArray<float> Capacity;
-        [WriteOnly] public NativeArray<float> Temperature;
-        public void Execute(int i) => Temperature[i] = Energy[i] / Capacity[i];
-    }
-    [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard, CompileSynchronously = true)]
-    private struct Gather : IJobParallelFor
-    {
-        [ReadOnly] public NativeArray<int> Offsets, Neighbours;
-        [ReadOnly] public NativeArray<byte> FixedRows;
-        [ReadOnly] public NativeArray<float> G, T, Energy, Exterior;
-        [ReadOnly] public NativeArray<float> Capacity;
-        [WriteOnly] public NativeArray<float> Next, NextT;
-        public float Seconds, OutsideC;
-        public void Execute(int i)
-        {
-            float watts = Exterior[i] * (OutsideC - T[i]);
-            int start = Offsets[i];
-            float temperature = T[i];
-            if (FixedRows[i] != 0)
-            {
-                watts += G[start]     * (T[i - PlaneStride] - temperature);
-                watts += G[start + 1] * (T[i - RowStride] - temperature);
-                watts += G[start + 2] * (T[i - 1] - temperature);
-                watts += G[start + 3] * (T[i + 1] - temperature);
-                watts += G[start + 4] * (T[i + RowStride] - temperature);
-                watts += G[start + 5] * (T[i + PlaneStride] - temperature);
-            }
-            else
-            {
-                for (int p = start; p < Offsets[i + 1]; p++)
-                    watts += G[p] * (T[Neighbours[p]] - temperature);
-            }
-            float committedEnergy = Energy[i] + Seconds * watts;
-            Next[i] = committedEnergy;
-            NextT[i] = committedEnergy / Capacity[i];
-        }
-    }
-    // Results are committed directly after the Job; result-range and energy-balance audits live in editor tests.
     public void Step(double seconds = 60, double? outsideC = null)
     {
         RefreshCoefficients(seconds);
         StepPrepared(seconds,outsideC);
     }
     // ThermalWorld has already refreshed state, topology and coefficients.
-    internal void StepPrepared(double seconds, double? outsideC)
-    {
-        if((float)seconds!=coefficientSeconds)RefreshCoefficients(seconds);
-        bool measure=MeasurePerformance || DiagnosticsEnabled;
-        var total = measure ? Stopwatch.StartNew() : null; Diagnostic = null;
-        try
-        {
-            ExternalEnergyJ = 0;
-            if(DiagnosticsEnabled)
-            {
-                if (boundaries.Length > 0 && !outsideC.HasValue) throw new ArgumentException("Exterior temperature is required");
-                if (outsideC.HasValue && (!Finite(outsideC.Value) || outsideC.Value < -273.15)) throw new ArgumentOutOfRangeException(nameof(outsideC));
-                ValidateStep(seconds);
-            }
-            double ambient=outsideC ?? 0;
-            bool rebuildTemperatures = !energyBound || uploadedBuild != CoefficientBuilds;
-            PrepareBuffers();
-            var o=nativeOffsets; var n=nativeNeighbours; var g=nativeG; var ext=nativeExterior;
-            var t=nativeT; var e=nativeEnergy; var next=nativeNext;
-            {
-                if (!energyBound)
-                {
-                    // Another solver (for example a diagnostic one) can share these owners.
-                    foreach (var owner in owners) owner.ActiveExchange?.ReleaseEnergy();
-                    for (int i = 0; i < cells.Length; i++)
-                        e[i] = cells[i].EnergyJ;
-                }
-                JobHandle temperaturesReady = default;
-                if (rebuildTemperatures)
-                    temperaturesReady = new ConvertTemperatures { Energy=e, Capacity=nativeCapacity, Temperature=t }
-                        .Schedule(cells.Length, 64);
-                if(DiagnosticsEnabled)
-                {
-                    temperaturesReady.Complete();
-                    double externalEnergy=0,externalCorrection=0;
-                    for(int i=0;i<cells.Length;i++)
-                    {
-                        if(!Finite(t[i]) || t[i]<-273.15) throw new InvalidOperationException(Detail(i,"Invalid old temperature"));
-                        externalEnergy=Add(externalEnergy,seconds*nativeExterior[i]*(ambient-t[i]),ref externalCorrection);
-                    }
-                    ExternalEnergyJ=externalEnergy;
-                }
-                var jobTime = measure ? Stopwatch.StartNew() : null;
-                new Gather {Offsets=o,Neighbours=n,FixedRows=nativeFixedRows,G=g,T=t,Energy=e,Next=next,NextT=nativeNextT,Capacity=nativeCapacity,Seconds=(float)seconds,Exterior=ext,OutsideC=(float)ambient}.Schedule(cells.Length,64,temperaturesReady).Complete();
-                LastJobMilliseconds = jobTime?.Elapsed.TotalMilliseconds ?? 0;
-                // Publish only after the complete job succeeds.
-                nativeT = nativeNextT;
-                nativeNextT = t;
-                nativeEnergy = next;
-                nativeNext = e;
-                if (!energyBound)
-                {
-                    foreach (var owner in owners) owner.BindEnergy(this, ownerIndices[owner]);
-                    energyBound = true;
-                }
-            }
-        }
-        catch (Exception ex) { Diagnostic = ex.Message; throw; }
-        finally { LastTickMilliseconds = total?.Elapsed.TotalMilliseconds ?? 0; }
+    ClimateBalanceSolver directBalance;int directBuild=-1;double directSeconds;
+    internal void StepPrepared(double seconds,double? outsideC){
+        var watch=Stopwatch.StartNew();Diagnostic=null;
+        try{
+            RefreshCoefficients(seconds);ReleaseEnergy();
+            if(boundaries.Length>0&&!outsideC.HasValue)throw new ArgumentException("Exterior temperature is required");
+            double ambient=outsideC??0;if(!Finite(ambient)||ambient<=-273.15)throw new ArgumentOutOfRangeException(nameof(outsideC));
+            if(directBalance==null||directBuild!=CoefficientBuilds||directSeconds!=seconds){var a=new int[faces.Length];var b=new int[faces.Length];var g=new double[faces.Length];for(int j=0;j<faces.Length;j++){a[j]=faces[j].A;b[j]=faces[j].B;g[j]=InternalConductance(faces[j]);}directBalance=new ClimateBalanceSolver(cells.Length,a,b,g,seconds);directBuild=CoefficientBuilds;directSeconds=seconds;}
+            var solver=directBalance;for(int i=0;i<cells.Length;i++){double c=cells[i].HeatCapacityJPerK;solver.Base[i]=c+seconds*exterior[i];solver.Rhs[i]=cells[i].EnergyJ+seconds*exterior[i]*ambient;solver.X[i]=cells[i].EnergyJ/c;}
+            solver.Solve(transfers.BalanceRelativeTolerance,transfers.BalanceLinearIterations);ExternalEnergyJ=0;
+            for(int i=0;i<cells.Length;i++){if(!Finite(solver.X[i])||solver.X[i]<=-273.15)throw new InvalidOperationException("Invalid balanced temperature");ExternalEnergyJ+=seconds*exterior[i]*(ambient-solver.X[i]);}
+            for(int i=0;i<cells.Length;i++){var cell=cells[i];for(int j=0;j<cell.MemberCount;j++){var owner=cell.MemberOwner(j);int index=cell.MemberIndex(j);owner.RestoreEnergy(index,(float)(solver.X[i]*owner.HeatCapacityJPerK[index]));}}
+        }catch(Exception e){Diagnostic=e.Message;throw;}finally{LastJobMilliseconds=LastTickMilliseconds=watch.Elapsed.TotalMilliseconds;}
     }
     private static double Add(double sum, double value, ref double correction)
     { double y=value-correction, result=sum+y; correction=(result-sum)-y; return result; }

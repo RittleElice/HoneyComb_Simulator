@@ -1,39 +1,31 @@
-﻿using System;
+using System;
 using UnityEngine;
-[CreateAssetMenu(menuName="HoneyComb/Material Exchange Parameters")]
+[CreateAssetMenu(menuName="HoneyComb/Climate Balance Parameters")]
 public sealed class PyramidTransferSettings:ScriptableObject {
-    [Min(0)] public double AirAir=5,AirWood=3,AirComb=3,AirInsulation=.3;
-    [Min(0)] public double WoodWood=10,WoodComb=5,WoodInsulation=.3;
-    [Min(0)] public double CombComb=5,CombInsulation=.3,InsulationInsulation=1;
-    [Min(0)] public double AirOutside=5,WoodOutside=2,CombOutside=2,InsulationOutside=.3;
-    [Min(0)] public double MoistureAirPermeability=1.85e-10;
-    [Min(0)] public double MoistureWoodPermeability=2e-12;
-    [Min(0)] public double MoistureAirMobility=1;
-    [Min(0)] public double MoistureInsulationMobility=.008;
-    [Min(0)] public double MoistureEvaporationMobility=.04;
-    [Min(0)] public double MoistureExteriorAirFilmM=.01;
-    [Min(0)] public double MoistureWindCoefficient=.025;
-    private ThermalTransferCoefficients cached;
+    [Min(0)] public double AirOutside=5,WoodOutside=10,CombOutside=10,InsulationOutside=.1;
+    [Min(0)] public double HeatWindCoefficient=4;
+    [Min(0)] public double MoistureAirPermeability=1.85e-10,MoistureWoodPermeability=2e-12;
+    [Min(0)] public double MoistureAirMobility=1,MoistureInsulationMobility=.008,MoistureEvaporationMobility=.04;
+    [Min(0)] public double MoistureExteriorAirFilmM=.01,MoistureWindCoefficient=.025;
+    public double BalanceRelativeTolerance=1e-11,BalanceMassTolerance=1e-10;
+    public double BalanceMassAbsoluteToleranceKg=1e-12;
+    public int BalanceLinearIterations=3000,BalanceNonlinearIterations=30;
+    ThermalTransferCoefficients cached;
     public ThermalTransferCoefficients Read(){if(cached==null||!cached.Matches(this))cached=new ThermalTransferCoefficients(this);return cached;}
 }
-// Effective whole-interface coefficients in W/(m2 K); no thickness or conductivity resistance.
 public sealed class ThermalTransferCoefficients {
-    private readonly double[] h;
-    public static readonly ThermalTransferCoefficients Default=new ThermalTransferCoefficients(new[]{5d,3,3,.3,10,5,.3,5,.3,1,5,2,2,.3});
-    public static readonly ThermalTransferCoefficients Sealed=new ThermalTransferCoefficients(new double[14]);
-    private static double[] Values(PyramidTransferSettings s)=>new[]{s.AirAir,s.AirWood,s.AirComb,s.AirInsulation,s.WoodWood,s.WoodComb,s.WoodInsulation,s.CombComb,s.CombInsulation,s.InsulationInsulation,s.AirOutside,s.WoodOutside,s.CombOutside,s.InsulationOutside,s.MoistureAirPermeability,s.MoistureWoodPermeability,s.MoistureAirMobility,s.MoistureInsulationMobility,s.MoistureEvaporationMobility,s.MoistureExteriorAirFilmM,s.MoistureWindCoefficient};
-    private ThermalTransferCoefficients(double[] values){
-        if(values.Length==14){Array.Resize(ref values,21);values[14]=1.85e-10;values[15]=2e-12;values[16]=1;values[17]=.008;values[18]=.04;values[19]=.01;values[20]=.025;}
-        if(values[19]<=0)throw new ArgumentOutOfRangeException("외기 공기막 두께는 0보다 커야 합니다.");foreach(double value in values)if(!ThermalExchange.Finite(value)||value<0)throw new ArgumentOutOfRangeException("Heat transfer coefficients must be finite and non-negative");h=values;}
+    readonly double[] h;
+    static double[] Values(PyramidTransferSettings s)=>new[]{s.AirOutside,s.WoodOutside,s.CombOutside,s.InsulationOutside,s.HeatWindCoefficient,s.MoistureAirPermeability,s.MoistureWoodPermeability,s.MoistureAirMobility,s.MoistureInsulationMobility,s.MoistureEvaporationMobility,s.MoistureExteriorAirFilmM,s.MoistureWindCoefficient,s.BalanceRelativeTolerance,s.BalanceMassTolerance,(double)s.BalanceLinearIterations,s.BalanceNonlinearIterations,s.BalanceMassAbsoluteToleranceKg};
+    public static readonly ThermalTransferCoefficients Default=new ThermalTransferCoefficients(new[]{5d,10,10,.1,4,1.85e-10,2e-12,1,.008,.04,.01,.025,1e-11,1e-10,3000,30,1e-12});
+    public static readonly ThermalTransferCoefficients Sealed=new ThermalTransferCoefficients(new[]{0d,0,0,0,0,1.85e-10,2e-12,1,.008,.04,.01,0,1e-11,1e-10,3000,30,1e-12});
+    ThermalTransferCoefficients(double[] v){foreach(double x in v)if(!ThermalExchange.Finite(x)||x<0)throw new ArgumentOutOfRangeException("Climate balance parameter");if(v[10]<=0||v[12]<=0||v[12]>=1||v[13]<=0||v[13]>=1||v[14]<1||v[15]<1)throw new ArgumentOutOfRangeException("Climate balance tolerance");h=v;}
     public ThermalTransferCoefficients(PyramidTransferSettings s):this(Values(s)){}
-    public bool Matches(PyramidTransferSettings s)=>h[0]==s.AirAir&&h[1]==s.AirWood&&h[2]==s.AirComb&&h[3]==s.AirInsulation&&h[4]==s.WoodWood&&h[5]==s.WoodComb&&h[6]==s.WoodInsulation&&h[7]==s.CombComb&&h[8]==s.CombInsulation&&h[9]==s.InsulationInsulation&&h[10]==s.AirOutside&&h[11]==s.WoodOutside&&h[12]==s.CombOutside&&h[13]==s.InsulationOutside&&h[14]==s.MoistureAirPermeability&&h[15]==s.MoistureWoodPermeability&&h[16]==s.MoistureAirMobility&&h[17]==s.MoistureInsulationMobility&&h[18]==s.MoistureEvaporationMobility&&h[19]==s.MoistureExteriorAirFilmM&&h[20]==s.MoistureWindCoefficient;
-    public double MoistureAirPermeability=>h[14];
-    public double MoistureWoodPermeability=>h[15];
-    public double MoistureAirMobility=>h[16];
-    public double MoistureInsulationMobility=>h[17];
-    public double MoistureEvaporationMobility=>h[18];
-    public double MoistureExteriorAirFilmM=>h[19];
-    public double MoistureWindCoefficient=>h[20];
-    public double Between(HiveMaterial a,HiveMaterial b){int x=(int)a,y=(int)b;if(x>y){int t=x;x=y;y=t;}return h[x*4-x*(x-1)/2+y-x];}
-    public double Outside(HiveMaterial material)=>h[10+(int)material];
+    public bool Matches(PyramidTransferSettings s){var v=Values(s);for(int i=0;i<h.Length;i++)if(h[i]!=v[i])return false;return true;}
+    public double BalanceMassAbsoluteToleranceKg=>h[16];
+    public double Outside(HiveMaterial m)=>h[(int)m];
+    public double HeatWindCoefficient=>h[4];
+    public double MoistureAirPermeability=>h[5];public double MoistureWoodPermeability=>h[6];
+    public double MoistureAirMobility=>h[7];public double MoistureInsulationMobility=>h[8];public double MoistureEvaporationMobility=>h[9];
+    public double MoistureExteriorAirFilmM=>h[10];public double MoistureWindCoefficient=>h[11];
+    public double BalanceRelativeTolerance=>h[12];public double BalanceMassTolerance=>h[13];public int BalanceLinearIterations=>(int)h[14];public int BalanceNonlinearIterations=>(int)h[15];
 }

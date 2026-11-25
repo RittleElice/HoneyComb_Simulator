@@ -40,6 +40,7 @@ public static unsafe class HiveClimateKernels
         public int reservoir,direction;
         public double conductance,fraction,area,materialResistance;
     }
+#if UNITY_EDITOR // Historical comparison kernel; not used by the live balance solver.
     public static void ExteriorFlux(ExteriorContact[] contacts,double[] slope,double[] pressure,double[] mass,
         double[] limit,double[] delta,double[] energyDelta,double[] temperature,double outsidePressure,double outsideTemperature,
         double seconds,out double netWater,out double netEnergy,double[] transfers=null,double wind=0,double windCoefficient=ExternalWindCoefficient,double airPermeability=AirPermeability,double airFilm=ExteriorAirFilmM,bool[] fixedAir=null)
@@ -74,6 +75,7 @@ public static unsafe class HiveClimateKernels
         }
     }
 
+#endif
     // Wind enhancement of exposed-face coefficients, not a separate airflow path.
     // .025 is retained as a tunable reference estimate, NOT a calibrated surface
     // coefficient for every hive material/orientation. No buoyancy term is present.
@@ -92,6 +94,7 @@ public static unsafe class HiveClimateKernels
         public int row;
         public double area,baseConductance,pyramidCapacity;
     }
+#if UNITY_EDITOR // Historical comparison kernel; not used by the live balance solver.
     public static void ExteriorHeatFlux(ExteriorHeatContact[] contacts,double[] temperature,double[] delta,
         double outside,double wind,double airCv,out double netEnergy,double windCoefficient=ExternalWindCoefficient,bool[] fixedAir=null)
     {
@@ -113,6 +116,7 @@ public static unsafe class HiveClimateKernels
         }
     }
 
+#endif
     public struct Contact
     {
         public int a,b;
@@ -192,6 +196,7 @@ public static unsafe class HiveClimateKernels
         }
     }
 
+#if UNITY_EDITOR // Historical comparison kernel; not used by the live balance solver.
     public static void PairFlux(Contact[] contacts,double[] slope,double[] pressure,double[] mass,
         double[] limit,double[] delta,double[] energyDelta,double[] temperature,double[] transfers=null,bool[] fixedAir=null)
     {
@@ -256,12 +261,14 @@ public static unsafe class HiveClimateKernels
         }
     }
 
+#endif
     public struct Face
     {
         public int a,b;
         public double fa,fb,area,heat,halfA,halfB;
     }
 
+#if UNITY_EDITOR // Historical comparison kernel only.
     public static void ExchangeHeat(Face[] faces, double[] capacity, bool[] changed,
         double[] coefficients, double[] temperature, double[] energyDelta,bool[] fixedAir=null)
     {
@@ -291,4 +298,6 @@ public static unsafe class HiveClimateKernels
         e[f.a]-=heat;
         e[f.b]+=heat;
     }
+#endif
+
 }

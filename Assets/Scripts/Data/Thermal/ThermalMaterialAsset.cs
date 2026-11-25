@@ -10,7 +10,7 @@ public sealed class ThermalMaterialAsset : ScriptableObject
     public float ReferenceTemperatureC = 20;
     public float DensityKgPerM3;
     public float SpecificHeatJPerKgK;
-    [HideInInspector] public float ConductivityWPerMK; // Legacy material metadata; not used by heat exchange.
+    [Min(0)] public float ConductivityWPerMK; // Active conductivity used with contact area and centre-to-face distance.
     [Tooltip("유효 체적 열용량 [J/(m³·K)]. 0이면 밀도 × 비열을 사용합니다.")]
     [Min(0)] public float EffectiveVolumetricHeatCapacityJPerM3K;
     [TextArea(2, 8)] public string Sources;

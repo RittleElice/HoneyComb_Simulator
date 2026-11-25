@@ -118,14 +118,14 @@ public sealed class ThermalWorld : ISlicedGameMinuteParticipant, IDisposable
         Exchange.RefreshCoefficients();
     }
     public Task CalculateMinuteAsync(long nextMinute, CancellationToken cancellation)
-        => AdvanceMinute(nextMinute,cancellation,false);
+        => AdvanceMinute(nextMinute,cancellation);
 #if UNITY_EDITOR
     public Task CalculateLegacyThermalBenchmark(long nextMinute,CancellationToken cancellation)
-        => AdvanceMinute(nextMinute,cancellation,true);
+        => AdvanceMinute(nextMinute,cancellation);
 #endif
     public Task CalculateMinuteSlicedAsync(long nextMinute,CancellationToken cancellation,SimulationSlice slice)
-        => AdvanceMinute(nextMinute,cancellation,false,slice);
-    private async Task AdvanceMinute(long nextMinute,CancellationToken cancellation,bool legacyBenchmark,SimulationSlice slice=null)
+        => AdvanceMinute(nextMinute,cancellation,slice);
+    private async Task AdvanceMinute(long nextMinute,CancellationToken cancellation,SimulationSlice slice=null)
     {
         if (Failure != null) throw new InvalidOperationException("Thermal recovery required: " + Failure);
         try
@@ -137,12 +137,6 @@ public sealed class ThermalWorld : ISlicedGameMinuteParticipant, IDisposable
             double outside=world.Weather.Current.TemperatureCelsius;
             Refresh();
             PrepareExchange();
-            if(legacyBenchmark)
-            {
-                SupplyItemHeating(minuteItems,60);
-                Exchange.StepPrepared(60,outside);
-                return;
-            }
             int topology=TopologyBuilds+LocalTopologyUpdates;
             if(climate==null || climateTopology!=topology || climateRevision!=Exchange.CoefficientBuilds)
             {

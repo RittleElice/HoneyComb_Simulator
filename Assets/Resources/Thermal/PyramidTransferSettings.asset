@@ -12,17 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1de327d6fadb48389d2d72c6adafe6a6, type: 3}
   m_Name: PyramidTransferSettings
   m_EditorClassIdentifier: 
-  AirAir: 2000
-  AirWood: 1000
-  AirComb: 1000
-  AirInsulation: 0.1
-  WoodWood: 1000
-  WoodComb: 1000
-  WoodInsulation: 0.1
-  CombComb: 1000
-  CombInsulation: 0.1
-  InsulationInsulation: 0.1
-  AirOutside: 2000
+  AirOutside: 5
   WoodOutside: 10
   CombOutside: 10
   InsulationOutside: 0.1
@@ -33,3 +23,9 @@ MonoBehaviour:
   MoistureEvaporationMobility: 0.04
   MoistureExteriorAirFilmM: 0.01
   MoistureWindCoefficient: 0.025
+  HeatWindCoefficient: 4
+  BalanceRelativeTolerance: 1e-11
+  BalanceMassTolerance: 1e-10
+  BalanceLinearIterations: 3000
+  BalanceNonlinearIterations: 30
+  BalanceMassAbsoluteToleranceKg: 1e-12

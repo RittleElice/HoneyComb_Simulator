@@ -160,7 +160,7 @@ public static partial class HiveClimate
         internal async Task BindAsync(ClimatePartition grid,SimulationSlice slice)
         {
             flowGrid=grid;
-            contacts=null; // exterior and interior pyramids must share one mass budget
+            contacts=null; waterBalance=null; // rebuild sparse balance topology
             physical=new ThermalExchange.Cell[n];published=new float[n];
             outsideHeatContacts=new HiveClimateKernels.ExteriorHeatContact[grid.BoundaryCount];
             for(int j=0;j<outsideHeatContacts.Length;j++){
@@ -168,7 +168,7 @@ public static partial class HiveClimate
                 var b=grid.GetBoundary(j);var c=grid.GetCell(b.Cell);
                 outsideHeatContacts[j]=new HiveClimateKernels.ExteriorHeatContact{row=b.Cell,area=b.AreaM2,
                     baseConductance=b.AreaM2*exteriorTransfers.Outside(c.Owner.ExchangeMaterial(c.Index)),
-                    pyramidCapacity=grid.FacePyramidCapacity(b.Cell,b.Direction/2,b.AreaM2)};
+                    pyramidCapacity=0};
             }
             var wet=new List<WetRegion>();
             var heaters=new List<HeaterMember>();
@@ -317,12 +317,6 @@ public static partial class HiveClimate
             return true;
         }
 
-        void ApplyExteriorHeat()
-        {
-            if(outsideHeatContacts==null)return;
-            HiveClimateKernels.ExteriorHeatFlux(outsideHeatContacts,temperature,dE,outdoors,outsideWind,airCv,out double energy,exteriorTransfers.MoistureWindCoefficient,activeExteriorAir);
-            ExternalSensibleEnergyJ+=energy;
-        }
         internal void LiveMinute(double outside,double humidity,double wind=0)
         {
             // The legacy sensible-energy view also receives heater and manual energy inputs.
