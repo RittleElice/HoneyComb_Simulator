@@ -42,6 +42,11 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
     private readonly Dictionary<HiveSpatialGrid,Pane> panes=new Dictionary<HiveSpatialGrid,Pane>();
     private GameWorld sampledWorld;
     private string sampleStatus;
+    private HiveSpatialGrid editGrid;
+    private int editIndex=-1,editRevision=-1,editMode;
+    private double editValue;
+    private string editMessage;
+
     private GUIStyle statusStyle;
     private bool sampleReady;
     private static readonly Color Cold=new Color(.12f,.35f,.9f),Hot=new Color(.95f,.2f,.08f);
@@ -420,12 +425,39 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         if(monitor.SharedRows[i]>=0)EditorGUILayout.LabelField("공유 공기 셀 · 연결된 공간의 합계");
         EditorGUILayout.LabelField($"온도 {monitor.Temperatures[i]:F3} °C   |   열에너지 {monitor.Energies[i]:F5} J",EditorStyles.wordWrappedLabel);
         EditorGUILayout.LabelField($"열용량 {monitor.Capacities[i]:F5} J/K   (내용물 {monitor.ContentCapacities[i]:F5} J/K)",EditorStyles.wordWrappedLabel);
+        DrawThermalEdit(grid,i);
         if(monitor.TryRate(out double rate,out long elapsed))EditorGUILayout.LabelField($"{(elapsed==1?"직전 1분 변화":"직전 "+elapsed+"분 구간 평균 변화")}  {rate:+0.000;-0.000;0.000} °C/분");
         else EditorGUILayout.LabelField("변화량: 다음 관측 시점부터 표시");
         EditorGUILayout.LabelField("주황: 선택 격자 / 하늘색: 외기. 점선은 관측이 생략된 구간입니다.",EditorStyles.wordWrappedLabel);
         DrawHistory();
         if(GUILayout.Button("선택 격자 기록 초기화"))monitor.ClearHistory();
         EditorGUILayout.HelpBox("최근 240개 관측을 보관합니다. 시간 점프 중 모든 분을 기록하지는 않습니다. 변화량에는 내용물·열용량 변경의 영향도 포함됩니다. 대상·배치가 바뀌면 기록을 초기화합니다.",MessageType.None);
+    }
+    private void DrawThermalEdit(HiveSpatialGrid grid,int index)
+    {
+        if(!ReferenceEquals(editGrid,grid)||editIndex!=index||editRevision!=grid.Revision)
+        {editGrid=grid;editIndex=index;editRevision=grid.Revision;editValue=editMode==0?monitor.Temperatures[index]:monitor.Energies[index];editMessage=null;}
+        EditorGUILayout.Space();EditorGUILayout.LabelField("선택 계산 셀 값 변경",EditorStyles.boldLabel);
+        EditorGUI.BeginChangeCheck();
+        editMode=GUILayout.Toolbar(editMode,new[]{"온도 (°C)","열에너지 (J)"});
+        if(EditorGUI.EndChangeCheck())editValue=editMode==0?monitor.Temperatures[index]:monitor.Energies[index];
+        editValue=EditorGUILayout.DoubleField(editMode==0?"설정 온도 (°C)":"설정 열에너지 (J)",editValue);
+        EditorGUILayout.LabelField("열에너지는 현재 모델의 0°C 기준입니다. 공유 공기는 연결된 계산 셀 전체에 적용됩니다.",EditorStyles.wordWrappedLabel);
+        var runtime=GameBootstrap.Instance?.TimeSystem;
+        using(new EditorGUI.DisabledScope(!live||!Application.isPlaying||runtime==null||!runtime.HasWorld||runtime.Blocked||runtime.Scheduler.IsInTick))
+        if(GUILayout.Button("선택 계산 셀에 적용"))
+        {
+            try
+            {
+                if(!monitor.Matches(grid))throw new InvalidOperationException("격자 배치가 변경되었습니다. 다시 선택하세요.");
+                HiveThermalCellEdit.Apply(grid,index,editValue,editMode==0,GameBootstrap.Instance.GameWorld.Thermal.Exchange);
+                foreach(var pane in panes.Values)pane.NextSample=0;
+                Sample(grid);editMessage="적용했습니다. 변경한 열 상태는 이후 계산과 저장에 반영됩니다.";Repaint();
+            }
+            catch(Exception e){editMessage=e.Message;}
+        }
+        EditorGUILayout.LabelField("계산 중에는 입력만 가능합니다. ‘현재 틱 완료 후 정지’ 후 적용할 수 있습니다.",EditorStyles.wordWrappedLabel);
+        if(!string.IsNullOrEmpty(editMessage))EditorGUILayout.HelpBox(editMessage,MessageType.Info);
     }
     private void DrawFlowDetails()
     {
