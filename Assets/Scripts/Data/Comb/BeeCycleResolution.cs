@@ -137,6 +137,6 @@ public sealed partial class BeeCycleRuntime
         if(b.development>=Settings.adultStart){r.surface.TryClearContent(b.broodColumn,b.broodRow);b.stage=CycleStage.Adult;Counters.emerged++;}
         else if(b.development>=Settings.larvaEnd)b.stage=CycleStage.Pupa;
         else if(b.development>=Settings.eggEnd)b.stage=CycleStage.Larva;
-        if(b.health<=0||b.development>=Settings.maxDevelopment)Die(b);
+        if(b.health<=0||b.development>=DevelopmentLimit(b))Die(b);
     }
 }

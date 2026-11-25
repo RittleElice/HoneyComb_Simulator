@@ -88,6 +88,12 @@ public sealed class BeeSurfaceLocations
         Store(id, p);
     }
     public IReadOnlyList<BeeGridMove> GetNeighbours(GameWorld world, BeeGridPosition p) => Topology(world).Neighbours(p);
+    internal bool CanMove(GameWorld world,BeeGridPosition start,BeeGridPosition destination,bool isQueen)
+    {
+        foreach(var move in GetNeighbours(world,start))
+            if(move.Target.Equals(destination)&&(!isQueen||move.AllowsQueen))return true;
+        return false;
+    }
     // Atomic, validated movement step. The behaviour scheduler supplies timing; no speed is invented here.
     public bool TryMove(GameWorld world, long id, BeeGridPosition destination, bool isQueen = false)
     {

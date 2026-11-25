@@ -9,7 +9,7 @@ public sealed partial class BeeCycleRuntime
     internal void Write(BinaryWriter w,bool compact=true)
     {
         if(Failure!=null||LastMinute!=World.CurrentGameMinute)throw new InvalidDataException("Incomplete bee tick.");
-        w.Write(compact?5:4);w.Write(LastMinute);w.Write(RandomState);w.Write(nextId);
+        w.Write(7);w.Write(compact);w.Write(LastMinute);w.Write(RandomState);w.Write(nextId);
         CycleBinary.Write(w,typeof(BeeCycleSettings),Settings);
         if(compact)WriteCompactBees(w);else CycleBinary.Write(w,Bees.GetType(),Bees);
         CycleBinary.Write(w,typeof(CycleCounters),Counters);CycleBinary.Write(w,Commands.GetType(),Commands);
@@ -17,15 +17,16 @@ public sealed partial class BeeCycleRuntime
     internal async System.Threading.Tasks.Task WriteAsync(BinaryWriter w,Func<System.Threading.Tasks.Task> checkpoint)
     {
         if(Failure!=null||LastMinute!=World.CurrentGameMinute)throw new InvalidDataException("Incomplete bee tick.");
-        w.Write(5);w.Write(LastMinute);w.Write(RandomState);w.Write(nextId);CycleBinary.Write(w,typeof(BeeCycleSettings),Settings);
+        w.Write(7);w.Write(true);w.Write(LastMinute);w.Write(RandomState);w.Write(nextId);CycleBinary.Write(w,typeof(BeeCycleSettings),Settings);
         await WriteCompactBeesAsync(w,checkpoint);CycleBinary.Write(w,typeof(CycleCounters),Counters);CycleBinary.Write(w,Commands.GetType(),Commands);
     }
     internal void Read(BinaryReader r,bool validateOnly=false)
     {
-        int version=r.ReadInt32();if(version!=1&&version!=2&&version!=3&&version!=4&&version!=5)throw new InvalidDataException("Unknown bee cycle version.");
+        int version=r.ReadInt32();if(version!=1&&version!=2&&version!=3&&version!=4&&version!=5&&version!=6&&version!=7)throw new InvalidDataException("Unknown bee cycle version.");
+        bool compact=version>=6?r.ReadBoolean():version==5;
         LastMinute=r.ReadInt64();RandomState=r.ReadUInt32();nextId=r.ReadInt64();
         Settings=(BeeCycleSettings)CycleBinary.Read(r,typeof(BeeCycleSettings),version);if(version==1)Settings.UpgradeForageFormula();if(version<4)Settings.demoEggs=Settings.demoLarvae=Settings.demoPupae=0;rules=new BeeCycleRules(Settings);unitInputs.Clear();scalarInputs.Clear();developmentInputs.Clear();
-        if(version==5)ReadCompactBees(r,validateOnly);else Bees=(System.Collections.Generic.List<CycleBee>)CycleBinary.Read(r,typeof(System.Collections.Generic.List<CycleBee>),version);
+        if(compact)ReadCompactBees(r,validateOnly);else Bees=(System.Collections.Generic.List<CycleBee>)CycleBinary.Read(r,typeof(System.Collections.Generic.List<CycleBee>),version);
         Counters=(CycleCounters)CycleBinary.Read(r,typeof(CycleCounters),version);Commands=(System.Collections.Generic.List<CycleCommand>)CycleBinary.Read(r,typeof(System.Collections.Generic.List<CycleCommand>),version);byId.Clear();
         if(LastMinute!=World.CurrentGameMinute||RandomState==0||nextId<=0||Counters.actions.Length!=15)throw new InvalidDataException("Invalid bee clock.");
         foreach(var b in Bees)

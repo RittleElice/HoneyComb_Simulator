@@ -17,7 +17,7 @@ internal static class SaveBinary
     public static string Text(BinaryReader r)
     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
 }
-/// <summary>Schema 23 stores shared desire vectors without loss; schemas 17-22 remain readable.
+/// <summary>Schema 25 adds a queen development limit; schemas 17-24 remain readable.
 /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
 public sealed class WorldSaveCodec
 {
@@ -25,11 +25,11 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
-    public const int CurrentSchema = 23;
+    public const int CurrentSchema = 25;
     private int schema = CurrentSchema;
     private const int CompressedMagic=0x5A434832;
     public static byte[] Encode(WorldSaveSnapshot snapshot)=>EncodeCore(snapshot,true);
-    // Canonical legacy bytes support migration audits; gameplay saves use compact schema 23.
+    // Uncompressed reflected layout supports comparison audits; both layouts use the current schema.
     public static byte[] EncodeLegacy(WorldSaveSnapshot snapshot)=>EncodeCore(snapshot,false);
     static byte[] EncodeCore(WorldSaveSnapshot snapshot,bool compact)
     {
@@ -50,7 +50,7 @@ public sealed class WorldSaveCodec
     static void WritePrefix(BinaryWriter w,WorldSaveSnapshot snapshot,bool compact)
     {
             snapshot.World.Thermal?.FlushClimate();
-            int version = compact?CurrentSchema:22;
+            int version = CurrentSchema;
             w.Write(version); w.Write(snapshot.UtcTicks); w.Write(snapshot.RemainderTicks); w.Write(snapshot.HighWaterUtcTicks); w.Write(snapshot.TargetMinute);
             var world = snapshot.World; w.Write(world.CurrentGameMinute);
             var codec = new WorldSaveCodec { hives = world.Apiary.Hives, schema = version };
@@ -101,7 +101,7 @@ public sealed class WorldSaveCodec
     }
     static WorldSaveSnapshot ReadSnapshot(BinaryReader r,int schema,bool validateOnly)
     {
-            if(schema!=17 && schema!=18 && schema!=19 && schema!=20 && schema!=21 && schema!=22 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
+            if(schema!=17 && schema!=18 && schema!=19 && schema!=20 && schema!=21 && schema!=22 && schema!=23 && schema!=24 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);

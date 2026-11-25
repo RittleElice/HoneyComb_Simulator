@@ -26,7 +26,7 @@ public sealed partial class BeeCycleRuntime
     }
     void FinishForage(CycleBee bee,CycleEnd result)
     {
-        World.BeeLocations.Set(World,bee.id,bee.returnPoint.Grid);
+        World.BeeLocations.Set(World,bee.id,bee.returnPoint.Grid);InvalidateBeePosition(bee);
         bee.outside=false;bee.returning=false;bee.interruptAfterReturn=false;
         End(bee,result);
     }

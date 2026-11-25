@@ -91,18 +91,18 @@ MonoBehaviour:
     - name: layChance
       expression: clamp(queenLayPerMinute*time,0,1)
     naturalDecay: 10
-    commandMaximum: 3
-    feedWeight: 40
-    restWeight: 40
-    recoverWeight: 40
-    storeWeight: 40
+    commandMaximum: 0.003
+    feedWeight: 200
+    restWeight: 200
+    recoverWeight: 200
+    storeWeight: 400
     reserveTarget: 8
     maxEnergy: 100
     maxHealth: 100
     carryCapacity: 20
     pollenCarryCapacity: 15
-    basalSugar: 0.02
-    basalEnergy: 0.15
+    basalSugar: 0.003
+    basalEnergy: 0.0275
     movementEnergy: 0.01
     feedRate: 2
     restRate: 8
@@ -116,11 +116,12 @@ MonoBehaviour:
     forageSugar: 15
     forageWater: 15
     foragePollen: 15
-    stockSugarPerBee: 12
+    buildStockSugarPerBee: 1000
+    stockSugarPerBee: 700
     stockPollenPerBee: 4
     buildPoints: 1
     sugarPerBuildPoint: 8
-    desiredEmptyCellsPerBee: 5
+    desiredEmptyCellsPerBee: 0.1
     interruptPerElapsedMinute: 0.0005
     storageHeightBias: 2
     storageDistanceMm: 200
@@ -129,9 +130,9 @@ MonoBehaviour:
     demoFrames: 2
     demoConstruction: 0
     routeCacheEntries: 128
-    demoSugar: 5000
-    demoWater: 5000
-    demoPollen: 1000
+    demoSugar: 42000
+    demoWater: 10000
+    demoPollen: 4000
     basalHeatJ: 0.02712
     extraHeatJ: 0.6
     heatEnergy: 0.1
@@ -155,14 +156,15 @@ MonoBehaviour:
     broodMinTemperature: 20
     broodIdealTemperature: 34
     broodMaxTemperature: 40
-    larvaSugarPerTick: 0.001
-    larvaPollenPerTick: 0.0005
+    larvaSugarPerTick: 0.005690441176470588
+    larvaPollenPerTick: 0.016435185185185185
     larvaEnergyPerTick: 0.005
     nurseRate: 1
     queenLayPerMinute: 0.1
     broodTarget: 60
     starvationDamage: 0.01
     maxDevelopment: 200
+    queenMaxDevelopment: 1500
     broodReserveTicks: 60
     heatDeficitScale: 10
     storageHeightScale: 20
