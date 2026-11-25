@@ -213,6 +213,15 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         // Reserve one identical row in both calculating and completed states.
         // A changing HelpBox height used to move the entire grid on every tick.
         if(statusStyle==null)statusStyle=new GUIStyle(EditorStyles.helpBox){wordWrap=false,clipping=TextClipping.Clip};
+        if(displayMode==2)
+        {
+            var vaporStates=grids.Select(g=>panes[g].Vapor).ToArray();
+            var unavailable=vaporStates.FirstOrDefault(v=>!v.Ready);
+            var stale=vaporStates.FirstOrDefault(v=>v.Ready&&v.IsStale);
+            if(unavailable!=null)status=unavailable.Status;
+            else if(stale!=null)status=stale.Status;
+            else if(status==null)status=$"수증기압 표시: 게임 {vaporStates.Min(v=>v.Minute):N0}분의 수분 계산 상태";
+        }
         string statusText=status ?? (ready.Count>0?$"표시: 완료된 {ready.Min(g=>panes[g].Minute)}분 상태":"표시 준비 중");
         Rect statusRect=EditorGUILayout.GetControlRect(false,EditorGUIUtility.singleLineHeight+8);
         GUI.Label(statusRect,new GUIContent(statusText,statusText),statusStyle);
@@ -367,7 +376,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
                 for(int k=0;k<layers;k++)capacity+=grid.GetHeatCapacityJPerK(index+k*HiveGridLayout.SizeX);
                 tip+=$"\n미리보기 열용량 {capacity:F4} J/K";
             }
-            tip+="\n"+VaporDescription(vapor);
+            tip+="\n"+panes[grid].Vapor.Status+"\n"+VaporDescription(vapor);
             GUI.Label(rect,new GUIContent("",tip));
             if(thermal && selectedGrid==grid && monitor.Selected==index){DrawBorder(rect,Color.white);selectedRect=rect;}
             if(thermal && Event.current.type==EventType.MouseDown && Event.current.button==0 && rect.Contains(Event.current.mousePosition))
@@ -408,6 +417,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         if(monitor.Selected<0){EditorGUILayout.HelpBox("격자를 클릭하면 온도 변화 기록이 시작됩니다.",MessageType.Info);return;}
         int i=monitor.Selected;grid.Layout.Coordinates(i,out int x,out int y,out int z);var cell=grid.GetCell(i);
         EditorGUILayout.Space();EditorGUILayout.LabelField($"선택 계산 셀 ({x}, {YRange(y,grid.ActiveCellAt(i).depthCells)}, {z}) / {cell.Material} / {cell.Equipment?.Name ?? "공기"}",EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(panes[grid].Vapor.Status,EditorStyles.miniLabel);
         EditorGUILayout.LabelField(VaporDescription(panes[grid].Vapor.At(i)),EditorStyles.wordWrappedLabel);
         var moisture=panes[grid].Vapor.At(i);
         if(moisture.Available)
@@ -419,7 +429,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         }
         if(displayMode>=2)
         {
-            EditorGUILayout.LabelField($"완료된 게임 {panes[grid].Vapor.Minute:N0}분의 수분 상태",EditorStyles.miniLabel);
+            if(panes[grid].Vapor.IsStale)EditorGUILayout.LabelField("현재 열 상태와 다를 수 있습니다. 다음 수분 계산 완료 후 갱신됩니다.",EditorStyles.wordWrappedLabel);
             return;
         }
         if(monitor.SharedRows[i]>=0)EditorGUILayout.LabelField("공유 공기 셀 · 연결된 공간의 합계");
@@ -522,7 +532,7 @@ public sealed class HiveSpatialGridDebugWindow : EditorWindow
         if(!cell.Available)return "수증기압: 계산 상태 없음";
         string air=double.IsNaN(cell.AirPa)?"공기 저장소 없음":cell.AirPa.ToString("F3")+" Pa";
         string material=double.IsNaN(cell.MaterialPa)?"흡습 저장소 없음":cell.MaterialPa.ToString("F3")+" Pa";
-        return $"공기 수증기압: {air} / 재질 평형 수증기압: {material}";
+        return $"공기 수증기압: {air} / 재질 평형 수증기압: {material} / 계산 기준 온도: {cell.TemperatureC:F3} °C";
     }
 
     private void DrawHistory()
