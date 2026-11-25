@@ -37,35 +37,39 @@ public sealed class DeveloperTimeWindow : EditorWindow
             else if(GUILayout.Button("현재 틱 완료 후 정지"))Try(()=>runtime.StopAfterCurrentTick());
         }
         EditorGUILayout.HelpBox("정지는 계산 중인 1분 틱을 끝낸 뒤 적용합니다. 남은 이동 예약은 취소하며, 다시 시작하거나 새 이동을 요청할 때까지 시간이 흐르지 않습니다.",MessageType.None);
-        using (new EditorGUI.DisabledScope(!Application.isPlaying || runtime == null || !runtime.HasWorld || runtime.Blocked))
+        using (new EditorGUI.DisabledScope(!Application.isPlaying || runtime == null || !runtime.HasWorld || runtime.Failure != null))
         {
             if(runtime != null) speed = runtime.DeveloperSpeed;
             EditorGUI.BeginChangeCheck();
             speed = EditorGUILayout.Slider("배속 (1~1000)", speed, 1, 1000);
             if (EditorGUI.EndChangeCheck()) Try(() => runtime.SetDeveloperSpeed(speed));
-            EditorGUILayout.Space();
-            EditorGUI.BeginChangeCheck();
-            jumpMode = GUILayout.Toolbar(jumpMode, JumpModes);
-            if (EditorGUI.EndChangeCheck()) error = null;
-            if (jumpMode == 0)
-            {
-                year = EditorGUILayout.LongField("목표 년차", year);
-                month = EditorGUILayout.IntField("월 (1~12)", month);
-                day = EditorGUILayout.IntField("일", day);
-                hour = EditorGUILayout.IntField("시 (0~23)", hour);
-                minute = EditorGUILayout.IntField("분 (0~59)", minute);
-                if (GUILayout.Button("입력한 날짜까지 이동")) Try(() => runtime.JumpTo(year, month, day, hour, minute));
-            }
-            else
-            {
-                EditorGUILayout.LabelField("현재 시각부터 진행합니다. 1년 = 365일");
-                durationYears = EditorGUILayout.LongField("년", durationYears);
-                durationDays = EditorGUILayout.LongField("일", durationDays);
-                durationHours = EditorGUILayout.LongField("시간", durationHours);
-                durationMinutes = EditorGUILayout.LongField("분", durationMinutes);
-                if (GUILayout.Button("입력한 기간만큼 이동")) Try(() => runtime.JumpBy(durationYears, durationDays, durationHours, durationMinutes));
-            }
         }
+        // Date and duration are local drafts: editing them never mutates the running world.
+        EditorGUILayout.Space();
+        EditorGUI.BeginChangeCheck();
+        jumpMode = GUILayout.Toolbar(jumpMode, JumpModes);
+        if (EditorGUI.EndChangeCheck()) error = null;
+        if (jumpMode == 0)
+        {
+            year = EditorGUILayout.LongField("목표 년차", year);
+            month = EditorGUILayout.IntField("월 (1~12)", month);
+            day = EditorGUILayout.IntField("일", day);
+            hour = EditorGUILayout.IntField("시 (0~23)", hour);
+            minute = EditorGUILayout.IntField("분 (0~59)", minute);
+            using(new EditorGUI.DisabledScope(!Application.isPlaying || runtime==null || !runtime.HasWorld || runtime.Blocked))
+            if (GUILayout.Button("입력한 날짜까지 이동")) Try(() => runtime.JumpTo(year, month, day, hour, minute));
+        }
+        else
+        {
+            EditorGUILayout.LabelField("현재 시각부터 진행합니다. 1년 = 365일");
+            durationYears = EditorGUILayout.LongField("년", durationYears);
+            durationDays = EditorGUILayout.LongField("일", durationDays);
+            durationHours = EditorGUILayout.LongField("시간", durationHours);
+            durationMinutes = EditorGUILayout.LongField("분", durationMinutes);
+            using(new EditorGUI.DisabledScope(!Application.isPlaying || runtime==null || !runtime.HasWorld || runtime.Blocked))
+            if (GUILayout.Button("입력한 기간만큼 이동")) Try(() => runtime.JumpBy(durationYears, durationDays, durationHours, durationMinutes));
+        }
+        EditorGUILayout.LabelField("입력값은 계산 중에도 수정할 수 있습니다. 이동 실행은 현재 작업 완료 또는 정지 후 가능합니다.",EditorStyles.wordWrappedLabel);
         if (runtime != null) EditorGUILayout.LabelField(runtime.Status);
         if (!string.IsNullOrEmpty(error)) EditorGUILayout.HelpBox(error, MessageType.Error);
     }
