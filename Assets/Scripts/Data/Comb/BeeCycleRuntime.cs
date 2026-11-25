@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -238,6 +238,27 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         }
         command.group=group;command.need=need;command.localOnly=localOnly;
     }
+    // Clear one transferable region, leaving the other regions available for storage.
+    // Region order provides a stable tie-break without drawing additional random numbers.
+    static Region SelectClearingRegion(IReadOnlyList<Region> members)
+    {
+        double freeSugar=0,freePollen=0;
+        foreach(var r in members){freeSugar+=r.freeSugar;freePollen+=r.freePollen;}
+        Region selected=null;double smallest=double.PositiveInfinity;
+        foreach(var r in members)
+        {
+            double amount=r.sugar+r.pollen;
+            if(amount<=0 || amount>=smallest)continue;
+            if(r.sugar>freeSugar-r.freeSugar || r.pollen>freePollen-r.freePollen)continue;
+            selected=r;smallest=amount;
+        }
+        return selected;
+    }
+    void RefreshStoreExclusion(CycleBee b)
+    {
+        if(b.hasStoreExclusion && (!regionAt.TryGetValue(b.storeExclusion.Grid,out var r) || !r.clearing))
+            b.hasStoreExclusion=false;
+    }
     void RefreshCommands()
     {
         activeCommands.Clear();commandIndex.Clear();foreach(var command in Commands){var key=(command.task,command.target.Grid);if(!commandIndex.ContainsKey(key))commandIndex.Add(key,command);}
@@ -247,6 +268,15 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             Command(CycleTask.ForageNectar,entry,pair.Key,F("deficit",new CycleInputs{amount=g.sugar,available=g.count*Settings.stockSugarPerBee}));
             Command(CycleTask.ForagePollen,entry,pair.Key,F("deficit",new CycleInputs{amount=g.pollen,available=g.count*Settings.stockPollenPerBee}));
         }
+        foreach(var pair in groupRegions)
+        {
+            var g=groups[pair.Key];
+            if(g.empty==0 && g.brood<Settings.broodTarget)
+            {
+                var selected=SelectClearingRegion(pair.Value);
+                if(selected!=null)selected.clearing=true;
+            }
+        }
         foreach(var r in regions)
         {
             var g=groups[r.group];
@@ -254,7 +284,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             if(r.unfinished>0)Command(CycleTask.Build,r.position,r.group,F("deficit",new CycleInputs{amount=g.empty,available=g.count*Settings.desiredEmptyCellsPerBee})*F("buildPreference",new CycleInputs{amount=r.unfinished}),r.buildRemaining<=r.workers.Count*Settings.buildPoints);
             if(r.nurseSugar+r.nursePollen>0)Command(CycleTask.Nurse,r.position,r.group,F("nurseNeed",new CycleInputs{amount=r.nurseSugar+r.nursePollen,available=r.brood.Count*(Settings.larvaSugarPerTick+Settings.larvaPollenPerTick)*Settings.broodReserveTicks}),r.nurseSugar+r.nursePollen<=r.workers.Count*Settings.nurseRate);
             if(r.brood.Count>0&&r.temperature<Settings.broodIdealTemperature)Command(CycleTask.Heat,r.position,r.group,F("heatNeed",new CycleInputs{amount=Settings.broodIdealTemperature-r.temperature}),r.workers.Count>=r.brood.Count);
-            if(g.empty==0&&g.brood<Settings.broodTarget&&r.sugar+r.pollen>0){r.clearing=true;Command(CycleTask.Clear,r.position,r.group,1);}
+            if(r.clearing)Command(CycleTask.Clear,r.position,r.group,1);
         }
         Commands.RemoveAll(c=>!activeCommands.Contains((c.task,c.target.Grid)));
         IndexCommands();
@@ -369,6 +399,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
                 if(b.energy<=0){Rest(b,time,false);break;}
                 double heal=Math.Min(F("recoverAmount",new CycleInputs{time=time,amount=Settings.maxHealth-b.health}),b.energy/Settings.recoveryEnergy);b.energy-=heal*Settings.recoveryEnergy;b.health+=heal;Act(b,CycleAction.Recover,time);break;
             case CycleTask.Store:
+                RefreshStoreExclusion(b);
                 if(b.cargo.Mass<=1e-8){End(b,CycleEnd.Completed);break;}
                 var dest=SelectRegion(b,here,true,false);
                 if(dest==null){End(b,CycleEnd.ResourceMissing);break;}
@@ -383,6 +414,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
                 }break;
             default:
                 if(!b.hasTarget||!regionAt.TryGetValue(b.target.Grid,out var r)){End(b,CycleEnd.PathBlocked);break;}
+                if(b.task==CycleTask.Clear&&!r.clearing){End(b,CycleEnd.Completed);break;}
                 if(b.task==CycleTask.Build&&b.cargo.Sugar<Settings.sugarPerBuildPoint){Acquire(b,here,false);break;}
                 if(b.task==CycleTask.Nurse&&((r.nurseSugar>0&&b.cargo.Sugar<=0)||(r.nurseSugar<=0&&r.nursePollen>0&&b.cargo.pollen<=0)))
                 {Acquire(b,here,r.nurseSugar<=0);break;}
