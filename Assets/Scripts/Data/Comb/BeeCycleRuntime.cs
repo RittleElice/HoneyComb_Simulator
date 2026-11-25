@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -54,7 +54,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     public BeeCycleRuntime(GameWorld world){World=world;LastMinute=world.CurrentGameMinute;rules=new BeeCycleRules(Settings);}
     public void ApplySettings(BeeCycleSettings settings)
     {
-        var next=new BeeCycleRules(settings);Settings=settings;rules=next;unitInputs.Clear();scalarInputs.Clear();developmentInputs.Clear();
+        var next=new BeeCycleRules(settings);Settings=settings;rules=next;unitInputs.Clear();scalarInputs.Clear();developmentInputs.Clear();ResetForageSelection();
     }
     double F(string name,CycleInputs input=default)=>rules.Eval(name,input);
     readonly Dictionary<string,double> unitInputs=new Dictionary<string,double>();
@@ -196,6 +196,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             cancellation.ThrowIfCancellationRequested();
             if(Bees.Count==0){LastMinute=minute;return;}
             World.Thermal.Refresh();await RefreshRegionsAsync(slice);RefreshCommands();stimulusCache.Clear();decayCache.Clear();requests.Clear();forageRequests.Clear();heat.Clear();
+            ResetForageSelection();forageSelectionActive=true;
             int count=Bees.Count;
             for(int i=0;i<count;i++)
             {
@@ -216,7 +217,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             LastMinute=minute;
         }
         catch(Exception e){Failure=e;throw;}
-        finally{activePositionBee=null;LastMilliseconds=watch.Elapsed.TotalMilliseconds-((slice?.WaitMilliseconds??0)-initialWait);}
+        finally{forageSelectionActive=false;activePositionBee=null;LastMilliseconds=watch.Elapsed.TotalMilliseconds-((slice?.WaitMilliseconds??0)-initialWait);}
         return;
     }
     public List<CycleCommand> Commands { get; private set; }=new List<CycleCommand>();
@@ -369,7 +370,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
                 double heal=Math.Min(F("recoverAmount",new CycleInputs{time=time,amount=Settings.maxHealth-b.health}),b.energy/Settings.recoveryEnergy);b.energy-=heal*Settings.recoveryEnergy;b.health+=heal;Act(b,CycleAction.Recover,time);break;
             case CycleTask.Store:
                 if(b.cargo.Mass<=1e-8){End(b,CycleEnd.Completed);break;}
-                var dest=SelectRegion(b,here,r=>!r.clearing&&(!b.hasStoreExclusion||!r.position.Equals(b.storeExclusion.Grid))&&((b.cargo.Sugar>0&&r.freeSugar>0)||(b.cargo.pollen>0&&r.freePollen>0)),true);
+                var dest=SelectRegion(b,here,true,false);
                 if(dest==null){End(b,CycleEnd.ResourceMissing);break;}
                 if(!Move(b,dest.position,ref time))break;
                 requests.Add(new Request{bee=b,region=dest,amount=F("storeAmount",new CycleInputs{time=time,amount=b.cargo.Mass}),kind=2});Act(b,CycleAction.Store,time);break;
@@ -410,20 +411,22 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     void Acquire(CycleBee b,BeeGridPosition here,bool pollen)
     {
         if(CargoFree(b,pollen)<=1e-8){End(b,CycleEnd.ResourceMissing);return;}
-        var r=SelectRegion(b,here,v=>(pollen?v.pollen:v.sugar)>0,false);
+        var r=SelectRegion(b,here,false,pollen);
         if(r==null){End(b,CycleEnd.ResourceMissing);return;}
         double time=1;if(!Move(b,r.position,ref time))return;
         requests.Add(new Request{bee=b,region=r,kind=pollen?1:0,amount=F("acquireAmount",new CycleInputs{amount=CargoFree(b,pollen),time=time})});Act(b,CycleAction.Acquire,time);
     }
-    Region SelectRegion(CycleBee b,BeeGridPosition here,Predicate<Region> eligible,bool storage)
+    static bool RegionEligible(Region r,CycleBee b,bool storage,bool pollen)
+        => storage?!r.clearing&&(!b.hasStoreExclusion||!r.position.Equals(b.storeExclusion.Grid))&&((b.cargo.Sugar>0&&r.freeSugar>0)||(b.cargo.pollen>0&&r.freePollen>0)):(pollen?r.pollen:r.sugar)>0;
+    Region SelectRegion(CycleBee b,BeeGridPosition here,bool storage,bool pollen)
     {
-        if(b.hasWaypoint&&regionAt.TryGetValue(b.waypoint.Grid,out var old)&&eligible(old))return old;
+        if(b.hasWaypoint&&regionAt.TryGetValue(b.waypoint.Grid,out var old)&&RegionEligible(old,b,storage,pollen))return old;
         var air=Air(here);if(air==null)return null;
         Region selected=null;double total=0,best=double.PositiveInfinity;
         if(!groupRegions.TryGetValue(air.Group,out var candidates))return null;
         foreach(var r in candidates)
         {
-            if(r.group!=air.Group||!eligible(r))continue;
+            if(r.group!=air.Group||!RegionEligible(r,b,storage,pollen))continue;
             double dist=RouteDistance(here,r.position,b.queen);if(double.IsPositiveInfinity(dist))continue;
             if(!storage){if(dist<best){best=dist;selected=r;}continue;}
             double w=F("storagePreference",new CycleInputs{available=(b.cargo.Sugar>0?r.freeSugar:0)+(b.cargo.pollen>0?r.freePollen:0),height=r.height/Settings.storageHeightScale,distance=dist});total+=w;if(Random()*total<w)selected=r;
@@ -449,7 +452,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     }
     static List<CyclePoint> Reconstruct(BeeGridPosition start,BeeGridPosition target,Dictionary<BeeGridPosition,BeeGridPosition> previous)
     {if(!previous.ContainsKey(target))return null;var result=new List<CyclePoint>();for(var q=target;!q.Equals(start);q=previous[q])result.Add(new CyclePoint(q));result.Reverse();return result;}
-    double RouteDistance(BeeGridPosition start,BeeGridPosition target,bool queen)
+    double RouteDistanceUncached(BeeGridPosition start,BeeGridPosition target,bool queen)
     {
         if(start.Equals(target))return 0;
         if(!TryRouteTree(start,queen,out var previous)){FindPathUncached(start,target,queen);if(!TryRouteTree(start,queen,out previous))return double.PositiveInfinity;}

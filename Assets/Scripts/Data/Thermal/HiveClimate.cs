@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
@@ -60,9 +60,8 @@ public static partial class HiveClimate
             if(previous!=null && (previous.n!=n || !ReferenceEquals(previous.inputMaterials,materials) || previous.inputBalanceRevision!=inputBalanceRevision))previous=null;
             foreach(var owner in owners.Keys)inputRevisions[owner]=owner.CacheRevision;
             phaseEnergy=new double[n];capacity=new double[n];
-            slope=new double[n*Kinds];
             links=new Link[ex.FaceCount];
-            mass=new double[n*Kinds];limit=new double[mass.Length];pressure=new double[mass.Length];delta=new double[mass.Length];
+            mass=new double[n*Kinds];limit=new double[mass.Length];delta=new double[mass.Length];
             energy=new double[n];dE=new double[n];temperature=new double[n];volume=new double[n];dry=new double[n];sugar=new double[n];contentFreeVolume=new double[n];
             var air=materials[ThermalMaterialKind.Air];
             airCv=air.EffectiveVolumetricHeatCapacityJPerM3K>0?air.EffectiveVolumetricHeatCapacityJPerM3K:air.Density*air.SpecificHeat;
@@ -137,6 +136,7 @@ public static partial class HiveClimate
         double Cp(int s)=>s==Air?VaporCp:s==Nectar?liquidCp:LiquidCp;
         double Phase(int i){double e=0;for(int s=0;s<Kinds;s++)e+=mass[i*Kinds+s]*Offset[s];return e;}
         double Capacity(int i){double c=dry[i]+volume[i]*airCv;for(int s=0;s<Kinds;s++)c+=mass[i*Kinds+s]*Cp(s);return c;}
+#if UNITY_EDITOR
         long[] phaseTicks;
         long lastMark;
         void Mark(int stage)
@@ -153,7 +153,8 @@ public static partial class HiveClimate
             try{Minute(1);}
             finally{phaseTicks=null;}
         }
-        void Prepare(bool split=false, bool pressures=true)
+#endif
+        void Prepare(bool pressures=true)
         {
             if(!stateReady)
             {
@@ -161,7 +162,8 @@ public static partial class HiveClimate
                 stateReady=true;
             }
             if(!pressures)return;
-            if(split)Mark(0);
+            // Diagnostics only: ordinary balance ticks do not use these arrays.
+            if(pressure==null){pressure=new double[mass.Length];slope=new double[mass.Length];}
             HiveClimateKernels.PressureAndSlope(mass,limit,volume,temperature,pressure,slope);
         }
         bool Present(int p,int s)=>s==Air?volume[p/Kinds]>0:s==Nectar?mass[p]>0:limit[p]>0;
@@ -242,9 +244,13 @@ public static partial class HiveClimate
             if(contacts==null)BuildContacts();
             PrepareFlowTrace();
             AccumulateEvaporation(60);
+#if UNITY_EDITOR
             Mark(1);
+#endif
             try{AccumulateBalance();}catch{Array.Clear(delta,0,delta.Length);throw;}
+#if UNITY_EDITOR
             Mark(4);
+#endif
         }
         // Only the water deltas change here; the enthalpy of a local phase change stays in this cell.
         void AccumulateEvaporation(double seconds)

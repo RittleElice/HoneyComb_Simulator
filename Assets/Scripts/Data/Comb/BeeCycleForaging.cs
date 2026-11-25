@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -6,20 +6,34 @@ public sealed partial class BeeCycleRuntime
 {
     struct ForageRequest { public CycleBee bee;public int source;public double amount;public bool pollen; }
     readonly List<ForageRequest> forageRequests=new List<ForageRequest>();
+    bool forageSelectionActive;
+    readonly double[][] forageWeights=new double[2][];
+    readonly double[] forageTotals=new double[2];
+    readonly bool[] forageReady=new bool[2];
+    void ResetForageSelection(){forageReady[0]=forageReady[1]=false;}
     int SelectForageSource(bool pollen)
     {
+        if(!forageSelectionActive)ResetForageSelection();
         var nectar=World.Weather?.Nectar;if(nectar==null)return -1;
-        double total=0;
-        for(int i=0;i<nectar.Sources.Length;i++){
-            var s=nectar.Sources[i];double available=s==null?0:pollen?s.pollen:s.sugar;
-            if(available>0)total+=F("forageSourceWeight",new CycleInputs{available=available});
+        int kind=pollen?1:0;
+        if(!forageReady[kind])
+        {
+            if(forageWeights[kind]==null||forageWeights[kind].Length!=nectar.Sources.Length)forageWeights[kind]=new double[nectar.Sources.Length];
+            double sum=0;
+            for(int i=0;i<nectar.Sources.Length;i++)
+            {
+                var source=nectar.Sources[i];double available=source==null?0:pollen?source.pollen:source.sugar;
+                double weight=available>0?F("forageSourceWeight",new CycleInputs{available=available}):0;
+                forageWeights[kind][i]=weight;sum+=weight;
+            }
+            forageTotals[kind]=sum;forageReady[kind]=true;
         }
-        if(total<=0)return -1;
+        double total=forageTotals[kind];if(total<=0)return -1;
         if(double.IsInfinity(total))throw new InvalidOperationException("Nonfinite forage source weight.");
         double pick=Random()*total;int last=-1;
-        for(int i=0;i<nectar.Sources.Length;i++){
-            var s=nectar.Sources[i];double available=s==null?0:pollen?s.pollen:s.sugar;
-            if(available<=0)continue;double weight=F("forageSourceWeight",new CycleInputs{available=available});if(weight<=0)continue;
+        for(int i=0;i<forageWeights[kind].Length;i++)
+        {
+            double weight=forageWeights[kind][i];if(weight<=0)continue;
             last=i;if((pick-=weight)<0)return i;
         }
         return last;

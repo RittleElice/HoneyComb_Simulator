@@ -1,9 +1,19 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 public sealed partial class BeeCycleRuntime
 {
     // Derived caches only; neither save layout nor individual path ownership changes.
     readonly Dictionary<(BeeGridPosition,BeeGridPosition,bool),CyclePoint[]> pathTemplates=new Dictionary<(BeeGridPosition,BeeGridPosition,bool),CyclePoint[]>();
     readonly Dictionary<(BeeGridPosition,BeeGridPosition),double> edgeLengths=new Dictionary<(BeeGridPosition,BeeGridPosition),double>();
+    // Keep the original reverse-path summation result, never an algebraic shortcut.
+    readonly Dictionary<(BeeGridPosition,BeeGridPosition,bool),double> routeDistances=new Dictionary<(BeeGridPosition,BeeGridPosition,bool),double>();
+    double RouteDistance(BeeGridPosition start,BeeGridPosition target,bool queen)
+    {
+        var key=(start,target,queen);
+        if(routeDistances.TryGetValue(key,out double distance))return distance;
+        distance=RouteDistanceUncached(start,target,queen);
+        if(routeDistances.Count<65536)routeDistances.Add(key,distance);
+        return distance;
+    }
     int cachedPathPoints;
     CycleBee activePositionBee;
     bool positionKnown,positionFound,airKnown;
@@ -17,7 +27,7 @@ public sealed partial class BeeCycleRuntime
         if(!positionKnown){positionFound=World.BeeLocations.TryGet(bee.id,out cachedPosition);positionKnown=true;}
         position=cachedPosition;return positionFound;
     }
-    void ClearActionGeometry(){pathTemplates.Clear();edgeLengths.Clear();cachedPathPoints=0;positionKnown=airKnown=false;}
+    void ClearActionGeometry(){routeDistances.Clear();pathTemplates.Clear();edgeLengths.Clear();cachedPathPoints=0;positionKnown=airKnown=false;}
     List<CyclePoint> FindPath(BeeGridPosition start,BeeGridPosition target,bool queen)
     {
         var key=(start,target,queen);if(pathTemplates.TryGetValue(key,out var template))return new List<CyclePoint>(template);

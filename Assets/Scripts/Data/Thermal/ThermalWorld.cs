@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -163,12 +163,7 @@ public sealed class ThermalWorld : ISlicedGameMinuteParticipant, IDisposable
     public double LastExternalMoistureEnergyJ=>climate?.ExternalMoistureEnergyJ??0;
     public double LastExternalSensibleEnergyJ=>climate?.ExternalSensibleEnergyJ??0;
     public double LastHeatingEnergyJ { get; private set; }
-    private void SupplyHeating(double seconds)
-    {
-        EnsureLayout();
-        SupplyItemHeating(minuteItems, seconds);
-    }
-    private void SupplyItemHeating(IReadOnlyList<ItemData> items, double seconds,bool defer=false)
+private void SupplyItemHeating(IReadOnlyList<ItemData> items, double seconds,bool defer=false)
     {
         LastHeatingEnergyJ=0;
         foreach(var item in items)if(item.GetContent<HeatingPanelData>() is HeatingPanelData heater)heater.LastSuppliedJoules=0;
