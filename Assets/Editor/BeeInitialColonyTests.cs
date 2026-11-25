@@ -16,7 +16,7 @@ public static class BeeInitialColonyTests {
     sugar+=face.GetTotalSugarMassMg(x,y);water+=face.GetWaterMassMg(x,y);pollen+=face.GetPollenMassMg(x,y);Check(face.GetCapacityFillRatio(x,y)<=1.000001,"cell capacity respected");
     if(cell.Content==CellContentKind.Brood){brood++;long id=face.GetBeeId(x,y);var b=w.BeeCycle.Bees.Single(z=>z.id==id);Check(b.broodColumn==x&&b.broodRow==y,"brood cell mapping");Check(w.BeeLocations.TryGet(id,out var pos)&&pos.EquipmentId==item.Id,"brood location");}
    }
-   Check(Math.Abs(sugar-5000)<0.001&&Math.Abs(water-5000)<0.001&&Math.Abs(pollen-1000)<0.001,"initial stored masses");Check(complete==80&&unbuilt==1120&&brood==60,"initial cell counts");
+   Check(Math.Abs(sugar-5000)<0.001&&Math.Abs(water-5000)<0.001&&Math.Abs(pollen-1000)<0.001,"initial stored masses");Check(complete==196&&unbuilt==1004&&brood==60,"initial cell counts");
    w.BeeCycle.SeedDemo(new BeeCycleSettings{demoSugar=5000,demoWater=5000,demoPollen=1000});Check(w.BeeCycle.Bees.Count==109,"seed idempotent");var data=Save(w);var restored=WorldSaveCodec.Decode(data).World;
    try{restored.Weather.BindBaseline(WeatherAssetLoader.LoadBaseline());restored.PrepareThermal(ThermalMaterials.Load());Check(data.SequenceEqual(Save(restored)),"initial save exact roundtrip");}finally{restored.Thermal?.Dispose();}
   }finally{w.Thermal.Dispose();}

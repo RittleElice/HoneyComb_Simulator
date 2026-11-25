@@ -80,13 +80,14 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         if(initialSettings!=null)ApplySettings(initialSettings);
         else if(defaults!=null){var settings=UnityEngine.JsonUtility.FromJson<BeeCycleSettings>(UnityEngine.JsonUtility.ToJson(defaults.values));settings.UpgradeForageFormula();ApplySettings(settings);}
         var box=World.Apiary.GetItemSlot(0,0).Item;if(box?.InteriorSlots==null)return;
+        var initialLayout=LoadInitialCombLayout();
         int highest=ThermalWorld.Items(World).Max(i=>i.Id);
         var createdFrames=new HashSet<int>();
         for(int k=0;k<Math.Min(Settings.demoFrames,box.InteriorSlots.Capacity-2);k++)
         {
             var slot=box.InteriorSlots.GetSlot(2+k);if(!slot.IsEmpty)continue;
             var frame=new FrameData();frame.Front.SetAllConstruction((byte)Settings.demoConstruction);frame.Back.SetAllConstruction((byte)Settings.demoConstruction);
-            for(int y=0;y<4;y++)for(int x=0;x<5;x++){frame.Front.TrySetConstruction(x,y,100);frame.Back.TrySetConstruction(x,y,100);}
+            for(int y=0;y<frame.Front.Height;y++)for(int x=0;x<frame.Front.Width;x++)if(initialLayout[frame.Front.Height-1-y][x]!='#'){frame.Front.TrySetConstruction(x,y,100);frame.Back.TrySetConstruction(x,y,100);}
             int frameId=++highest;
             if(!slot.TryInsert(new ItemData(frameId,"벌 시험 소비장",ItemKind.Frame,frame)))throw new InvalidOperationException("Initial frame insertion failed.");
             createdFrames.Add(frameId);
@@ -95,10 +96,10 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         // inserting frames so region temperature reads also include the new equipment.
         World.PrepareThermal(ThermalMaterials.Load());
         RefreshRegions();if(regions.Count==0)return;
-        var r=regions.Find(v=>v.box==box.Id);if(r==null)return;
+        var r=regions.Where(v=>v.box==box.Id&&createdFrames.Contains(v.frame.Id)).OrderBy(v=>Math.Abs(v.x-2)+Math.Abs(v.z-1)).FirstOrDefault()??regions.Find(v=>v.box==box.Id);if(r==null)return;
         for(int i=0;i<Settings.demoWorkers;i++){var b=Add(r.position,box.Id);b.reserve*=0.4+0.6*Random();b.energy*=0.5+0.5*Random();}
         Add(r.position,box.Id,true);
-        SeedInitialContents(createdFrames);
+        SeedInitialContents(createdFrames,initialLayout);
         RefreshRegions();
     }
     void RefreshRegions()=>RefreshRegionsAsync(null).GetAwaiter().GetResult();
