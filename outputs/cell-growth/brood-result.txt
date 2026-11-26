@@ -1,0 +1,1 @@
+PASS 45 larval growth, fixed rotation, mirrored layout, saved identity and pupa color progression checks.

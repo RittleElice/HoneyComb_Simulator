@@ -47,6 +47,20 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
     [Tooltip("화분이 조금이라도 있을 때 표시할 최소 크기. 저장량에 따라 최대 크기까지 증가합니다.")]
     [SerializeField, Range(0.01f, 1f)] private float pollenMinimumScale = 0.3f;
 
+    [Tooltip("화밀이 가득 찼을 때 이미지 크기 배율. 1은 기존 최대 크기입니다. 최소 크기는 이 값에 대한 비율입니다.")]
+    [SerializeField, Min(.01f)] private float nectarMaximumScale = 1f;
+    [Tooltip("화분이 가득 찼을 때 이미지 크기 배율. 1은 기존 최대 크기입니다. 최소 크기는 이 값에 대한 비율입니다.")]
+    [SerializeField, Min(.01f)] private float pollenMaximumScale = 1f;
+
+    [Tooltip("부화 직후 애벌레의 크기. 최대 크기에 대한 비율입니다.")]
+    [SerializeField, Range(.01f,1f)] private float larvaMinimumScale = .3f;
+    [Tooltip("번데기 전환 직전 애벌레 크기 배율. 1은 기존 이미지 크기입니다.")]
+    [SerializeField, Min(.01f)] private float larvaMaximumScale = 1f;
+    [Tooltip("번데기 단계 시작 시 봉개 이미지에 곱할 색입니다.")]
+    [SerializeField, ColorUsage(false)] private Color pupaStartColor = Color.white;
+    [Tooltip("우화 직전 봉개 이미지에 곱할 색입니다.")]
+    [SerializeField, ColorUsage(false)] private Color pupaEndColor = new Color(179f/255,138f/255,92f/255,1);
+
     [Header("Performance")]
     [SerializeField, Range(50, 500)]
     private int cellsPerMesh = 400;
@@ -183,7 +197,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
             FrameCellMesh mesh = go.AddComponent<FrameCellMesh>();
 
             mesh.ConfigureArt(columns, start, end, radius, origin, topology,
-                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale, artwork, representativeNectarPercent, dryNectarAlpha, wetNectarAlpha, pollenMinimumScale);
+                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale, artwork, representativeNectarPercent, dryNectarAlpha, wetNectarAlpha, pollenMinimumScale, nectarMaximumScale, pollenMaximumScale, larvaMinimumScale, larvaMaximumScale, pupaStartColor, pupaEndColor);
 
             mesh.SetSurface(frame.GetFacingSurface(), broodRuntime);
             meshes.Add(mesh);
@@ -244,6 +258,10 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         wallMaximumAlpha = Mathf.Clamp(wallMaximumAlpha, wallMinimumAlpha, 1f);
         nectarMinimumScale = Mathf.Clamp(nectarMinimumScale, .01f, 1f);
         pollenMinimumScale = Mathf.Clamp(pollenMinimumScale, .01f, 1f);
+        larvaMinimumScale = Mathf.Clamp(larvaMinimumScale,.01f,1f);
+        larvaMaximumScale = Mathf.Max(.01f,larvaMaximumScale);
+        nectarMaximumScale = Mathf.Max(.01f,nectarMaximumScale);
+        pollenMaximumScale = Mathf.Max(.01f,pollenMaximumScale);
         representativeNectarPercent = Mathf.Clamp(representativeNectarPercent, 50f, 100f);
         dryNectarAlpha = Mathf.Clamp01(dryNectarAlpha); wetNectarAlpha = Mathf.Clamp01(wetNectarAlpha);
 

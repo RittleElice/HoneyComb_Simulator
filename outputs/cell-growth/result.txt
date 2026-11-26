@@ -1,0 +1,1 @@
+PASS 12 nectar/pollen maximum and relative minimum size checks.

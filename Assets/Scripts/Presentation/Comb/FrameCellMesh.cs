@@ -104,7 +104,9 @@ public class FrameCellMesh : MaskableGraphic
         public int Occupant;
         public float PollenScale;
         public uint PollenSeed;
-        public bool Same(State other) => PollenSeed == other.PollenSeed && Construction == other.Construction && Complete == other.Complete && Nectar == other.Nectar && NectarKind == other.NectarKind && NectarAlpha == other.NectarAlpha && Occupant == other.Occupant && PollenScale == other.PollenScale;
+        public float BroodProgress;
+        public uint BroodSeed;
+        public bool Same(State other) => BroodProgress == other.BroodProgress && BroodSeed == other.BroodSeed && PollenSeed == other.PollenSeed && Construction == other.Construction && Complete == other.Complete && Nectar == other.Nectar && NectarKind == other.NectarKind && NectarAlpha == other.NectarAlpha && Occupant == other.Occupant && PollenScale == other.PollenScale;
     }
     private FrameSurface surface;
     private BeeCycleRuntime broodRuntime;
@@ -113,6 +115,9 @@ public class FrameCellMesh : MaskableGraphic
     private float representativePercent = 50f;
     private float dryAlpha = 1f, wetAlpha = .3f;
     private float pollenMinimum = .3f;
+    private float nectarMaximum = 1f, pollenMaximum = 1f;
+    private float larvaMinimum=.3f, larvaMaximum=1f;
+    private Color pupaStart=Color.white,pupaEnd=Color.white;
     private Vector2 origin;
     private FrameCellArtwork artwork;
     private Texture primaryTexture;
@@ -141,7 +146,7 @@ public class FrameCellMesh : MaskableGraphic
     public void ConfigureArt(int columns, int firstIndex, int lastIndex, float radius,
         Vector2 origin, List<Junction> topology, float minimumAlpha, float maximumAlpha, float minimumNectar,
         FrameCellArtwork images = null, float representativeThresholdPercent = 50f,
-        float dryNectarAlpha = 1f, float wetNectarAlpha = .3f, float minimumPollenScale = .3f)
+        float dryNectarAlpha = 1f, float wetNectarAlpha = .3f, float minimumPollenScale = .3f, float maximumNectarScale = 1f, float maximumPollenScale = 1f, float minimumLarvaScale = .3f, float maximumLarvaScale = 1f, Color? pupaStartColor = null, Color? pupaEndColor = null)
     {
         this.columns = columns; this.firstIndex = firstIndex; this.lastIndex = lastIndex;
         this.radius = radius; this.origin = origin;
@@ -150,6 +155,10 @@ public class FrameCellMesh : MaskableGraphic
         representativePercent = Mathf.Clamp(representativeThresholdPercent, 50, 100);
         dryAlpha = Mathf.Clamp01(dryNectarAlpha); wetAlpha = Mathf.Clamp01(wetNectarAlpha);
         pollenMinimum = Mathf.Clamp01(minimumPollenScale);
+        nectarMaximum = Mathf.Max(.01f,maximumNectarScale);
+        pollenMaximum = Mathf.Max(.01f,maximumPollenScale);
+        larvaMinimum=Mathf.Clamp01(minimumLarvaScale);larvaMaximum=Mathf.Max(.01f,maximumLarvaScale);
+        pupaStart=pupaStartColor??Color.white;pupaEnd=pupaEndColor??Color.white;
         artwork = images ?? new FrameCellArtwork();
         BuildLayers();
         raycastTarget = false; color = Color.white;
@@ -179,13 +188,26 @@ public class FrameCellMesh : MaskableGraphic
             : cell.FillRatio > 0);
         return new State { Construction = cell.Construction, Complete = cell.IsComplete,
             Occupant = OccupantAt(index, cell),
+            BroodProgress = BroodProgressAt(index,cell),
+            BroodSeed = cell.Content == CellContentKind.Brood ? BroodAppearanceSeed(surface.GetBeeId(index%columns,index/columns)) : 0,
             PollenSeed = surface.GetPollenAppearanceSeed(index % columns,index / columns),
-            PollenScale = cell.Content == CellContentKind.Pollen ? Mathf.Lerp(pollenMinimum, 1,
+            PollenScale = cell.Content == CellContentKind.Pollen ? pollenMaximum * Mathf.Lerp(pollenMinimum, 1,
                 Mathf.Clamp01((float)surface.GetCapacityFillRatio(index % columns, index / columns))) : 0,
             NectarKind = present ? RepresentativeNectar(surface, index % columns, index / columns, representativePercent) : 4,
             NectarAlpha = NectarOpacity(surface.GetTotalSugarMassMg(index % columns, index / columns),
                 surface.GetWaterMassMg(index % columns, index / columns), dryAlpha, wetAlpha),
-            Nectar = present ? Mathf.Lerp(nectarMinimum, 1, Mathf.Clamp01(fill)) : 0 };
+            Nectar = present ? nectarMaximum * Mathf.Lerp(nectarMinimum, 1, Mathf.Clamp01(fill)) : 0 };
+    }
+
+    private float BroodProgressAt(int index,CellData cell)
+    {
+        if(cell.Content!=CellContentKind.Brood||broodRuntime==null)return 0;
+        return broodRuntime.TryGetObservationDevelopment(surface.GetBeeId(index%columns,index/columns),out _,out double progress)?(float)progress:0;
+    }
+    private static uint BroodAppearanceSeed(long beeId)
+    {
+        // Stable hash of the full saved identity; no simulation RNG or extra save state.
+        unchecked { ulong x=(ulong)beeId+0x9e3779b97f4a7c15UL;x=(x^(x>>30))*0xbf58476d1ce4e5b9UL;x=(x^(x>>27))*0x94d049bb133111ebUL;x^=x>>31;uint seed=(uint)(x^(x>>32));return seed==0?1:seed; }
     }
 
     private int OccupantAt(int index, CellData cell)
@@ -263,7 +285,9 @@ public class FrameCellMesh : MaskableGraphic
             // Supplied square artwork shares a canvas: preserve its aspect and
             // internal whitespace (the egg is intentionally much smaller than the cap).
             if (occupant != null) DrawSprite(vh, texture, occupant, center, cell.Occupant == 1 ? new Vector2(57, 63) : new Vector2(96, 96), new Vector2(.5f, .5f),
-                scale * (cell.Occupant == 1 ? cell.PollenScale : 1), 0, 1, true, cell.Occupant == 1 ? cell.PollenSeed : 0);
+                scale * (cell.Occupant == 1 ? cell.PollenScale : cell.Occupant == 3 ? larvaMaximum*Mathf.Lerp(larvaMinimum,1,cell.BroodProgress) : 1),
+                cell.Occupant == 3 ? PollenRandom(cell.BroodSeed,5)*360f : 0, 1, true, cell.Occupant == 1 ? cell.PollenSeed : 0,
+                cell.Occupant == 4 ? Color.Lerp(pupaStart,pupaEnd,cell.BroodProgress) : (Color?)null);
         }
         foreach (var node in nodes)
         {
@@ -326,7 +350,7 @@ public class FrameCellMesh : MaskableGraphic
     // Use actual Sprite geometry/UVs, including sliced and tightly packed sprites.
     // Reference dimensions preserve the SVG layout regardless of image resolution.
     private void DrawSprite(VertexHelper vh, Texture texture, Sprite sprite, Vector2 anchor,
-        Vector2 size, Vector2 topLeftPivot, float scale, float angle, float alpha, bool preserveOrientation = false, uint pollenSeed = 0)
+        Vector2 size, Vector2 topLeftPivot, float scale, float angle, float alpha, bool preserveOrientation = false, uint pollenSeed = 0, Color? tintOverride = null)
     {
         if (sprite == null || sprite.texture != texture) return;
         var source = geometry[sprite];
@@ -334,7 +358,7 @@ public class FrameCellMesh : MaskableGraphic
         float radians = angle * Mathf.Deg2Rad, cos = Mathf.Cos(radians), sin = Mathf.Sin(radians);
         var matrix = transform.localToWorldMatrix;
         bool unmirror = preserveOrientation && matrix.m00 * matrix.m11 - matrix.m01 * matrix.m10 < 0;
-        var tint = pollenSeed == 0 ? Color.white : Color.Lerp(artwork.pollenColorA, artwork.pollenColorB, PollenRandom(pollenSeed,1));
+        var tint = tintOverride ?? (pollenSeed == 0 ? Color.white : Color.Lerp(artwork.pollenColorA, artwork.pollenColorB, PollenRandom(pollenSeed,1)));
         float rotation=PollenRandom(pollenSeed,2)*Mathf.PI*2;
         var offset=new Vector2(PollenRandom(pollenSeed,3),PollenRandom(pollenSeed,4));
         for (int i = 0; i < source.Vertices.Length; i++)
@@ -344,9 +368,10 @@ public class FrameCellMesh : MaskableGraphic
                 (pixel.y / sprite.rect.height - (1 - topLeftPivot.y)) * size.y) * scale;
             // Keep source-art handedness on both faces and with the cell-grid mirror.
             // Only reflect about the cell center; cell positions and wall topology stay intact.
+            p = new Vector2(p.x * cos - p.y * sin, p.x * sin + p.y * cos);
             if (unmirror) p.x = -p.x;
             var vertex = UIVertex.simpleVert;
-            vertex.position = anchor + new Vector2(p.x * cos - p.y * sin, p.x * sin + p.y * cos);
+            vertex.position = anchor + p;
             vertex.color = new Color(tint.r, tint.g, tint.b, alpha);
             var uv=new Vector2(pixel.x/sprite.rect.width-.5f,pixel.y/sprite.rect.height-.5f) / Mathf.Max(.01f,artwork.pollenTextureScale);
             vertex.uv1 = new Vector4(uv.x*Mathf.Cos(rotation)-uv.y*Mathf.Sin(rotation)+offset.x,uv.x*Mathf.Sin(rotation)+uv.y*Mathf.Cos(rotation)+offset.y,pollenSeed==0?0:1,0);
