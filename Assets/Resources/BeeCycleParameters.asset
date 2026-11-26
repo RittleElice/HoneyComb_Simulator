@@ -169,7 +169,7 @@ MonoBehaviour:
     routeCacheEntries: 128
     demoSugar: 528016.7189341638
     demoWater: 538519.5506661478
-    demoPollen: 1000000
+    demoPollen: 500344.0000000001
     eggBasalHeatJ: 0.000084
     larvaBasalHeatJ: 0.03
     pupaBasalHeatJ: 0.0144

@@ -23,7 +23,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     public int demoWorkers=48, forageSourceId=0;
     public int demoFrames=2,demoConstruction=0;
     public int routeCacheEntries=128;
-    public double demoSugar=528016.7189341638,demoWater=538519.5506661478,demoPollen=1000000;
+    public double demoSugar=528016.7189341638,demoWater=538519.5506661478,demoPollen=500344.0000000001;
     public double basalHeatJ=0.02712, extraHeatJ=0.6, heatEnergy=0.1;
     public double broodTick=1.0/1440, eggEnd=3, larvaEnd=9, adultStart=21;
     public double idleDevelopment=0.0007, restDevelopment=0.0007, recoverDevelopment=0.0008;
