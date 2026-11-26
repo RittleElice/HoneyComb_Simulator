@@ -66,6 +66,9 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
     [Tooltip("알의 고정 랜덤 회전 범위(도). X는 최소, Y는 최대이며 같은 값이면 고정 각도입니다.")]
     [SerializeField] private Vector2 eggRotationRange = new Vector2(0f,360f);
 
+    [Tooltip("완성 소방 이미지에 곱할 색입니다. 흰색은 원본 색을 유지합니다.")]
+    [SerializeField, ColorUsage(false)] private Color completeCellColor = Color.white;
+
     [Header("Performance")]
     [SerializeField, Range(50, 500)]
     private int cellsPerMesh = 400;
@@ -202,7 +205,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
             FrameCellMesh mesh = go.AddComponent<FrameCellMesh>();
 
             mesh.ConfigureArt(columns, start, end, radius, origin, topology,
-                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale, artwork, representativeNectarPercent, dryNectarAlpha, wetNectarAlpha, pollenMinimumScale, nectarMaximumScale, pollenMaximumScale, larvaMinimumScale, larvaMaximumScale, pupaStartColor, pupaEndColor, completeCellOpacity, eggRotationRange.x, eggRotationRange.y);
+                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale, artwork, representativeNectarPercent, dryNectarAlpha, wetNectarAlpha, pollenMinimumScale, nectarMaximumScale, pollenMaximumScale, larvaMinimumScale, larvaMaximumScale, pupaStartColor, pupaEndColor, completeCellOpacity, eggRotationRange.x, eggRotationRange.y, completeCellColor);
 
             mesh.SetSurface(frame.GetFacingSurface(), broodRuntime);
             meshes.Add(mesh);

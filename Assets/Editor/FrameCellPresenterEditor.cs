@@ -5,6 +5,29 @@ using UnityEngine;
 public sealed class FrameCellPresenterEditor : Editor
 {
     bool preview = true;
+    bool imagePreview;
+    FrameCellEditorPreview samplePreview;
+    void OnEnable()
+    {
+        samplePreview=new FrameCellEditorPreview();
+        EditorApplication.update+=UpdateImagePreview;
+        EditorApplication.playModeStateChanged+=OnPlayMode;
+        AssemblyReloadEvents.beforeAssemblyReload+=ClearImagePreview;
+    }
+    void OnDisable()
+    {
+        EditorApplication.update-=UpdateImagePreview;
+        EditorApplication.playModeStateChanged-=OnPlayMode;
+        AssemblyReloadEvents.beforeAssemblyReload-=ClearImagePreview;
+        ClearImagePreview();
+    }
+    void OnPlayMode(PlayModeStateChange state){if(state==PlayModeStateChange.ExitingEditMode)ClearImagePreview();}
+    void ClearImagePreview(){samplePreview?.Dispose();}
+    void UpdateImagePreview()
+    {
+        if(!target||!imagePreview||EditorApplication.isPlayingOrWillChangePlaymode){ClearImagePreview();return;}
+        samplePreview?.Update((FrameCellPresenter)target);
+    }
     public override void OnInspectorGUI()
     {
         serializedObject.Update();
@@ -36,6 +59,12 @@ public sealed class FrameCellPresenterEditor : Editor
             }
         }
         preview = EditorGUILayout.Toggle("씬 화면 배열 미리보기", preview);
+        using(new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode))
+            imagePreview=EditorGUILayout.Toggle(new GUIContent("예시 이미지 미리보기","재생하지 않고 새 게임 초기 배치의 벽·내용물·봉충을 표시합니다. 예시 데이터는 저장되지 않습니다."),imagePreview);
+        if(imagePreview)EditorGUILayout.HelpBox("새 게임 초기 배치의 예시입니다. 실제 게임과 프리팹에는 저장되지 않습니다. 선택을 해제하거나 재생하면 임시 표시가 제거됩니다.",MessageType.Info);
+        if(imagePreview&&area==null)EditorGUILayout.HelpBox("소방 표시 영역을 먼저 연결해 주세요.",MessageType.Warning);
+        if(imagePreview&&EditorUtility.IsPersistent(target))EditorGUILayout.HelpBox("씬에 배치한 소비장을 선택하거나 프리팹 모드를 열어 확인해 주세요.",MessageType.Info);
+        UpdateImagePreview();
         if (GUI.changed) SceneView.RepaintAll();
     }
 
@@ -51,7 +80,7 @@ public sealed class FrameCellPresenterEditor : Editor
         Group("소방 벽",
             "artwork.wallTwoArm", "두 방향 벽 이미지", "artwork.wallThreeArm", "세 방향 벽 이미지",
             "wallMinimumAlpha", "최소 불투명도", "wallMaximumAlpha", "최대 불투명도");
-        Group("완성 소방", "artwork.completeCell", "이미지", "completeCellOpacity", "불투명도");
+        Group("완성 소방", "artwork.completeCell", "이미지", "completeCellOpacity", "불투명도", "completeCellColor", "색상");
         Group("화밀",
             "artwork.rapeSeedNectar", "유채 이미지", "artwork.cherryBlossomNectar", "벚꽃 이미지",
             "artwork.blackLocustNectar", "아까시 이미지", "artwork.chestnutNectar", "밤 이미지",
@@ -74,8 +103,13 @@ public sealed class FrameCellPresenterEditor : Editor
     void Group(string title,params string[] fields)
     {
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField(title,EditorStyles.boldLabel);
-        for(int i=0;i<fields.Length;i+=2)Field(fields[i],fields[i+1]);
+        string key="HoneyComb.FrameCellInspector."+title;
+        bool expanded=SessionState.GetBool(key,true);
+        bool next=EditorGUILayout.Foldout(expanded,title,true,EditorStyles.foldoutHeader);
+        if(next!=expanded)SessionState.SetBool(key,next);
+        if(!next)return;
+        using(new EditorGUI.IndentLevelScope())
+            for(int i=0;i<fields.Length;i+=2)Field(fields[i],fields[i+1]);
     }
 
     void Field(string path,string label)

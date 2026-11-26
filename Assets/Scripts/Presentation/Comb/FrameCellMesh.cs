@@ -119,6 +119,21 @@ public class FrameCellMesh : MaskableGraphic
     private float larvaMinimum=.3f, larvaMaximum=1f;
     private Color pupaStart=Color.white,pupaEnd=Color.white;
     private float completeOpacity=1f,eggAngleMin=0f,eggAngleMax=360f;
+    private Color completeTint=Color.white;
+#if UNITY_EDITOR
+    private IReadOnlyDictionary<long,(CycleStage stage,float progress)> editorBrood;
+    public void SetEditorPreview(FrameSurface value,IReadOnlyDictionary<long,(CycleStage stage,float progress)> brood)
+    { editorBrood=brood;SetSurface(value); }
+#endif
+    private bool ReadBrood(long id,out CycleStage stage,out float progress)
+    {
+#if UNITY_EDITOR
+        if(editorBrood!=null&&editorBrood.TryGetValue(id,out var sample)){stage=sample.stage;progress=sample.progress;return true;}
+#endif
+        stage=default;progress=0;
+        if(broodRuntime==null||!broodRuntime.TryGetObservationDevelopment(id,out stage,out double value))return false;
+        progress=(float)value;return true;
+    }
     private Vector2 origin;
     private FrameCellArtwork artwork;
     private Texture primaryTexture;
@@ -147,7 +162,7 @@ public class FrameCellMesh : MaskableGraphic
     public void ConfigureArt(int columns, int firstIndex, int lastIndex, float radius,
         Vector2 origin, List<Junction> topology, float minimumAlpha, float maximumAlpha, float minimumNectar,
         FrameCellArtwork images = null, float representativeThresholdPercent = 50f,
-        float dryNectarAlpha = 1f, float wetNectarAlpha = .3f, float minimumPollenScale = .3f, float maximumNectarScale = 1f, float maximumPollenScale = 1f, float minimumLarvaScale = .3f, float maximumLarvaScale = 1f, Color? pupaStartColor = null, Color? pupaEndColor = null, float completeCellOpacity = 1f, float minimumEggAngle = 0f, float maximumEggAngle = 360f)
+        float dryNectarAlpha = 1f, float wetNectarAlpha = .3f, float minimumPollenScale = .3f, float maximumNectarScale = 1f, float maximumPollenScale = 1f, float minimumLarvaScale = .3f, float maximumLarvaScale = 1f, Color? pupaStartColor = null, Color? pupaEndColor = null, float completeCellOpacity = 1f, float minimumEggAngle = 0f, float maximumEggAngle = 360f, Color? completeCellColor = null)
     {
         this.columns = columns; this.firstIndex = firstIndex; this.lastIndex = lastIndex;
         this.radius = radius; this.origin = origin;
@@ -160,7 +175,7 @@ public class FrameCellMesh : MaskableGraphic
         pollenMaximum = Mathf.Max(.01f,maximumPollenScale);
         larvaMinimum=Mathf.Clamp01(minimumLarvaScale);larvaMaximum=Mathf.Max(.01f,maximumLarvaScale);
         pupaStart=pupaStartColor??Color.white;pupaEnd=pupaEndColor??Color.white;
-        completeOpacity=Mathf.Clamp01(completeCellOpacity);
+        completeOpacity=Mathf.Clamp01(completeCellOpacity);completeTint=completeCellColor??Color.white;
         eggAngleMin=Mathf.Min(minimumEggAngle,maximumEggAngle);eggAngleMax=Mathf.Max(minimumEggAngle,maximumEggAngle);
         artwork = images ?? new FrameCellArtwork();
         BuildLayers();
@@ -204,8 +219,8 @@ public class FrameCellMesh : MaskableGraphic
 
     private float BroodProgressAt(int index,CellData cell)
     {
-        if(cell.Content!=CellContentKind.Brood||broodRuntime==null)return 0;
-        return broodRuntime.TryGetObservationDevelopment(surface.GetBeeId(index%columns,index/columns),out _,out double progress)?(float)progress:0;
+        if(cell.Content!=CellContentKind.Brood)return 0;
+        return ReadBrood(surface.GetBeeId(index%columns,index/columns),out _,out float progress)?progress:0;
     }
     private static uint BroodAppearanceSeed(long beeId)
     {
@@ -218,8 +233,8 @@ public class FrameCellMesh : MaskableGraphic
         int x = index % columns, y = index / columns;
         if (cell.Content == CellContentKind.Pollen)
             return surface.GetPollenMassMg(x, y) > 0 || cell.FillRatio > 0 ? 1 : 0;
-        if (cell.Content != CellContentKind.Brood || broodRuntime == null ||
-            !broodRuntime.TryGetObservationStage(surface.GetBeeId(x, y), out var stage)) return 0;
+        if (cell.Content != CellContentKind.Brood ||
+            !ReadBrood(surface.GetBeeId(x, y), out var stage,out _)) return 0;
         switch (stage)
         {
             case CycleStage.Egg: return 2;
@@ -282,7 +297,7 @@ public class FrameCellMesh : MaskableGraphic
             int x = index % columns, y = index / columns;
             var center = origin + new Vector2(Mathf.Sqrt(3f) * radius * (x + .5f + (y & 1) * .5f), radius + y * 1.5f * radius);
             var cell = Cached(index);
-            if (cell.Complete) DrawSprite(vh, texture, artwork.completeCell, center, new Vector2(60, 69), new Vector2(.5f, .5f), scale, 0, completeOpacity, true);
+            if (cell.Complete) DrawSprite(vh, texture, artwork.completeCell, center, new Vector2(60, 69), new Vector2(.5f, .5f), scale, 0, completeOpacity, true, 0, completeTint);
             if (cell.Nectar > 0) DrawSprite(vh, texture, artwork.Nectar(cell.NectarKind), center, new Vector2(57, 63), new Vector2(.5f, .5f), scale * cell.Nectar, 0, cell.NectarAlpha, true);
             Sprite occupant = cell.Occupant == 1 ? artwork.pollen : cell.Occupant == 2 ? artwork.egg : cell.Occupant == 3 ? artwork.larva : cell.Occupant == 4 ? artwork.cappedPupa : null;
             // Supplied square artwork shares a canvas: preserve its aspect and
