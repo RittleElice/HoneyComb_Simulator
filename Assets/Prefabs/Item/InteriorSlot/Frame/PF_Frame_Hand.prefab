@@ -123,6 +123,12 @@ MonoBehaviour:
     blackLocustNectar: {fileID: -7231228680672823943, guid: 8ef2908dc0ee4be4bba464a374226089, type: 3}
     chestnutNectar: {fileID: 5679476736230718730, guid: 5bf90569848b11a458dc10f59b4324a2, type: 3}
     wildflowerNectar: {fileID: 7810317847323518934, guid: f0f9ee41c0e02554ca51176a119eb78f, type: 3}
+  representativeNectarPercent: 50
+  dryNectarAlpha: 1
+  wetNectarAlpha: 0.3
+  wallMinimumAlpha: 0
+  wallMaximumAlpha: 1
+  nectarMinimumScale: 0.3
   cellsPerMesh: 100
 --- !u!1 &4271564072480153360
 GameObject:

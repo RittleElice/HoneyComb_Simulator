@@ -36,10 +36,23 @@ public sealed partial class BeeCycleRuntime
         if(broodCount>brood.Count)throw new InvalidOperationException("Initial B cells are insufficient for the configured brood count.");
         if(CombBalance.NectarVolumeMl(Settings.demoSugar,Settings.demoWater)>honey.Count*CombBalance.LiquidCapacityMl*0.999999||Settings.demoPollen>pollenSlots.Count*CombBalance.PollenCapacityMg*0.999999)throw new InvalidOperationException("Initial H/P cells have insufficient capacity for configured food.");
         double sugar=Settings.demoSugar,water=Settings.demoWater,pollen=Settings.demoPollen;
+        var balance=CombBalance.Snapshot();
+        double initialVolume=CombBalance.NectarVolumeMl(sugar,water);
+        double cellVolume=honey.Count>0?initialVolume/honey.Count:0;
+        double waterVolumeFraction=initialVolume>0?water/(1000*balance.WaterDensityGPerMl)/initialVolume:0;
+        // Five source bands across each face and five repeating moisture levels
+        // down the H rows. Center the levels over actual H slots, including partial
+        // rows, so the existing whole-colony sugar/water totals are preserved.
+        double meanLevel=honey.Count>0?honey.Average(c=>(c.region.surface.Height-1-c.y)%5):0;
+        double moistureVariation=1.6*Math.Min(waterVolumeFraction,1-waterVolumeFraction);
         for(int i=0;i<honey.Count;i++)
         {
-            var c=honey[i];int n=honey.Count-i;float s=(float)(sugar/n),w=(float)(water/n);
-            if((s>0||w>0)&&!c.region.surface.TryAddNectar(c.x,c.y,Settings.forageSourceId,s,w))throw new InvalidOperationException("Initial nectar placement failed.");
+            var c=honey[i];int n=honey.Count-i;
+            double fraction=waterVolumeFraction+moistureVariation*((c.region.surface.Height-1-c.y)%5-meanLevel)/4;
+            float w=(float)(n==1?water:Math.Min(water,cellVolume*fraction*1000*balance.WaterDensityGPerMl));
+            float s=(float)(n==1?sugar:Math.Min(sugar,cellVolume*(1-fraction)*1000*balance.SugarEffectiveDensityGPerMl));
+            int source=Math.Min(4,c.x*5/c.region.surface.Width);
+            if((s>0||w>0)&&!c.region.surface.TryAddNectar(c.x,c.y,source,s,w))throw new InvalidOperationException("Initial nectar placement failed.");
             sugar=Math.Max(0,sugar-s);water=Math.Max(0,water-w);
         }
         for(int i=0;i<pollenSlots.Count;i++)

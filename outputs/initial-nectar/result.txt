@@ -1,0 +1,3 @@
+PASS case 0: nectar cells=524, sources=5, sugar=2000000mg, water=476190.47619628906mg, pollen=1000000mg, moisture=4.18 %..39.09 %
+PASS case 1: nectar cells=524, sources=5, sugar=2000000mg, water=0mg, pollen=1000000mg, moisture=0.00 %..0.00 %
+PASS case 2: nectar cells=524, sources=0, sugar=0mg, water=476190.47619628906mg, pollen=1000000mg, moisture=100.00 %..100.00 %
