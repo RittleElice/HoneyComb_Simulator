@@ -35,6 +35,7 @@ public sealed partial class FrameSurface
     // Return the real float32 increase, not the requested double amount.
     public double DepositCycle(int x,int y,int source,double requested,bool pollen)
     {
+        source=NectarSourceIdentity.Stored(source);
         if(double.IsNaN(requested)||double.IsInfinity(requested)||requested<0)throw new ArgumentException(nameof(requested));
         if(requested==0)return 0;
         double before=pollen?GetPollenMassMg(x,y):GetSugarMassMg(x,y,source);

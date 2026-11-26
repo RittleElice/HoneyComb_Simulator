@@ -1,0 +1,15 @@
+FAIL EquipmentCellDataTests: System.Exception: Equipment/cell data: fixed default compact arrays
+  at EquipmentCellDataTests.Check (System.Boolean condition, System.String message) [0x00020] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\Tests\EquipmentCellDataTests.cs:8 
+  at EquipmentCellDataTests.RunAll () [0x00140] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\Tests\EquipmentCellDataTests.cs:25 
+  at CellSpriteStorageRegression.Check (System.Text.StringBuilder report, System.String name, System.Action action) [0x00000] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\Tests\CellSpriteStorageRegression.cs:25 
+FAIL CombThermalTests: System.Exception: Comb thermal: brood proxy: 0 != 0.3
+  at CombThermalTests.Check (System.Boolean value, System.String message) [0x00020] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\Tests\CombThermalTests.cs:6 
+  at CombThermalTests.Near (System.Double value, System.Double expected, System.String message) [0x00000] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\Tests\CombThermalTests.cs:7 
+  at CombThermalTests.RunAll () [0x0030d] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\Tests\CombThermalTests.cs:47 
+  at CellSpriteStorageRegression.Check (System.Text.StringBuilder report, System.String name, System.Action action) [0x00000] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\Tests\CellSpriteStorageRegression.cs:25 
+PASS WorldSaveTests
+FAIL BeeForageTests: System.Exception: 5:15 sugar share A: 6 / 3
+  at BeeForageTests.Check (System.Boolean ok, System.String label) [0x00016] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\BeeForageTests.cs:13 
+  at BeeForageTests.Near (System.Double a, System.Double b, System.String label) [0x00000] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\BeeForageTests.cs:14 
+  at BeeForageTests.Run () [0x001ed] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\BeeForageTests.cs:46 
+  at CellSpriteStorageRegression.Check (System.Text.StringBuilder report, System.String name, System.Action action) [0x00000] in C:\Users\314os\.codex\.chatgpt-projects\g-p-6ab93928d090819192699342a792da80\wall-validation\Assets\Editor\Tests\CellSpriteStorageRegression.cs:25 

@@ -89,12 +89,25 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     public double Mass=>Sugar+pollen;
     public void Add(int source,double amount)
     {
+        source=NectarSourceIdentity.Stored(source);
         if(amount<=0)return;
         foreach(var s in sugars)if(s.source==source){s.mass+=amount;return;}
         sugars.Add(new CycleSugar{source=source,mass=amount});
     }
     public void Add(CycleCargo other,double fraction)
     { foreach(var s in other.sugars)Add(s.source,s.mass*fraction);pollen+=other.pollen*fraction; }
+    public void NormalizeWildflowerSources()
+    {
+        int first=-1;
+        for(int i=0;i<sugars.Count;i++)
+        {
+            var s=sugars[i];
+            if(NectarSourceIdentity.Stored(s.source)!=NectarSourceIdentity.Wildflower)continue;
+            s.source=NectarSourceIdentity.Wildflower;
+            if(first<0){first=i;continue;}
+            sugars[first].mass+=s.mass;sugars.RemoveAt(i--);
+        }
+    }
     public double Consume(double requested)
     {
         double total=Sugar,take=Math.Min(total,Math.Max(0,requested));

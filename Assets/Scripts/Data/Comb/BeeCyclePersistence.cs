@@ -37,6 +37,7 @@ public sealed partial class BeeCycleRuntime
             if(b.id<=0||byId.ContainsKey(b.id)||b.reserve<0||b.energy<0||b.health<0||b.development<0||b.cargo.pollen<0||b.pathIndex<0||b.pathIndex>b.path.Count||b.progress<0)throw new InvalidDataException("Invalid bee state.");
             if(b.stage!=CycleStage.Dead&&!b.outside&&!World.BeeLocations.TryGet(b.id,out _))throw new InvalidDataException("Missing bee location.");
             foreach(var s in b.cargo.sugars)if(s.mass<0||s.source<0)throw new InvalidDataException("Invalid cargo.");
+            b.cargo.NormalizeWildflowerSources();
             byId.Add(b.id,b);nextId=Math.Max(nextId,b.id+1);
             if(b.mutableDesires!=null){b.desireState=InternDesires(CycleDesireState.From(b.mutableDesires));b.mutableDesires=null;b.desireIndex=null;}
         }

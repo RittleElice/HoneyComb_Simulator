@@ -31,6 +31,13 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
     private float outlineWidth = 0.5f;
 
     [Header("소방 상태 이미지")]
+    [SerializeField] private FrameCellArtwork artwork = new FrameCellArtwork();
+    [Tooltip("전체 당분량 중 이 비율을 초과한 밀원을 표시합니다. 같거나 대표 밀원이 없으면 잡화로 표시합니다. 물은 제외하고 잡화 4종은 합산합니다.")]
+    [SerializeField, Range(50f, 100f)] private float representativeNectarPercent = 50f;
+    [Tooltip("수분 비율 0%일 때 화밀 이미지의 불투명도")]
+    [SerializeField, Range(0f, 1f)] private float dryNectarAlpha = 1f;
+    [Tooltip("수분 비율 100%일 때 화밀 이미지의 불투명도")]
+    [SerializeField, Range(0f, 1f)] private float wetNectarAlpha = .3f;
     [Tooltip("건설 중인 소방벽의 최소 투명도. 건설도 0인 소방만 접한 곳은 숨깁니다.")]
     [SerializeField, Range(0f, 1f)] private float wallMinimumAlpha = 0f;
     [Tooltip("건설도 100일 때 소방벽의 투명도. 공유 유닛은 인접 소방의 최대 건설도를 사용합니다.")]
@@ -160,7 +167,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
             FrameCellMesh mesh = go.AddComponent<FrameCellMesh>();
 
             mesh.ConfigureArt(columns, start, end, radius, origin, topology,
-                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale);
+                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale, artwork, representativeNectarPercent, dryNectarAlpha, wetNectarAlpha);
 
             mesh.SetSurface(frame.GetFacingSurface());
             meshes.Add(mesh);
@@ -219,6 +226,8 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         wallMinimumAlpha = Mathf.Clamp01(wallMinimumAlpha);
         wallMaximumAlpha = Mathf.Clamp(wallMaximumAlpha, wallMinimumAlpha, 1f);
         nectarMinimumScale = Mathf.Clamp(nectarMinimumScale, .01f, 1f);
+        representativeNectarPercent = Mathf.Clamp(representativeNectarPercent, 50f, 100f);
+        dryNectarAlpha = Mathf.Clamp01(dryNectarAlpha); wetNectarAlpha = Mathf.Clamp01(wetNectarAlpha);
 
         if (Application.isPlaying && isActiveAndEnabled)
             Rebuild();

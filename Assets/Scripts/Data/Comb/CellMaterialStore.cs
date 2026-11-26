@@ -2,6 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
+// Weather keeps four seasonal wildflower producers (4..7). Stored nectar has
+// one Wildflower identity (4); other existing IDs retain their numeric meaning.
+public static class NectarSourceIdentity
+{
+    public const int Wildflower = 4;
+    public static int Stored(int source) => source >= 4 && source <= 7 ? Wildflower : source;
+}
+
 public enum CellRemovalReason { ConstructionCollapse, ExplicitClear, LegacyReplacement }
 
 // Emitted AFTER commit. Subscribers must not throw. Bulk edits stop if a subscriber
@@ -62,6 +70,7 @@ internal sealed partial class CellMaterialStore
     }
     internal bool AddNectar(int index, int source, float sugar, float water)
     {
+        source = NectarSourceIdentity.Stored(source);
         var p = payloads[index];
         float nextWater = p.Mass + water;
         if (!ValidMass(nextWater)) return false;

@@ -114,6 +114,15 @@ MonoBehaviour:
   flipCellsX: 1
   outlineColor: {r: 0.5, g: 0.3, b: 0.1, a: 0.8}
   outlineWidth: 1
+  artwork:
+    wallTwoArm: {fileID: 108120564646386909, guid: b79ed32dde8b6414d8af1d8aaa104222, type: 3}
+    wallThreeArm: {fileID: 285975524632947541, guid: fd36f67624cd1a34cb4d49a381c2bc8d, type: 3}
+    completeCell: {fileID: -8879938817343946026, guid: a1d492d49f6444045a10ce8fab240b83, type: 3}
+    rapeSeedNectar: {fileID: 5668267880197773126, guid: 47473757255ec8046ae28d1fd9607b4a, type: 3}
+    cherryBlossomNectar: {fileID: -6769574989968551802, guid: 0f58421a18c267447a5a3eaede1d4a4e, type: 3}
+    blackLocustNectar: {fileID: -7231228680672823943, guid: 8ef2908dc0ee4be4bba464a374226089, type: 3}
+    chestnutNectar: {fileID: 5679476736230718730, guid: 5bf90569848b11a458dc10f59b4324a2, type: 3}
+    wildflowerNectar: {fileID: 7810317847323518934, guid: f0f9ee41c0e02554ca51176a119eb78f, type: 3}
   cellsPerMesh: 100
 --- !u!1 &4271564072480153360
 GameObject:

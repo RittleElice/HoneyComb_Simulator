@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -10,108 +11,100 @@ public static class CellWallValidation
 {
     const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
     static int checks;
-    static void Check(bool ok, string name) { checks++; if (!ok) throw new Exception(name); }
-    static void Populate(FrameCellMesh graphic, VertexHelper vertices)
-        => typeof(FrameCellMesh).GetMethod("OnPopulateMesh", Flags | BindingFlags.DeclaredOnly).Invoke(graphic, new object[] { vertices });
-    static void Late(FrameCellPresenter presenter) => typeof(FrameCellPresenter).GetMethod("LateUpdate", Flags).Invoke(presenter, null);
-    static T Field<T>(object target, string name) => (T)target.GetType().GetField(name, Flags).GetValue(target);
-
+    static void Check(bool ok, string label) { checks++; if (!ok) throw new Exception(label); }
+    static void Late(FrameCellPresenter p) => typeof(FrameCellPresenter).GetMethod("LateUpdate", Flags).Invoke(p, null);
+    static Sprite Load(string name) => AssetDatabase.LoadAllAssetsAtPath("Assets/Art/CellObservation/" + name + ".png").OfType<Sprite>().First();
+    static FrameCellArtwork Art() => new FrameCellArtwork { wallTwoArm=Load("Cell_Unit_001"),wallThreeArm=Load("Cell_Unit_002"),completeCell=Load("Cell_Complete"),rapeSeedNectar=Load("Nactar_RapeSeed"),wildflowerNectar=Load("Nactar_Wildflower"),cherryBlossomNectar=Load("Nectar_CherryBlossom"),blackLocustNectar=Load("Nectar_BlackLocust"),chestnutNectar=Load("Nectar_Chestnut") };
+    static void Draw(FrameCellMesh mesh, Sprite sprite, VertexHelper vh) => typeof(FrameCellMesh).GetMethod("PopulateTexture", Flags).Invoke(mesh, new object[]{vh,sprite.texture});
+    static int Count(FrameCellMesh mesh, Sprite sprite) { using(var vh=new VertexHelper()){Draw(mesh,sprite,vh);return vh.currentVertCount;} }
+    static void Deposit(FrameSurface s,int source,float sugar,float water=0) => Check(s.TryAddNectar(0,0,source,sugar,water),"deposit");
     [MenuItem("Tools/HoneyComb/검증/Run Cell Wall Validation")]
     public static void Run()
     {
-        string folder = "outputs/cell-wall"; Directory.CreateDirectory(folder);
-        GameObject root = null;
+        const string folder="outputs/cell-sprites"; Directory.CreateDirectory(folder);
+        GameObject go=null;
         try
         {
-            var texture = Resources.Load<Texture2D>("CellObservationAtlas");
-            Check(texture && texture.width == 256 && texture.height == 128, "source atlas import without resizing");
-            var topology = FrameCellMesh.BuildJunctions(25, 12, 40, Vector2.zero);
-            Check(topology.Sum(n => n.Cells.Count) == 1800, "all 300 cells contribute six corners");
-            Check(topology.All(n => n.Cells.Count <= 3 && n.Cells.Distinct().Count() == n.Cells.Count), "junction deduplication");
-            Check(topology.All(n => n.Owner == n.Cells.Min()), "one stable owner per shared junction");
-            root = new GameObject("wall test", typeof(RectTransform));
-            var graphic = root.AddComponent<FrameCellMesh>();
-            graphic.Configure(3, 3, 0, 9, 40, .5f, Vector2.zero, Color.white);
-            var surface = new FrameSurface(3, 3);
-            graphic.SetSurface(surface);
-            using (var vh = new VertexHelper())
+            var art=Art();
+            var prefab=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Item/InteriorSlot/Frame/PF_Frame_Hand.prefab");
+            var bound=(FrameCellArtwork)typeof(FrameCellPresenter).GetField("artwork",Flags).GetValue(prefab.GetComponent<FrameCellPresenter>());
+            Check(bound.wallTwoArm==art.wallTwoArm&&bound.wallThreeArm==art.wallThreeArm&&bound.completeCell==art.completeCell,"prefab walls and complete sprite bound");
+            for(int i=0;i<5;i++)Check(bound.Nectar(i)==art.Nectar(i),"prefab nectar sprite bound "+i);
+            var surface=new FrameSurface(3,3);
+            go=new GameObject("sprite test",typeof(RectTransform));var mesh=go.AddComponent<FrameCellMesh>();
+            mesh.ConfigureArt(3,0,9,40,Vector2.zero,FrameCellMesh.BuildJunctions(3,3,40,Vector2.zero),0,1,.3f,art);
+            mesh.SetSurface(surface);Check(Count(mesh,art.wallTwoArm)==0,"empty construction hidden");
+            surface.TrySetConstruction(0,0,60);mesh.SetSurface(surface);
+            Check(Count(mesh,art.wallTwoArm)==6*art.wallTwoArm.vertices.Length,"isolated cell six two-arm sprites");
+            surface.TrySetConstruction(1,0,100);mesh.SetSurface(surface);
+            Check(Count(mesh,art.wallThreeArm)==2*art.wallThreeArm.vertices.Length,"two shared junctions");
+            using(var vh=new VertexHelper())
             {
-                Populate(graphic, vh); Check(vh.currentVertCount == 0, "zero construction is invisible");
-                surface.TrySetConstruction(1, 1, 60); graphic.SetSurface(surface); Populate(graphic, vh);
-                Check(vh.currentVertCount == 24, "isolated cell uses exactly six two-arm units");
-                var vertex = new UIVertex(); vh.PopulateUIVertex(ref vertex, 0);
-                Check(Math.Abs(vertex.color.a / 255f - .6f) < .005, "wall alpha follows construction");
-                surface.TrySetConstruction(2, 1, 100); graphic.SetSurface(surface); Populate(graphic, vh);
-                Check(vh.currentVertCount == 44, "two adjacent cells: ten shared-deduplicated junctions plus one completed fill");
-                int triple = 0;
-                for (int i = 0; i < vh.currentVertCount; i += 4)
+                Draw(mesh,art.wallThreeArm,vh);var v=new UIVertex();vh.PopulateUIVertex(ref v,0);Check(v.color.a==255,"maximum neighbor opacity");
+            }
+            surface.TrySetConstruction(0,0,100);
+            Deposit(surface,0,50,300);Deposit(surface,1,50);
+            Check(FrameCellMesh.RepresentativeNectar(surface,0,0,50)==4,"50/50 -> mixed");
+            Deposit(surface,0,1);
+            Check(FrameCellMesh.RepresentativeNectar(surface,0,0,50)==0,"strict majority, water excluded");
+            Check(FrameCellMesh.RepresentativeNectar(surface,0,0,60)==4,"adjustable higher threshold");
+            surface.TryClearContent(0,0);
+            Deposit(surface,4,10);Deposit(surface,5,20);Deposit(surface,6,30);Deposit(surface,7,40);
+            var entries=new List<KeyValuePair<int,float>>();surface.CopyNectarSugars(0,0,entries);
+            Check(entries.Count==1&&entries[0].Key==4&&entries[0].Value==100,"four wildflowers stored as one source");
+            Check(surface.GetSugarMassMg(0,0,5)==0&&surface.GetTotalSugarMassMg(0,0)==100,"no alias double counting");
+            Deposit(surface,2,90);Check(FrameCellMesh.RepresentativeNectar(surface,0,0,50)==4,"combined wildflower majority");
+            Check(Math.Abs(surface.DepositCycle(0,0,6,3,false)-3)<1e-6,"legacy source deposit reports actual canonical increase");
+            var cargo=surface.WithdrawCycle(0,0,193,false,out _);
+            Check(cargo.sugars.All(s=>s.source<5||s.source>7)&&Math.Abs(cargo.Sugar-193)<1e-6,"withdrawal preserves total and canonical identity");
+            var oldCargo=new CycleCargo();oldCargo.sugars.Add(new CycleSugar{source=5,mass=12});oldCargo.sugars.Add(new CycleSugar{source=7,mass=18});oldCargo.NormalizeWildflowerSources();oldCargo.Add(6,10);
+            Check(oldCargo.sugars.Count==1&&oldCargo.sugars[0].source==4&&oldCargo.Sugar==40,"legacy and new cargo collapse wildflower");
+            using(var stream=new MemoryStream())
+            {
+                using(var w=new BinaryWriter(stream,System.Text.Encoding.UTF8,true))
                 {
-                    vh.PopulateUIVertex(ref vertex, i);
-                    if (Math.Abs(vertex.uv0.x - 52f / 256) < .0001)
-                    { triple++; Check(vertex.color.a == 255, "shared junction takes maximum, not average construction"); }
+                    w.Write((byte)2);w.Write((byte)6);w.Write((byte)100);w.Write((byte)0);w.Write(0f);
+                    w.Write(true);w.Write(100f);w.Write(4);
+                    for(int i=4;i<8;i++){w.Write(i);w.Write((float)(i-3)*10);}
                 }
-                Check(triple == 2, "two shared triple units for adjacent cells");
-                surface.TrySetConstruction(2, 1, 60); graphic.SetSurface(surface); Populate(graphic, vh);
-                Check(vh.currentVertCount == 44, "historical completion persists at construction 60");
-                surface.TrySetConstruction(2, 1, 50); graphic.SetSurface(surface); Populate(graphic, vh);
-                Check(vh.currentVertCount == 40, "completion disappears at collapse threshold");
-                surface.TrySetConstruction(2, 1, 0); graphic.SetSurface(surface); Populate(graphic, vh);
-                Check(vh.currentVertCount == 24, "junction topology returns to closed isolated cell");
-                surface.TrySetConstruction(1, 1, 100);
-                Check(surface.TryAddNectar(1, 1, 7, .001f, .001f), "tiny source-specific nectar deposit");
-                graphic.SetSurface(surface); Populate(graphic, vh);
-                Check(vh.currentVertCount == 32, "completed fill and nectar both render");
-                UIVertex left = new UIVertex(), right = new UIVertex();
-                vh.PopulateUIVertex(ref left, 4); vh.PopulateUIVertex(ref right, 5);
-                Check(Math.Abs(Vector3.Distance(left.position, right.position) - 57 * .3f) < .001, "tiny nectar has 30 percent minimum width");
-                surface.TryClearContent(1, 1);
-                Check(surface.TryAddNectar(1, 1, 8, 0, (float)(CombBalance.LiquidCapacityMl * 1000)), "full liquid deposit");
-                graphic.SetSurface(surface); Populate(graphic, vh);
-                vh.PopulateUIVertex(ref left, 4); vh.PopulateUIVertex(ref right, 5);
-                Check(Math.Abs(Vector3.Distance(left.position, right.position) - 57) < .001, "full nectar reaches full sprite size");
-                surface.TryClearContent(1, 1); graphic.SetSurface(surface); Populate(graphic, vh);
-                Check(vh.currentVertCount == 28, "clearing content removes only nectar");
-                int before = graphic.RefreshCount; graphic.SetSurface(surface);
-                Check(graphic.RefreshCount == before, "unchanged state does not dirty mesh");
+                stream.Position=0;var restored=new FrameSurface(1,1);
+                using(var reader=new BinaryReader(stream,System.Text.Encoding.UTF8,true))typeof(FrameSurface).GetMethod("ReadSnapshot",Flags).Invoke(restored,new object[]{reader,false});
+                restored.CopyNectarSugars(0,0,entries);
+                Check(entries.Count==1&&entries[0].Key==4&&entries[0].Value==100&&restored.GetWaterMassMg(0,0)==100,"old snapshot merges all four wildflowers");
+                using(var roundtrip=new MemoryStream())
+                {
+                    using(var w=new BinaryWriter(roundtrip,System.Text.Encoding.UTF8,true))typeof(FrameSurface).GetMethod("WriteSnapshot",Flags).Invoke(restored,new object[]{w,false});
+                    roundtrip.Position=13;using(var r=new BinaryReader(roundtrip))Check(r.ReadInt32()==1&&r.ReadInt32()==4,"new save writes only one wildflower entry");
+                }
             }
-            UnityEngine.Object.DestroyImmediate(root); root = null;
-
-            var frame = new FrameData();
-            root = new GameObject("range test", typeof(RectTransform));
-            var meshes = new FrameCellMesh[3];
-            for (int i = 0; i < 3; i++)
+            Check(Math.Abs(FrameCellMesh.NectarOpacity(100,0,1,.3f)-1)<1e-6,"dry opaque");
+            Check(Math.Abs(FrameCellMesh.NectarOpacity(100,100,1,.3f)-.65f)<1e-6,"half water opacity");
+            Check(Math.Abs(FrameCellMesh.NectarOpacity(0,100,1,.3f)-.3f)<1e-6,"water-only minimum opacity");
+            for(int kind=0;kind<5;kind++)
             {
-                var child = new GameObject("range", typeof(RectTransform)); child.transform.SetParent(root.transform);
-                meshes[i] = child.AddComponent<FrameCellMesh>();
-                meshes[i].ConfigureArt(25, i * 100, (i + 1) * 100, 40, Vector2.zero, topology, 0, 1, .3f);
-                meshes[i].SetSurface(frame.Front);
+                surface.TryClearContent(0,0);Deposit(surface,kind,100,100);mesh.SetSurface(surface);
+                Check(Count(mesh,art.Nectar(kind))==art.Nectar(kind).vertices.Length,"source texture rendered "+kind);
+                using(var vh=new VertexHelper()){Draw(mesh,art.Nectar(kind),vh);var v=new UIVertex();vh.PopulateUIVertex(ref v,0);Check(Math.Abs(v.color.a/255f-.65f)<.005,"rendered moisture alpha");}
             }
-            var baseline = meshes.Select(m => m.RefreshCount).ToArray();
-            frame.Front.TrySetConstruction(10, 5, 60);
-            foreach (var mesh in meshes) mesh.SetSurface(frame.Front);
-            Check(meshes[0].RefreshCount == baseline[0] && meshes[2].RefreshCount == baseline[2] && meshes[1].RefreshCount == baseline[1] + 1,
-                "local cell update rebuilds only affected mesh range");
-            frame.Front.TrySetConstruction(10, 4, 80);
-            foreach (var mesh in meshes) mesh.SetSurface(frame.Front);
-            Check(meshes[0].RefreshCount == baseline[0] + 1, "cross-range shared junction invalidates its owner");
-            foreach (var mesh in meshes) mesh.SetSurface(frame.Back);
-            using (var vh = new VertexHelper()) foreach (var mesh in meshes) { Populate(mesh, vh); Check(vh.currentVertCount == 0, "back side displays its own state"); }
-            var watch = System.Diagnostics.Stopwatch.StartNew();
-            for (int i = 0; i < 10000; i++) foreach (var mesh in meshes) mesh.SetSurface(frame.Back);
-            watch.Stop();
-            File.WriteAllText(folder + "/timing.txt", "10,000 unchanged whole-facing-surface comparisons (300 cells plus shared boundary dependencies): " + watch.Elapsed.TotalMilliseconds + " ms. No mesh rebuild. Normal presenter skips comparisons unless revision changes.");
-            UnityEngine.Object.DestroyImmediate(root); root = null;
+            int revision=mesh.RefreshCount;mesh.SetSurface(surface);Check(mesh.RefreshCount==revision,"unchanged state no mesh rebuild");
+            surface.TryClearContent(0,0);Deposit(surface,1,100,100);mesh.SetSurface(surface);Check(mesh.RefreshCount==revision+1,"composition change with equal fill invalidates mesh");
+            Check(Count(mesh,art.wildflowerNectar)==0,"old source texture cleared");
+            surface.TryClearContent(0,0);Deposit(surface,1,.001f,.001f);mesh.SetSurface(surface);
+            using(var vh=new VertexHelper())
+            {
+                Draw(mesh,art.cherryBlossomNectar,vh);float lo=float.PositiveInfinity,hi=float.NegativeInfinity;var v=new UIVertex();
+                for(int i=0;i<vh.currentVertCount;i++){vh.PopulateUIVertex(ref v,i);lo=Math.Min(lo,v.position.x);hi=Math.Max(hi,v.position.x);}
+                float originalWidth=(art.cherryBlossomNectar.vertices.Max(p=>p.x)-art.cherryBlossomNectar.vertices.Min(p=>p.x))*art.cherryBlossomNectar.pixelsPerUnit/art.cherryBlossomNectar.rect.width*57;
+                Check(Math.Abs((hi-lo)/originalWidth-.3f)<.001,"minimum size 30 percent");
+            }
+            mesh.SetSurface(new FrameSurface(3,3));Check(Count(mesh,art.cherryBlossomNectar)==0&&Count(mesh,art.wallTwoArm)==0,"back surface clears all layers");
+            UnityEngine.Object.DestroyImmediate(go);go=null;
             RenderExample(folder);
-            File.WriteAllText(folder + "/result.txt", "PASS " + checks + " cell wall checks. Art/topology/alpha/completion/storage/clear/face/range invalidation/render/prefab binding.\n");
-            // Existing hit-coordinate, mirror, corner adjustment, drag-flip, cell-state regressions.
+            File.WriteAllText(folder+"/result.txt","PASS "+checks+" sprite binding, topology, threshold, moisture, canonical storage/cargo, old save migration and rendering checks.");
             FrameLayoutTests.Run();
         }
-        catch (Exception e)
-        {
-            File.WriteAllText(folder + "/result.txt", "FAIL " + e); Debug.LogException(e);
-            if (Application.isBatchMode) EditorApplication.Exit(1); throw;
-        }
-        finally { if (root) UnityEngine.Object.DestroyImmediate(root); }
+        catch(Exception e){File.WriteAllText(folder+"/result.txt","FAIL "+e);Debug.LogException(e);if(Application.isBatchMode)EditorApplication.Exit(1);throw;}
+        finally{if(go)UnityEngine.Object.DestroyImmediate(go);}
     }
 
     static void RenderExample(string folder)
@@ -131,11 +124,17 @@ public static class CellWallValidation
         Check(presenter && presenter.Frame == frame, "existing hand prefab binds new renderer");
         int[,] cells = { {9,6}, {10,6}, {11,6}, {10,7}, {11,7}, {11,8}, {12,8}, {12,5}, {13,5} };
         for (int i = 0; i < cells.GetLength(0); i++) frame.Front.TrySetConstruction(cells[i,0], cells[i,1], 70);
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 5; i++)
         {
             frame.Front.TrySetConstruction(6 + i * 3, 3, (byte)(25 + 25 * i));
             frame.Front.TrySetConstruction(6 + i * 3, 10, 100);
-            frame.Front.TryAddNectar(6 + i * 3, 10, i, 0, (float)(CombBalance.LiquidCapacityMl * 1000 * (i == 0 ? .00001 : i / 3.0)));
+            frame.Front.TryAddNectar(6 + i * 3, 10, i, 500, 500);
+        }
+        // Same source/amount of sugar, increasing moisture from left to right.
+        for(int i=0;i<5;i++)
+        {
+            frame.Front.TrySetConstruction(6+i*3,1,100);
+            frame.Front.TryAddNectar(6+i*3,1,2,200,i*200);
         }
         frame.Front.TrySetConstruction(12, 8, 100);
         Canvas.ForceUpdateCanvases(); presenter.Rebuild(); Canvas.ForceUpdateCanvases(); camera.Render();

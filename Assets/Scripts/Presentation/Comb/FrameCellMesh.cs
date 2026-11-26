@@ -2,6 +2,41 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
+[System.Serializable]
+public sealed class FrameCellArtwork
+{
+    public Sprite wallTwoArm;
+    public Sprite wallThreeArm;
+    public Sprite completeCell;
+    public Sprite rapeSeedNectar;
+    public Sprite cherryBlossomNectar;
+    public Sprite blackLocustNectar;
+    public Sprite chestnutNectar;
+    public Sprite wildflowerNectar;
+
+    public Sprite Nectar(int kind)
+    {
+        switch (kind)
+        {
+            case 0: return rapeSeedNectar;
+            case 1: return cherryBlossomNectar;
+            case 2: return blackLocustNectar;
+            case 3: return chestnutNectar;
+            case 4: return wildflowerNectar;
+            default: return null;
+        }
+    }
+}
+
+// One child per texture/range, never one object per cell.
+public sealed class FrameCellSpriteLayer : MaskableGraphic
+{
+    internal FrameCellMesh Owner;
+    internal Texture Texture;
+    public override Texture mainTexture => Texture != null ? Texture : Texture2D.whiteTexture;
+    protected override void OnPopulateMesh(VertexHelper vh) => Owner.PopulateTexture(vh, Texture);
+}
+
 // One batched graphic per range. Shared junctions have exactly one owner, including
 // junctions crossing a range boundary. The source art uses a hex radius of 40 px.
 [DisallowMultipleComponent]
@@ -42,18 +77,30 @@ public class FrameCellMesh : MaskableGraphic
         public byte Construction;
         public bool Complete;
         public float Nectar;
-        public bool Same(State other) => Construction == other.Construction && Complete == other.Complete && Nectar == other.Nectar;
+        public int NectarKind;
+        public float NectarAlpha;
+        public bool Same(State other) => Construction == other.Construction && Complete == other.Complete && Nectar == other.Nectar && NectarKind == other.NectarKind && NectarAlpha == other.NectarAlpha;
     }
     private FrameSurface surface;
     private int columns, firstIndex, lastIndex;
     private float radius, alphaMin, alphaMax = 1f, nectarMinimum = .3f;
+    private float representativePercent = 50f;
+    private float dryAlpha = 1f, wetAlpha = .3f;
     private Vector2 origin;
-    private Texture2D atlas;
+    private FrameCellArtwork artwork;
+    private Texture primaryTexture;
+    private readonly List<FrameCellSpriteLayer> layers = new List<FrameCellSpriteLayer>();
+    private sealed class SpriteGeometry
+    {
+        public Vector2[] Vertices, UV;
+        public ushort[] Triangles;
+    }
+    private readonly Dictionary<Sprite, SpriteGeometry> geometry = new Dictionary<Sprite, SpriteGeometry>();
     private readonly List<Junction> nodes = new List<Junction>();
     private readonly List<int> dependencies = new List<int>();
     private State[] states;
     public int RefreshCount { get; private set; }
-    public override Texture mainTexture => atlas != null ? atlas : Texture2D.whiteTexture;
+    public override Texture mainTexture => primaryTexture != null ? primaryTexture : Texture2D.whiteTexture;
 
     // Retains the existing entry point for callers and editor geometry tests.
     public void Configure(int columns, int rows, int firstIndex, int lastIndex,
@@ -64,13 +111,18 @@ public class FrameCellMesh : MaskableGraphic
     }
 
     public void ConfigureArt(int columns, int firstIndex, int lastIndex, float radius,
-        Vector2 origin, List<Junction> topology, float minimumAlpha, float maximumAlpha, float minimumNectar)
+        Vector2 origin, List<Junction> topology, float minimumAlpha, float maximumAlpha, float minimumNectar,
+        FrameCellArtwork images = null, float representativeThresholdPercent = 50f,
+        float dryNectarAlpha = 1f, float wetNectarAlpha = .3f)
     {
         this.columns = columns; this.firstIndex = firstIndex; this.lastIndex = lastIndex;
         this.radius = radius; this.origin = origin;
         alphaMin = Mathf.Clamp01(minimumAlpha); alphaMax = Mathf.Clamp(maximumAlpha, alphaMin, 1);
         nectarMinimum = Mathf.Clamp01(minimumNectar);
-        atlas = Resources.Load<Texture2D>("CellObservationAtlas");
+        representativePercent = Mathf.Clamp(representativeThresholdPercent, 50, 100);
+        dryAlpha = Mathf.Clamp01(dryNectarAlpha); wetAlpha = Mathf.Clamp01(wetNectarAlpha);
+        artwork = images ?? new FrameCellArtwork();
+        BuildLayers();
         raycastTarget = false; color = Color.white;
         nodes.Clear(); dependencies.Clear();
         var needed = new HashSet<int>();
@@ -97,7 +149,27 @@ public class FrameCellMesh : MaskableGraphic
             ? surface.GetTotalSugarMassMg(index % columns, index / columns) > 0 || surface.GetWaterMassMg(index % columns, index / columns) > 0
             : cell.FillRatio > 0);
         return new State { Construction = cell.Construction, Complete = cell.IsComplete,
+            NectarKind = present ? RepresentativeNectar(surface, index % columns, index / columns, representativePercent) : 4,
+            NectarAlpha = NectarOpacity(surface.GetTotalSugarMassMg(index % columns, index / columns),
+                surface.GetWaterMassMg(index % columns, index / columns), dryAlpha, wetAlpha),
             Nectar = present ? Mathf.Lerp(nectarMinimum, 1, Mathf.Clamp01(fill)) : 0 };
+    }
+
+    public static float NectarOpacity(double sugar, double water, float dry, float wet)
+        => Mathf.Lerp(dry, wet, sugar + water > 0 ? Mathf.Clamp01((float)(water / (sugar + water))) : 0);
+
+    public static int RepresentativeNectar(FrameSurface surface, int x, int y, float thresholdPercent)
+    {
+        double total = surface.GetTotalSugarMassMg(x, y);
+        if (total <= 0) return 4;
+        double threshold = total * (Mathf.Clamp(thresholdPercent, 50, 100) / 100.0);
+        // Stable forage IDs: 0 rape, 1 cherry, 2 black locust, 3 chestnut,
+        // 4..7 wildflowers. Water is deliberately absent from this comparison.
+        for (int kind = 0; kind < 4; kind++)
+            if (surface.GetSugarMassMg(x, y, kind) > threshold) return kind;
+        double wildflower = surface.GetSugarMassMg(x, y, NectarSourceIdentity.Wildflower);
+        if (wildflower > threshold) return 4;
+        return 4; // No strict majority, unknown source, or mixed nectar.
     }
 
     public void SetSurface(FrameSurface value)
@@ -111,7 +183,11 @@ public class FrameCellMesh : MaskableGraphic
             if (!states[i].Same(next)) changed = true;
             states[i] = next;
         }
-        if (changed) { RefreshCount++; SetVerticesDirty(); }
+        if (changed)
+        {
+            RefreshCount++; SetVerticesDirty();
+            foreach (var layer in layers) layer.SetVerticesDirty();
+        }
     }
 
     private State Cached(int index) => states[dependencies.BinarySearch(index)];
@@ -119,17 +195,20 @@ public class FrameCellMesh : MaskableGraphic
         => Mathf.Lerp(minimum, maximum, maximumConstruction / 100f);
 
     protected override void OnPopulateMesh(VertexHelper vh)
+        => PopulateTexture(vh, primaryTexture);
+
+    internal void PopulateTexture(VertexHelper vh, Texture texture)
     {
         vh.Clear();
-        if (surface == null || atlas == null || radius <= 0) return;
+        if (surface == null || texture == null || radius <= 0) return;
         float scale = radius / 40f;
         for (int index = firstIndex; index < lastIndex; index++)
         {
             int x = index % columns, y = index / columns;
             var center = origin + new Vector2(Mathf.Sqrt(3f) * radius * (x + .5f + (y & 1) * .5f), radius + y * 1.5f * radius);
             var cell = Cached(index);
-            if (cell.Complete) Quad(vh, center, new Rect(4, 48, 60, 69), new Vector2(30, 34.5f), scale, 0, 1);
-            if (cell.Nectar > 0) Quad(vh, center, new Rect(76, 48, 57, 63), new Vector2(28.5f, 31.5f), scale * cell.Nectar, 0, 1);
+            if (cell.Complete) DrawSprite(vh, texture, artwork.completeCell, center, new Vector2(60, 69), new Vector2(.5f, .5f), scale, 0, 1);
+            if (cell.Nectar > 0) DrawSprite(vh, texture, artwork.Nectar(cell.NectarKind), center, new Vector2(57, 63), new Vector2(.5f, .5f), scale * cell.Nectar, 0, cell.NectarAlpha);
         }
         foreach (var node in nodes)
         {
@@ -143,28 +222,61 @@ public class FrameCellMesh : MaskableGraphic
             if (active == 0) continue;
             float angle = 60 * corner - 60;
             if (active == 1)
-                Quad(vh, node.Position, new Rect(4, 4, 40, 18), new Vector2(20, 4), scale, angle, WallAlpha(maximum, alphaMin, alphaMax));
+                DrawSprite(vh, texture, artwork.wallTwoArm, node.Position, new Vector2(40, 18), new Vector2(.5f, 4f / 18), scale, angle, WallAlpha(maximum, alphaMin, alphaMax));
             else
-                Quad(vh, node.Position, new Rect(52, 4, 40, 34), new Vector2(20, 20), scale, angle, WallAlpha(maximum, alphaMin, alphaMax));
+                DrawSprite(vh, texture, artwork.wallThreeArm, node.Position, new Vector2(40, 34), new Vector2(.5f, 20f / 34), scale, angle, WallAlpha(maximum, alphaMin, alphaMax));
         }
     }
 
-    // Pixels/pivots use top-left origin, while Unity UI uses bottom-left origin.
-    private void Quad(VertexHelper vh, Vector2 anchor, Rect pixels, Vector2 pivot, float scale, float angle, float alpha)
+    private void BuildLayers()
     {
+        foreach (var layer in layers)
+        {
+            layer.gameObject.SetActive(false);
+            if (Application.isPlaying) Destroy(layer.gameObject); else DestroyImmediate(layer.gameObject);
+        }
+        layers.Clear(); geometry.Clear(); primaryTexture = null;
+        var textures = new HashSet<Texture>();
+        var sprites = new[] { artwork.completeCell, artwork.rapeSeedNectar, artwork.cherryBlossomNectar,
+            artwork.blackLocustNectar, artwork.chestnutNectar, artwork.wildflowerNectar, artwork.wallTwoArm, artwork.wallThreeArm };
+        foreach (var sprite in sprites)
+        {
+            if (sprite == null) continue;
+            if (!geometry.ContainsKey(sprite)) geometry.Add(sprite, new SpriteGeometry
+                { Vertices = sprite.vertices, UV = sprite.uv, Triangles = sprite.triangles });
+            if (!textures.Add(sprite.texture)) continue;
+            if (primaryTexture == null) { primaryTexture = sprite.texture; continue; }
+            var child = new GameObject("CellSprite_" + sprite.name, typeof(RectTransform), typeof(CanvasRenderer));
+            child.transform.SetParent(transform, false);
+            var rect = (RectTransform)child.transform;
+            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
+            var layer = child.AddComponent<FrameCellSpriteLayer>();
+            layer.Owner = this; layer.Texture = sprite.texture; layer.raycastTarget = false;
+            layers.Add(layer);
+        }
+    }
+
+    // Use actual Sprite geometry/UVs, including sliced and tightly packed sprites.
+    // Reference dimensions preserve the SVG layout regardless of image resolution.
+    private void DrawSprite(VertexHelper vh, Texture texture, Sprite sprite, Vector2 anchor,
+        Vector2 size, Vector2 topLeftPivot, float scale, float angle, float alpha)
+    {
+        if (sprite == null || sprite.texture != texture) return;
+        var source = geometry[sprite];
         int start = vh.currentVertCount;
         float radians = angle * Mathf.Deg2Rad, cos = Mathf.Cos(radians), sin = Mathf.Sin(radians);
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < source.Vertices.Length; i++)
         {
-            float x = (i == 1 || i == 2) ? pixels.width : 0;
-            float y = i >= 2 ? pixels.height : 0;
-            Vector2 p = new Vector2(x - pivot.x, pivot.y - y) * scale;
+            Vector2 pixel = source.Vertices[i] * sprite.pixelsPerUnit + sprite.pivot;
+            Vector2 p = new Vector2((pixel.x / sprite.rect.width - topLeftPivot.x) * size.x,
+                (pixel.y / sprite.rect.height - (1 - topLeftPivot.y)) * size.y) * scale;
             var vertex = UIVertex.simpleVert;
             vertex.position = anchor + new Vector2(p.x * cos - p.y * sin, p.x * sin + p.y * cos);
             vertex.color = new Color(1, 1, 1, alpha);
-            vertex.uv0 = new Vector2((pixels.x + x) / atlas.width, 1 - (pixels.y + y) / atlas.height);
+            vertex.uv0 = source.UV[i];
             vh.AddVert(vertex);
         }
-        vh.AddTriangle(start, start + 1, start + 2); vh.AddTriangle(start, start + 2, start + 3);
+        for (int i = 0; i < source.Triangles.Length; i += 3)
+            vh.AddTriangle(start + source.Triangles[i], start + source.Triangles[i + 1], start + source.Triangles[i + 2]);
     }
 }

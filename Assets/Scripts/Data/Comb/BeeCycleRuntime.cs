@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -26,19 +26,59 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     readonly Dictionary<BeeGridPosition,List<CycleBee>> occupants=new Dictionary<BeeGridPosition,List<CycleBee>>();
     readonly Dictionary<(EquipmentThermalState,int),double> heat=new Dictionary<(EquipmentThermalState,int),double>();
     long nextId=1;
-    readonly Dictionary<(BeeGridPosition,bool),Dictionary<BeeGridPosition,BeeGridPosition>> routeTrees=new Dictionary<(BeeGridPosition,bool),Dictionary<BeeGridPosition,BeeGridPosition>>();
+    // Derived topology-scoped data only. The original BFS still chooses every predecessor.
+    const int RouteByteBudget=32*1024*1024;
+    sealed class RouteDomain
+    {
+        internal readonly Dictionary<BeeGridPosition,int> Ids=new Dictionary<BeeGridPosition,int>();
+        internal readonly List<BeeGridPosition> Points=new List<BeeGridPosition>();
+        internal void Add(BeeGridPosition p){if(!Ids.ContainsKey(p)){Ids.Add(p,Points.Count);Points.Add(p);}}
+    }
+    readonly Dictionary<int,RouteDomain> routeDomains=new Dictionary<int,RouteDomain>();
+    long cachedRouteBytes;
+    sealed class CompactRouteTree
+    {
+        readonly RouteDomain domain;
+        readonly ushort[] small;
+        readonly int[] large;
+        internal long Bytes=>small!=null?(long)small.Length*2:(long)large.Length*4;
+        internal CompactRouteTree(Dictionary<BeeGridPosition,BeeGridPosition> source,RouteDomain domain)
+        {
+            this.domain=domain;int count=domain.Points.Count;
+            if(count<=ushort.MaxValue){small=new ushort[count];foreach(var p in source)small[domain.Ids[p.Key]]=(ushort)(domain.Ids[p.Value]+1);}
+            else{large=new int[count];foreach(var p in source)large[domain.Ids[p.Key]]=domain.Ids[p.Value]+1;}
+        }
+        int Parent(BeeGridPosition p)
+        {
+            if(!domain.Ids.TryGetValue(p,out int id))return 0;
+            // A domain can grow after this tree was built; new positions were not reachable.
+            return small!=null?(id<small.Length?small[id]:0):(id<large.Length?large[id]:0);
+        }
+        internal bool ContainsKey(BeeGridPosition p)=>Parent(p)!=0;
+        internal BeeGridPosition this[BeeGridPosition p]=>domain.Points[Parent(p)-1];
+    }
+    readonly Dictionary<(BeeGridPosition,bool),CompactRouteTree> routeTrees=new Dictionary<(BeeGridPosition,bool),CompactRouteTree>();
     readonly LinkedList<(BeeGridPosition,bool)> routeOrder=new LinkedList<(BeeGridPosition,bool)>();
     readonly Dictionary<(BeeGridPosition,bool),LinkedListNode<(BeeGridPosition,bool)>> routeNodes=new Dictionary<(BeeGridPosition,bool),LinkedListNode<(BeeGridPosition,bool)>>();
-    bool TryRouteTree(BeeGridPosition start,bool queen,out Dictionary<BeeGridPosition,BeeGridPosition> tree)
+    bool TryRouteTree(BeeGridPosition start,bool queen,out CompactRouteTree tree)
     {
         var key=(start,queen);if(!routeTrees.TryGetValue(key,out tree))return false;
         var node=routeNodes[key];routeOrder.Remove(node);routeOrder.AddFirst(node);return true;
     }
     void CacheRouteTree(BeeGridPosition start,bool queen,Dictionary<BeeGridPosition,BeeGridPosition> tree)
     {
-        // Evict only the least recently used tree; a new hive must not flush every other hive's routes.
-        while(routeTrees.Count>=Settings.routeCacheEntries){var key=routeOrder.Last.Value;routeOrder.RemoveLast();routeNodes.Remove(key);routeTrees.Remove(key);}
-        var added=(start,queen);routeTrees.Add(added,tree);routeNodes.Add(added,routeOrder.AddFirst(added));
+        // Shared numbering does not restrict traversal: register every reached point.
+        var topology=World.BeeLocations.Topology(World);
+        int group=topology.TryAir(start,out var air)&&air!=null?air.Group:int.MinValue;
+        if(!routeDomains.TryGetValue(group,out var domain)){domain=new RouteDomain();routeDomains.Add(group,domain);}
+        foreach(var p in tree){domain.Add(p.Key);domain.Add(p.Value);}
+        long bytes=(long)domain.Points.Count*(domain.Points.Count<=ushort.MaxValue?2:4);
+        int limit=(int)Math.Min(4096L,Math.Max(1L,(long)Settings.routeCacheEntries*32));
+        // Bound predecessor arrays to 32 MiB; keep one oversized tree so distance queries work.
+        while(routeTrees.Count>0&&(routeTrees.Count>=limit||cachedRouteBytes+bytes>RouteByteBudget))
+        {var key=routeOrder.Last.Value;cachedRouteBytes-=routeTrees[key].Bytes;routeOrder.RemoveLast();routeNodes.Remove(key);routeTrees.Remove(key);}
+        var added=(start,queen);var compact=new CompactRouteTree(tree,domain);
+        routeTrees.Add(added,compact);cachedRouteBytes+=compact.Bytes;routeNodes.Add(added,routeOrder.AddFirst(added));
     }
     public sealed class Region
     {
@@ -114,7 +154,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         var t=World.BeeLocations.Topology(World);
         if(topologyVersion!=t.Builds)
         {
-            regions.Clear();regionAt.Clear();items.Clear();entrances.Clear();groups.Clear();routeTrees.Clear();routeNodes.Clear();routeOrder.Clear();ClearActionGeometry();
+            regions.Clear();regionAt.Clear();items.Clear();entrances.Clear();groups.Clear();routeTrees.Clear();routeNodes.Clear();routeOrder.Clear();routeDomains.Clear();cachedRouteBytes=0;ClearActionGeometry();
             desireKeys.Clear();indexedCommands.Clear();foreach(var bee in Bees)bee.desireIndex=null;
             foreach(var item in ThermalWorld.Items(World))items[item.Id]=item;
             foreach(var p in t.Positions)
@@ -497,6 +537,8 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         return Reconstruct(start,target,previous);
     }
     static List<CyclePoint> Reconstruct(BeeGridPosition start,BeeGridPosition target,Dictionary<BeeGridPosition,BeeGridPosition> previous)
+    {if(!previous.ContainsKey(target))return null;var result=new List<CyclePoint>();for(var q=target;!q.Equals(start);q=previous[q])result.Add(new CyclePoint(q));result.Reverse();return result;}
+    static List<CyclePoint> Reconstruct(BeeGridPosition start,BeeGridPosition target,CompactRouteTree previous)
     {if(!previous.ContainsKey(target))return null;var result=new List<CyclePoint>();for(var q=target;!q.Equals(start);q=previous[q])result.Add(new CyclePoint(q));result.Reverse();return result;}
     double RouteDistanceUncached(BeeGridPosition start,BeeGridPosition target,bool queen)
     {

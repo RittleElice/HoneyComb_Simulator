@@ -1,0 +1,9 @@
+Cell observation uses eight Sprite references in PF_Frame_Hand / FrameCellPresenter / Artwork. No Resources.Load or fallback to CellObservationAtlas.
+Representative Nectar Percent: 50..100, strict greater-than comparison, dry sugar only. No representative => Wildflower. At 100 all nectar uses Wildflower.
+Dry Nectar Alpha defaults 1; Wet Nectar Alpha defaults 0.3. Linear opacity by water/(sugar+water). No quantitative mass => dry endpoint for legacy visual-only content.
+Nectar Minimum Scale remains 0.3. Wall alpha and SVG topology preserved. Native Sprite vertices/UVs support sliced/tight sprites. Texture-batched graphics, no per-cell GameObjects.
+Stored nectar IDs 4..7 canonicalize to Wildflower ID 4, including bee cargo and old snapshots. DepositCycle accounting normalizes ID before quantity comparisons. New saves contain one Wildflower entry. Seasonal weather/forage production and trip destination IDs remain 4..7.
+Validation: Unity 6000.5.1f1 copy of current project. 56 focused checks and 2449 frame-layout checks passed. WorldSaveTests passed.
+Existing EquipmentCellDataTests (old 6630-cell expectation), CombThermalTests (brood proxy 0 vs 0.3), and BeeForageTests (share 6 vs 3) fail identically with candidate and pre-change storage code. See storage-candidate.txt and storage-baseline.txt. These unrelated tests were not modified.
+Original project file hashes equal validated candidate files. User's open Unity editor and saves were not operated or overwritten. Migration occurs on load, saves on normal save.
+Not tested on a mobile device. Source images and their import settings were not altered. Old resource atlas file remains on disk but is not referenced by the renderer/tests.
