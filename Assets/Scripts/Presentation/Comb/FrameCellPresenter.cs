@@ -264,7 +264,9 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         wallMinimumAlpha = Mathf.Clamp01(wallMinimumAlpha);
         wallMaximumAlpha = Mathf.Clamp(wallMaximumAlpha, wallMinimumAlpha, 1f);
         nectarMinimumScale = Mathf.Clamp(nectarMinimumScale, .01f, 1f);
+        
         pollenMinimumScale = Mathf.Clamp(pollenMinimumScale, .01f, 1f);
+        
         larvaMinimumScale = Mathf.Clamp(larvaMinimumScale,.01f,1f);
         larvaMaximumScale = Mathf.Max(.01f,larvaMaximumScale);
         nectarMaximumScale = Mathf.Max(.01f,nectarMaximumScale);
