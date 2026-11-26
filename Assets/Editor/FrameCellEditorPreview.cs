@@ -69,7 +69,7 @@ internal sealed class FrameCellEditorPreview : IDisposable
             var mesh=go.AddComponent<FrameCellMesh>();var angles=data.FindProperty("eggRotationRange").vector2Value;
             mesh.ConfigureArt(surface.Width,start,Math.Min(surface.CellCount,start+chunk),radius,origin,topology,
                 F(data,"wallMinimumAlpha"),F(data,"wallMaximumAlpha"),F(data,"nectarMinimumScale"),art,F(data,"representativeNectarPercent"),F(data,"dryNectarAlpha"),F(data,"wetNectarAlpha"),F(data,"pollenMinimumScale"),F(data,"nectarMaximumScale"),F(data,"pollenMaximumScale"),F(data,"larvaMinimumScale"),F(data,"larvaMaximumScale"),C(data,"pupaStartColor"),C(data,"pupaEndColor"),F(data,"completeCellOpacity"),angles.x,angles.y,C(data,"completeCellColor"));
-            mesh.SetEditorPreview(surface,brood);
+            mesh.SetEditorPreview(surface,brood,sampleSeed^WeatherSimulator.DefaultSeed);
         }
         foreach(var t in root.GetComponentsInChildren<Transform>(true))t.gameObject.hideFlags=HideFlags.HideAndDontSave;
         Canvas.ForceUpdateCanvases();SceneView.RepaintAll();

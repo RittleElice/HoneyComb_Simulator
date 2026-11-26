@@ -122,8 +122,9 @@ public class FrameCellMesh : MaskableGraphic
     private Color completeTint=Color.white;
 #if UNITY_EDITOR
     private IReadOnlyDictionary<long,(CycleStage stage,float progress)> editorBrood;
-    public void SetEditorPreview(FrameSurface value,IReadOnlyDictionary<long,(CycleStage stage,float progress)> brood)
-    { editorBrood=brood;SetSurface(value); }
+    private ulong editorAppearanceSalt;
+    public void SetEditorPreview(FrameSurface value,IReadOnlyDictionary<long,(CycleStage stage,float progress)> brood,ulong appearanceSalt=0)
+    { editorBrood=brood;editorAppearanceSalt=appearanceSalt;SetSurface(value); }
 #endif
     private bool ReadBrood(long id,out CycleStage stage,out float progress)
     {
@@ -207,7 +208,7 @@ public class FrameCellMesh : MaskableGraphic
         return new State { Construction = cell.Construction, Complete = cell.IsComplete,
             Occupant = OccupantAt(index, cell),
             BroodProgress = BroodProgressAt(index,cell),
-            BroodSeed = cell.Content == CellContentKind.Brood ? BroodAppearanceSeed(surface.GetBeeId(index%columns,index/columns)) : 0,
+            BroodSeed = cell.Content == CellContentKind.Brood ? ObservationBroodSeed(surface.GetBeeId(index%columns,index/columns)) : 0,
             PollenSeed = surface.GetPollenAppearanceSeed(index % columns,index / columns),
             PollenScale = cell.Content == CellContentKind.Pollen ? pollenMaximum * Mathf.Lerp(pollenMinimum, 1,
                 Mathf.Clamp01((float)surface.GetCapacityFillRatio(index % columns, index / columns))) : 0,
@@ -221,6 +222,13 @@ public class FrameCellMesh : MaskableGraphic
     {
         if(cell.Content!=CellContentKind.Brood)return 0;
         return ReadBrood(surface.GetBeeId(index%columns,index/columns),out _,out float progress)?progress:0;
+    }
+    private uint ObservationBroodSeed(long beeId)
+    {
+#if UNITY_EDITOR
+        if(editorBrood!=null)beeId=unchecked((long)((ulong)beeId^editorAppearanceSalt));
+#endif
+        return BroodAppearanceSeed(beeId);
     }
     private static uint BroodAppearanceSeed(long beeId)
     {
