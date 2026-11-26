@@ -139,14 +139,16 @@ MonoBehaviour:
   wetNectarAlpha: 0.3
   wallMinimumAlpha: 0
   wallMaximumAlpha: 1
-  nectarMinimumScale: 0.3
-  pollenMinimumScale: 0.3
+  nectarMinimumScale: 0.4
+  pollenMinimumScale: 0.4
   nectarMaximumScale: 0.95
   pollenMaximumScale: 0.95
-  larvaMinimumScale: 0.3
+  larvaMinimumScale: 0.4
   larvaMaximumScale: 0.95
   pupaStartColor: {r: 0.8490566, g: 0.8490566, b: 0.8490566, a: 1}
   pupaEndColor: {r: 0.7019608, g: 0.5411765, b: 0.3607843, a: 1}
+  completeCellOpacity: 1
+  eggRotationRange: {x: 0, y: 360}
   cellsPerMesh: 100
 --- !u!1 &4271564072480153360
 GameObject:

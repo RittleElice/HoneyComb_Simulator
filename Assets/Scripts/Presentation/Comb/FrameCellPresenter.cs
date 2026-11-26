@@ -61,6 +61,11 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
     [Tooltip("우화 직전 봉개 이미지에 곱할 색입니다.")]
     [SerializeField, ColorUsage(false)] private Color pupaEndColor = new Color(179f/255,138f/255,92f/255,1);
 
+    [Tooltip("완성 소방 바탕 이미지의 불투명도. 0은 숨김, 1은 원본입니다. 벽과 내용물에는 영향을 주지 않습니다.")]
+    [SerializeField, Range(0f,1f)] private float completeCellOpacity = 1f;
+    [Tooltip("알의 고정 랜덤 회전 범위(도). X는 최소, Y는 최대이며 같은 값이면 고정 각도입니다.")]
+    [SerializeField] private Vector2 eggRotationRange = new Vector2(0f,360f);
+
     [Header("Performance")]
     [SerializeField, Range(50, 500)]
     private int cellsPerMesh = 400;
@@ -197,7 +202,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
             FrameCellMesh mesh = go.AddComponent<FrameCellMesh>();
 
             mesh.ConfigureArt(columns, start, end, radius, origin, topology,
-                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale, artwork, representativeNectarPercent, dryNectarAlpha, wetNectarAlpha, pollenMinimumScale, nectarMaximumScale, pollenMaximumScale, larvaMinimumScale, larvaMaximumScale, pupaStartColor, pupaEndColor);
+                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale, artwork, representativeNectarPercent, dryNectarAlpha, wetNectarAlpha, pollenMinimumScale, nectarMaximumScale, pollenMaximumScale, larvaMinimumScale, larvaMaximumScale, pupaStartColor, pupaEndColor, completeCellOpacity, eggRotationRange.x, eggRotationRange.y);
 
             mesh.SetSurface(frame.GetFacingSurface(), broodRuntime);
             meshes.Add(mesh);
@@ -250,6 +255,8 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
 
     private void OnValidate()
     {
+        completeCellOpacity = Mathf.Clamp01(completeCellOpacity);
+        if(eggRotationRange.x>eggRotationRange.y)eggRotationRange=new Vector2(eggRotationRange.y,eggRotationRange.x);
         areaFill = Mathf.Clamp(areaFill, 0.1f, 1f);
         cellScale.x = Mathf.Max(0.01f, cellScale.x);
         cellScale.y = Mathf.Max(0.01f, cellScale.y);

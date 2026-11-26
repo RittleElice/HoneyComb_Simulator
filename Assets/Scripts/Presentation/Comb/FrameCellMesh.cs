@@ -118,6 +118,7 @@ public class FrameCellMesh : MaskableGraphic
     private float nectarMaximum = 1f, pollenMaximum = 1f;
     private float larvaMinimum=.3f, larvaMaximum=1f;
     private Color pupaStart=Color.white,pupaEnd=Color.white;
+    private float completeOpacity=1f,eggAngleMin=0f,eggAngleMax=360f;
     private Vector2 origin;
     private FrameCellArtwork artwork;
     private Texture primaryTexture;
@@ -146,7 +147,7 @@ public class FrameCellMesh : MaskableGraphic
     public void ConfigureArt(int columns, int firstIndex, int lastIndex, float radius,
         Vector2 origin, List<Junction> topology, float minimumAlpha, float maximumAlpha, float minimumNectar,
         FrameCellArtwork images = null, float representativeThresholdPercent = 50f,
-        float dryNectarAlpha = 1f, float wetNectarAlpha = .3f, float minimumPollenScale = .3f, float maximumNectarScale = 1f, float maximumPollenScale = 1f, float minimumLarvaScale = .3f, float maximumLarvaScale = 1f, Color? pupaStartColor = null, Color? pupaEndColor = null)
+        float dryNectarAlpha = 1f, float wetNectarAlpha = .3f, float minimumPollenScale = .3f, float maximumNectarScale = 1f, float maximumPollenScale = 1f, float minimumLarvaScale = .3f, float maximumLarvaScale = 1f, Color? pupaStartColor = null, Color? pupaEndColor = null, float completeCellOpacity = 1f, float minimumEggAngle = 0f, float maximumEggAngle = 360f)
     {
         this.columns = columns; this.firstIndex = firstIndex; this.lastIndex = lastIndex;
         this.radius = radius; this.origin = origin;
@@ -159,6 +160,8 @@ public class FrameCellMesh : MaskableGraphic
         pollenMaximum = Mathf.Max(.01f,maximumPollenScale);
         larvaMinimum=Mathf.Clamp01(minimumLarvaScale);larvaMaximum=Mathf.Max(.01f,maximumLarvaScale);
         pupaStart=pupaStartColor??Color.white;pupaEnd=pupaEndColor??Color.white;
+        completeOpacity=Mathf.Clamp01(completeCellOpacity);
+        eggAngleMin=Mathf.Min(minimumEggAngle,maximumEggAngle);eggAngleMax=Mathf.Max(minimumEggAngle,maximumEggAngle);
         artwork = images ?? new FrameCellArtwork();
         BuildLayers();
         raycastTarget = false; color = Color.white;
@@ -279,14 +282,14 @@ public class FrameCellMesh : MaskableGraphic
             int x = index % columns, y = index / columns;
             var center = origin + new Vector2(Mathf.Sqrt(3f) * radius * (x + .5f + (y & 1) * .5f), radius + y * 1.5f * radius);
             var cell = Cached(index);
-            if (cell.Complete) DrawSprite(vh, texture, artwork.completeCell, center, new Vector2(60, 69), new Vector2(.5f, .5f), scale, 0, 1, true);
+            if (cell.Complete) DrawSprite(vh, texture, artwork.completeCell, center, new Vector2(60, 69), new Vector2(.5f, .5f), scale, 0, completeOpacity, true);
             if (cell.Nectar > 0) DrawSprite(vh, texture, artwork.Nectar(cell.NectarKind), center, new Vector2(57, 63), new Vector2(.5f, .5f), scale * cell.Nectar, 0, cell.NectarAlpha, true);
             Sprite occupant = cell.Occupant == 1 ? artwork.pollen : cell.Occupant == 2 ? artwork.egg : cell.Occupant == 3 ? artwork.larva : cell.Occupant == 4 ? artwork.cappedPupa : null;
             // Supplied square artwork shares a canvas: preserve its aspect and
             // internal whitespace (the egg is intentionally much smaller than the cap).
             if (occupant != null) DrawSprite(vh, texture, occupant, center, cell.Occupant == 1 ? new Vector2(57, 63) : new Vector2(96, 96), new Vector2(.5f, .5f),
                 scale * (cell.Occupant == 1 ? cell.PollenScale : cell.Occupant == 3 ? larvaMaximum*Mathf.Lerp(larvaMinimum,1,cell.BroodProgress) : 1),
-                cell.Occupant == 3 ? PollenRandom(cell.BroodSeed,5)*360f : 0, 1, true, cell.Occupant == 1 ? cell.PollenSeed : 0,
+                cell.Occupant == 2 ? Mathf.Lerp(eggAngleMin,eggAngleMax,PollenRandom(cell.BroodSeed,6)) : cell.Occupant == 3 ? PollenRandom(cell.BroodSeed,5)*360f : 0, 1, true, cell.Occupant == 1 ? cell.PollenSeed : 0,
                 cell.Occupant == 4 ? Color.Lerp(pupaStart,pupaEnd,cell.BroodProgress) : (Color?)null);
         }
         foreach (var node in nodes)
