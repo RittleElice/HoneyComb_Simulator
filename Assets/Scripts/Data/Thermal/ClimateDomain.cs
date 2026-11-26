@@ -115,6 +115,7 @@ public static partial class HiveClimate
         HiveClimateKernels.ExteriorHeatContact[] outsideHeatContacts;
         float[] published;
         double outdoors, outsideVaporPressure, outsideWind;
+        double[] exteriorInternalResistance;
         bool exteriorMoistureEnabled;
         // Signed budgets for the last completed calculation: positive enters the domain.
         public double ExternalWaterKg { get; private set; }
@@ -163,11 +164,13 @@ public static partial class HiveClimate
             contacts=null; waterBalance=null; // rebuild sparse balance topology
             physical=new ThermalExchange.Cell[n];published=new float[n];
             outsideHeatContacts=new HiveClimateKernels.ExteriorHeatContact[grid.BoundaryCount];
+            exteriorInternalResistance=new double[grid.BoundaryCount];
             for(int j=0;j<outsideHeatContacts.Length;j++){
                 if(slice!=null && (j&127)==0)await slice.CheckpointAsync();
                 var b=grid.GetBoundary(j);var c=grid.GetCell(b.Cell);
+                exteriorInternalResistance[j]=b.HalfM/c.Owner.Conductivity(c.Index,b.Direction/2);
                 outsideHeatContacts[j]=new HiveClimateKernels.ExteriorHeatContact{row=b.Cell,area=b.AreaM2,
-                    baseConductance=b.AreaM2*exteriorTransfers.Outside(c.Owner.ExchangeMaterial(c.Index)),
+                    baseConductance=inputMaterials.ExteriorAir.Conductance(b.AreaM2,exteriorInternalResistance[j],0),
                     pyramidCapacity=0};
             }
             var wet=new List<WetRegion>();

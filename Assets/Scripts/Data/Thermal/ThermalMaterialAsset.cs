@@ -44,6 +44,7 @@ public sealed class ThermalMaterials
     // Detached test/save snapshots remain immutable. Loaded live settings refresh only after edits.
     public ThermalMaterials RefreshLiveSnapshot() => live && loadedRevision != assetRevision ? Load() : this;
     private readonly ThermalMaterialValue[] values;
+    public ExteriorAirValue ExteriorAir { get; private set; } = ExteriorAirValue.Default;
     private bool live;
     private PyramidTransferSettings transferSettings;
     public ThermalTransferCoefficients Transfers=>transferSettings!=null?transferSettings.Read():ThermalTransferCoefficients.Default;
@@ -69,6 +70,7 @@ public sealed class ThermalMaterials
         // Keep the measured source asset intact. Only the solver snapshot uses effective air conductivity.
         var air=result[(int)ThermalMaterialKind.Air];
         result[(int)ThermalMaterialKind.Air]=new ThermalMaterialValue(air.Density,air.SpecificHeat,(float)(air.Conductivity*transfer.Read().AirConductivityMultiplier),air.EffectiveVolumetricHeatCapacityJPerM3K);
-        return new ThermalMaterials(result) { live = true, loadedRevision = assetRevision, transferSettings=transfer };
+        var exterior=Resources.Load<ExteriorAirMaterialAsset>("Thermal/ExteriorAir");if(exterior==null)throw new InvalidOperationException("Missing exterior air material");
+        return new ThermalMaterials(result) { ExteriorAir=exterior.Read(),live = true, loadedRevision = assetRevision, transferSettings=transfer };
     }
 }

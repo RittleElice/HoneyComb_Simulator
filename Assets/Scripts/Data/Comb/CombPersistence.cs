@@ -20,7 +20,8 @@ public partial struct CellData
 }
 public sealed partial class FrameSurface
 {
-    internal void WriteSnapshot(BinaryWriter w,bool compact=false)
+    internal void WriteSnapshot(BinaryWriter w,bool compact=false) => WriteSnapshotWithAppearance(w,compact,false);
+    internal void WriteSnapshotWithAppearance(BinaryWriter w,bool compact,bool pollenAppearance)
     {
         var sugars = new List<KeyValuePair<int,float>>();
         if(compact)
@@ -55,8 +56,10 @@ public sealed partial class FrameSurface
                 default: throw new InvalidDataException("Unexpected material payload.");
             }
         }
+        if(pollenAppearance)WritePollenAppearance(w);
     }
-    internal void ReadSnapshot(BinaryReader r,bool compact=false)
+    internal void ReadSnapshot(BinaryReader r,bool compact=false) => ReadSnapshotWithAppearance(r,compact,false);
+    internal void ReadSnapshotWithAppearance(BinaryReader r,bool compact,bool pollenAppearance)
     {
         if(compact && r.ReadBoolean())
         {
@@ -100,6 +103,7 @@ public sealed partial class FrameSurface
                 default: throw new InvalidDataException("Unexpected material type.");
             }
         }
+        ReadPollenAppearance(r,pollenAppearance);
         AdvanceRevision();
     }
     private static float ReadMass(BinaryReader r)

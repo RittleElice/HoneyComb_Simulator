@@ -16,6 +16,7 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
         var comb=Resources.Load<CombBalanceSettings>("CombBalanceSettings");
         if(comb==null){EditorGUILayout.HelpBox("소방 설정 파일이 없습니다.",MessageType.Error);return;}
         DrawTransfers();
+        DrawExteriorAir();
         DrawMoisture();
         DrawMaterials();
         EditorGUILayout.Space();EditorGUILayout.LabelField("소방 내용물 열용량",EditorStyles.boldLabel);
@@ -29,6 +30,7 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
         EditorGUILayout.Space();
         if(GUILayout.Button("재질 설정을 프로젝트 기본값으로 저장")){
             AssetDatabase.SaveAssetIfDirty(comb);
+            var exterior=Resources.Load<ExteriorAirMaterialAsset>("Thermal/ExteriorAir");if(exterior!=null)AssetDatabase.SaveAssetIfDirty(exterior);
             var transfer=Resources.Load<PyramidTransferSettings>("Thermal/PyramidTransferSettings");if(transfer!=null)AssetDatabase.SaveAssetIfDirty(transfer);
             foreach(ThermalMaterialKind kind in System.Enum.GetValues(typeof(ThermalMaterialKind))){
                 var material=Resources.Load<ThermalMaterialAsset>("Thermal/"+kind);
@@ -36,7 +38,18 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
             }
         }
     }
-    private void DrawTransfers(){DrawBalanceFields("공기 열전달 · 외부 열교환",new[]{"AirConductivityMultiplier","AirOutside","WoodOutside","CombOutside","InsulationOutside","HeatWindCoefficient"},new[]{"공기 유효 열전달 보정 (1=물성 전도만)","공기 경계 (W/m²·K)","목재 경계 (W/m²·K)","소비장 경계 (W/m²·K)","단열재 경계 (W/m²·K)","풍속당 열교환 증가 (W/m²·K)/(m/s)"});}
+    private void DrawTransfers(){DrawBalanceFields("공기 열전달 · 외부 열교환",new[]{"AirConductivityMultiplier"},new[]{"내부 공기 유효 열전달 보정 (1=물성 전도만)"});}
+    private void DrawExteriorAir(){
+        EditorGUILayout.Space();EditorGUILayout.LabelField("외부 공기 · 날씨 고정 경계",EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("외기 온도는 날씨를 따르며 열을 받아도 변하지 않습니다. 모든 재질의 내부 저항과 외부 공기층 저항을 더합니다. 풍속이 높을수록 외부 공기층의 유효 두께만 얇아집니다. 수분용 공기막 두께는 별도입니다.",MessageType.Info);
+        var asset=Resources.Load<ExteriorAirMaterialAsset>("Thermal/ExteriorAir");if(asset==null){EditorGUILayout.HelpBox("외부 공기 물질이 없습니다.",MessageType.Error);return;}
+        var so=new SerializedObject(asset);so.Update();
+        EditorGUILayout.PropertyField(so.FindProperty("ConductivityWPerMK"),new GUIContent("외부 공기 열전도율 (W/m·K)"));
+        EditorGUILayout.PropertyField(so.FindProperty("HeatTransferMultiplier"),new GUIContent("외부 공기 유효 전달 보정"));
+        EditorGUILayout.PropertyField(so.FindProperty("ThicknessM"),new GUIContent("무풍 공기층 두께 (m)"));
+        EditorGUILayout.PropertyField(so.FindProperty("WindCoefficient"),new GUIContent("풍속에 의한 공기층 저항 감소 계수"));
+        if(so.ApplyModifiedProperties()){try{asset.Read();ThermalMaterials.NotifyAssetsChanged();}catch(System.Exception e){Debug.LogError(e.Message);}}
+    }
     private void DrawMoisture(){DrawBalanceFields("수분 이동과 풀이 정확도",new[]{"MoistureAirPermeability","MoistureWoodPermeability","MoistureAirMobility","MoistureInsulationMobility","MoistureEvaporationMobility","MoistureExteriorAirFilmM","MoistureWindCoefficient","BalanceRelativeTolerance","BalanceMassTolerance","BalanceMassAbsoluteToleranceKg","BalanceLinearIterations","BalanceNonlinearIterations"},new[]{"공기 투습계수 (kg/m·s·Pa)","목재 투습계수 (kg/m·s·Pa)","혼합 경계 공기 이동 배율","단열재 이동 배율","화밀 증발 배율","외부 공기막 두께 (m)","풍속 수분 교환 계수","선형 상대 오차","수분 수지 상대 오차","수분 수지 절대 오차 (kg)","선형 최대 반복","비선형 최대 반복"});}
     private void DrawBalanceFields(string title,string[] names,string[] labels){EditorGUILayout.Space();EditorGUILayout.LabelField(title,EditorStyles.boldLabel);var asset=Resources.Load<PyramidTransferSettings>("Thermal/PyramidTransferSettings");if(asset==null)return;var so=new SerializedObject(asset);so.Update();for(int i=0;i<names.Length;i++)EditorGUILayout.PropertyField(so.FindProperty(names[i]),new GUIContent(labels[i]));if(so.ApplyModifiedProperties()){try{asset.Read();ThermalMaterials.NotifyAssetsChanged();}catch(System.Exception e){Debug.LogError(e.Message);}}}
     private void DrawMaterials(){

@@ -17,7 +17,7 @@ internal static class SaveBinary
     public static string Text(BinaryReader r)
     { int n = Count(r,65536); var b=r.ReadBytes(n); if(b.Length!=n) throw new EndOfStreamException(); return new UTF8Encoding(false,true).GetString(b); }
 }
-/// <summary>Schema 25 adds a queen development limit; schemas 17-24 remain readable.
+/// <summary>Schema 26 adds persistent pollen appearance seeds; schemas 17-25 remain readable.
 /// Geometry, observers and rendering caches are derived and rebuilt. Unknown Content fails closed.</summary>
 public sealed class WorldSaveCodec
 {
@@ -25,7 +25,7 @@ public sealed class WorldSaveCodec
     private readonly HashSet<object> contents = new HashSet<object>();
     private List<HiveData> hives;
     private int nodes;
-    public const int CurrentSchema = 25;
+    public const int CurrentSchema = 26;
     private int schema = CurrentSchema;
     private const int CompressedMagic=0x5A434832;
     public static byte[] Encode(WorldSaveSnapshot snapshot)=>EncodeCore(snapshot,true);
@@ -101,7 +101,7 @@ public sealed class WorldSaveCodec
     }
     static WorldSaveSnapshot ReadSnapshot(BinaryReader r,int schema,bool validateOnly)
     {
-            if(schema!=17 && schema!=18 && schema!=19 && schema!=20 && schema!=21 && schema!=22 && schema!=23 && schema!=24 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
+            if(schema!=17 && schema!=18 && schema!=19 && schema!=20 && schema!=21 && schema!=22 && schema!=23 && schema!=24 && schema!=25 && schema!=CurrentSchema) throw new InvalidDataException("이전 소방 규격의 저장 데이터입니다. 25×12 소방에서는 새 게임을 시작해 주세요.");
             var snapshot=new WorldSaveSnapshot { UtcTicks=r.ReadInt64(), RemainderTicks=r.ReadInt64(), HighWaterUtcTicks=r.ReadInt64(), TargetMinute=r.ReadInt64() };
             var clock=GameClock.Restore(r.ReadInt64()); string name=SaveBinary.Text(r);
             int unlocked=SaveBinary.Count(r,10000), width=SaveBinary.Count(r,10001), height=SaveBinary.Count(r,10000);
@@ -160,7 +160,7 @@ public sealed class WorldSaveCodec
         else if(item.Content is FrameData frame)
         {
             if(!contents.Add(frame)) throw new InvalidDataException("Shared frame content is unsupported.");
-            w.Write((byte)2); w.Write(frame.Width); w.Write(frame.Height); w.Write((int)frame.FacingSide); frame.Front.WriteSnapshot(w,schema>=12); frame.Back.WriteSnapshot(w,schema>=12);
+            w.Write((byte)2); w.Write(frame.Width); w.Write(frame.Height); w.Write((int)frame.FacingSide); frame.Front.WriteSnapshotWithAppearance(w,schema>=12,schema>=26); frame.Back.WriteSnapshotWithAppearance(w,schema>=12,schema>=26);
         }
         else if(item.Content is HiveOccupancyProfile profile)
         { w.Write((byte)3); w.Write(profile.FirstY); w.Write(profile.CountY); w.Write((int)profile.Material); }
@@ -192,7 +192,7 @@ public sealed class WorldSaveCodec
             case 2:
                 int width=SaveBinary.Count(r,10000), height=SaveBinary.Count(r,10000), side=r.ReadInt32();
                 if(width<1||height<1||(long)width*height>1000000||side<0||side>1) throw new InvalidDataException("Invalid frame dimensions.");
-                var frame=new FrameData(width,height); frame.SetFacingSide((FrameSide)side); frame.Front.ReadSnapshot(r,schema>=12); frame.Back.ReadSnapshot(r,schema>=12); content=frame; break;
+                var frame=new FrameData(width,height); frame.SetFacingSide((FrameSide)side); frame.Front.ReadSnapshotWithAppearance(r,schema>=12,schema>=26); frame.Back.ReadSnapshotWithAppearance(r,schema>=12,schema>=26); content=frame; break;
             case 3: content=new HiveOccupancyProfile(r.ReadInt32(),r.ReadInt32(),(HiveMaterial)r.ReadInt32()); break;
             case 4:
                 if(schema<8 || kind!=(int)ItemKind.HeatingPanel)throw new InvalidDataException("Invalid heater content.");

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 internal sealed partial class CellMaterialStore
 {
@@ -30,7 +30,7 @@ public sealed partial class FrameSurface
         materials.WithdrawCycle(i,kind,Math.Min(1,requested/available),result,out discardedWater);
         if(materials.Mass(i)==0&&(pollen||materials.TotalSugar(i)==0))
         {materials.Clear(i,kind);cells[i].TrySetContent(CellContentKind.Empty);}
-        AdvanceRevision();return result;
+        SyncPollenSeed(i);AdvanceRevision();return result;
     }
     // Return the real float32 increase, not the requested double amount.
     public double DepositCycle(int x,int y,int source,double requested,bool pollen)

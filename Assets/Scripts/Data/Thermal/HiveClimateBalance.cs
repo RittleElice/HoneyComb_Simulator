@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 public static partial class HiveClimate {
 public sealed partial class Model {
@@ -38,7 +38,7 @@ for(int j=0;j<contacts.Length;j++){var c=contacts[j];double dm=60*c.conductance*
 double externalWater=0,externalVapor=0;for(int j=0;j<waterExterior.Length;j++){int p=exteriorContacts[j].reservoir;double dm=60*waterExterior[j]*(outsideVaporPressure-waterPressure[waterMap[p]]);nextMass[p]+=dm;double h=dm*(Latent+VaporCp*(dm>=0?outdoors:temperature[p/Kinds]));nextEnergy[p/Kinds]+=h;externalWater+=dm;externalVapor+=h;if(flowExterior!=null)flowExterior[j]=dm;}
 foreach(double m in nextMass)if(m<0||!ThermalExchange.Finite(m))throw new InvalidOperationException("Invalid water balance mass");
 var hb=heatBalance;for(int row=0;row<n;row++){double v=contentFreeVolume[row]-nextMass[row*Kinds+Nectar]/waterDensity;double c=dry[row]+v*airCv,phase=0;for(int k=0;k<Kinds;k++){c+=nextMass[row*Kinds+k]*Cp(k);phase+=nextMass[row*Kinds+k]*Offset[k];}hb.Base[row]=c;hb.Rhs[row]=energy[row]+nextEnergy[row]-phase;hb.X[row]=temperature[row];}
-Array.Clear(heatExterior,0,heatExterior.Length);if(exteriorMoistureEnabled)for(int j=0;j<heatExterior.Length;j++){var c=outsideHeatContacts[j];double g=c.baseConductance+c.area*exteriorTransfers.HeatWindCoefficient*outsideWind;heatExterior[j]=g;hb.Base[c.row]+=60*g;hb.Rhs[c.row]+=60*g*outdoors;}
+Array.Clear(heatExterior,0,heatExterior.Length);if(exteriorMoistureEnabled)for(int j=0;j<heatExterior.Length;j++){var c=outsideHeatContacts[j];double g=inputMaterials.ExteriorAir.Conductance(c.area,exteriorInternalResistance[j],outsideWind);heatExterior[j]=g;hb.Base[c.row]+=60*g;hb.Rhs[c.row]+=60*g*outdoors;}
 hb.Solve(exteriorTransfers.BalanceRelativeTolerance,exteriorTransfers.BalanceLinearIterations);
 for(int j=0;j<links.Length;j++){var f=links[j];double q=60*f.heat*(hb.X[f.a]-hb.X[f.b]);nextEnergy[f.a]-=q;nextEnergy[f.b]+=q;}
 double externalHeat=0;for(int j=0;j<heatExterior.Length;j++){var c=outsideHeatContacts[j];double q=60*heatExterior[j]*(outdoors-hb.X[c.row]);nextEnergy[c.row]+=q;externalHeat+=q;}

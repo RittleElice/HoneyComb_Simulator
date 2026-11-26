@@ -1,0 +1,322 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+[System.Serializable]
+public sealed class FrameCellArtwork
+{
+    public Sprite wallTwoArm;
+    public Sprite wallThreeArm;
+    public Sprite completeCell;
+    public Sprite rapeSeedNectar;
+    public Sprite cherryBlossomNectar;
+    public Sprite blackLocustNectar;
+    public Sprite chestnutNectar;
+    public Sprite wildflowerNectar;
+    public Sprite cappedPupa;
+    public Sprite pollen;
+    public Sprite egg;
+    public Sprite larva;
+
+    public Sprite Nectar(int kind)
+    {
+        switch (kind)
+        {
+            case 0: return rapeSeedNectar;
+            case 1: return cherryBlossomNectar;
+            case 2: return blackLocustNectar;
+            case 3: return chestnutNectar;
+            case 4: return wildflowerNectar;
+            default: return null;
+        }
+    }
+}
+
+// One child per texture/range, never one object per cell.
+public sealed class FrameCellSpriteLayer : MaskableGraphic
+{
+    internal FrameCellMesh Owner;
+    internal Texture Texture;
+    public override Texture mainTexture => Texture != null ? Texture : Texture2D.whiteTexture;
+    protected override void OnPopulateMesh(VertexHelper vh) => Owner.PopulateTexture(vh, Texture);
+}
+
+// One batched graphic per range. Shared junctions have exactly one owner, including
+// junctions crossing a range boundary. The source art uses a hex radius of 40 px.
+[DisallowMultipleComponent]
+[RequireComponent(typeof(CanvasRenderer))]
+public class FrameCellMesh : MaskableGraphic
+{
+    public sealed class Junction
+    {
+        public Vector2 Position;
+        public readonly List<int> Cells = new List<int>(3);
+        public readonly List<int> Corners = new List<int>(3);
+        public int Owner => Cells[0];
+    }
+
+    public static List<Junction> BuildJunctions(int columns, int rows, float radius, Vector2 origin)
+    {
+        var result = new List<Junction>();
+        var lookup = new Dictionary<Vector2Int, Junction>();
+        int[] dx = { 1, 0, -1, -1, 0, 1 };
+        int[] dy = { 1, 2, 1, -1, -2, -1 };
+        for (int row = 0; row < rows; row++)
+        for (int col = 0; col < columns; col++)
+        for (int corner = 0; corner < 6; corner++)
+        {
+            var key = new Vector2Int(2 * col + (row & 1) + 1 + dx[corner], 3 * row + 2 + dy[corner]);
+            if (!lookup.TryGetValue(key, out var node))
+            {
+                node = new Junction { Position = origin + new Vector2(key.x * Mathf.Sqrt(3f) * radius / 2, key.y * radius / 2) };
+                lookup.Add(key, node); result.Add(node);
+            }
+            node.Cells.Add(row * columns + col); node.Corners.Add(corner);
+        }
+        return result;
+    }
+
+    private struct State
+    {
+        public byte Construction;
+        public bool Complete;
+        public float Nectar;
+        public int NectarKind;
+        public float NectarAlpha;
+        public int Occupant;
+        public float PollenScale;
+        public bool Same(State other) => Construction == other.Construction && Complete == other.Complete && Nectar == other.Nectar && NectarKind == other.NectarKind && NectarAlpha == other.NectarAlpha && Occupant == other.Occupant && PollenScale == other.PollenScale;
+    }
+    private FrameSurface surface;
+    private BeeCycleRuntime broodRuntime;
+    private int columns, firstIndex, lastIndex;
+    private float radius, alphaMin, alphaMax = 1f, nectarMinimum = .3f;
+    private float representativePercent = 50f;
+    private float dryAlpha = 1f, wetAlpha = .3f;
+    private float pollenMinimum = .3f;
+    private Vector2 origin;
+    private FrameCellArtwork artwork;
+    private Texture primaryTexture;
+    private readonly List<FrameCellSpriteLayer> layers = new List<FrameCellSpriteLayer>();
+    private sealed class SpriteGeometry
+    {
+        public Vector2[] Vertices, UV;
+        public ushort[] Triangles;
+    }
+    private readonly Dictionary<Sprite, SpriteGeometry> geometry = new Dictionary<Sprite, SpriteGeometry>();
+    private readonly List<Junction> nodes = new List<Junction>();
+    private readonly List<int> dependencies = new List<int>();
+    private State[] states;
+    public int RefreshCount { get; private set; }
+    public override Texture mainTexture => primaryTexture != null ? primaryTexture : Texture2D.whiteTexture;
+
+    // Retains the existing entry point for callers and editor geometry tests.
+    public void Configure(int columns, int rows, int firstIndex, int lastIndex,
+        float radius, float lineWidth, Vector2 origin, Color outlineColor)
+    {
+        ConfigureArt(columns, firstIndex, lastIndex, radius, origin,
+            BuildJunctions(columns, rows, radius, origin), 0, 1, .3f);
+    }
+
+    public void ConfigureArt(int columns, int firstIndex, int lastIndex, float radius,
+        Vector2 origin, List<Junction> topology, float minimumAlpha, float maximumAlpha, float minimumNectar,
+        FrameCellArtwork images = null, float representativeThresholdPercent = 50f,
+        float dryNectarAlpha = 1f, float wetNectarAlpha = .3f, float minimumPollenScale = .3f)
+    {
+        this.columns = columns; this.firstIndex = firstIndex; this.lastIndex = lastIndex;
+        this.radius = radius; this.origin = origin;
+        alphaMin = Mathf.Clamp01(minimumAlpha); alphaMax = Mathf.Clamp(maximumAlpha, alphaMin, 1);
+        nectarMinimum = Mathf.Clamp01(minimumNectar);
+        representativePercent = Mathf.Clamp(representativeThresholdPercent, 50, 100);
+        dryAlpha = Mathf.Clamp01(dryNectarAlpha); wetAlpha = Mathf.Clamp01(wetNectarAlpha);
+        pollenMinimum = Mathf.Clamp01(minimumPollenScale);
+        artwork = images ?? new FrameCellArtwork();
+        BuildLayers();
+        raycastTarget = false; color = Color.white;
+        nodes.Clear(); dependencies.Clear();
+        var needed = new HashSet<int>();
+        for (int i = firstIndex; i < lastIndex; i++) needed.Add(i);
+        foreach (var node in topology)
+        {
+            if (node.Owner < firstIndex || node.Owner >= lastIndex) continue;
+            nodes.Add(node);
+            foreach (int index in node.Cells) needed.Add(index);
+        }
+        dependencies.AddRange(needed); dependencies.Sort();
+        states = new State[dependencies.Count];
+        surface = null;
+        SetMaterialDirty(); SetVerticesDirty();
+    }
+
+    private State Read(int index)
+    {
+        var cell = surface.GetCell(index % columns, index / columns);
+        bool nectar = cell.Content == CellContentKind.Nectar || cell.Content == CellContentKind.Honey;
+        float fill = nectar ? (float)surface.GetCapacityFillRatio(index % columns, index / columns) : 0;
+        // A nonempty quantitative nectar cell may consist of sugar alone or water alone.
+        bool present = nectar && (surface.HasQuantifiedContent(index % columns, index / columns)
+            ? surface.GetTotalSugarMassMg(index % columns, index / columns) > 0 || surface.GetWaterMassMg(index % columns, index / columns) > 0
+            : cell.FillRatio > 0);
+        return new State { Construction = cell.Construction, Complete = cell.IsComplete,
+            Occupant = OccupantAt(index, cell),
+            PollenScale = cell.Content == CellContentKind.Pollen ? Mathf.Lerp(pollenMinimum, 1,
+                Mathf.Clamp01((float)surface.GetCapacityFillRatio(index % columns, index / columns))) : 0,
+            NectarKind = present ? RepresentativeNectar(surface, index % columns, index / columns, representativePercent) : 4,
+            NectarAlpha = NectarOpacity(surface.GetTotalSugarMassMg(index % columns, index / columns),
+                surface.GetWaterMassMg(index % columns, index / columns), dryAlpha, wetAlpha),
+            Nectar = present ? Mathf.Lerp(nectarMinimum, 1, Mathf.Clamp01(fill)) : 0 };
+    }
+
+    private int OccupantAt(int index, CellData cell)
+    {
+        int x = index % columns, y = index / columns;
+        if (cell.Content == CellContentKind.Pollen)
+            return surface.GetPollenMassMg(x, y) > 0 || cell.FillRatio > 0 ? 1 : 0;
+        if (cell.Content != CellContentKind.Brood || broodRuntime == null ||
+            !broodRuntime.TryGetObservationStage(surface.GetBeeId(x, y), out var stage)) return 0;
+        switch (stage)
+        {
+            case CycleStage.Egg: return 2;
+            case CycleStage.Larva: return 3;
+            case CycleStage.Pupa: return 4;
+            default: return 0;
+        }
+    }
+
+    public static float NectarOpacity(double sugar, double water, float dry, float wet)
+        => Mathf.Lerp(dry, wet, sugar + water > 0 ? Mathf.Clamp01((float)(water / (sugar + water))) : 0);
+
+    public static int RepresentativeNectar(FrameSurface surface, int x, int y, float thresholdPercent)
+    {
+        double total = surface.GetTotalSugarMassMg(x, y);
+        if (total <= 0) return 4;
+        double threshold = total * (Mathf.Clamp(thresholdPercent, 50, 100) / 100.0);
+        // Stable forage IDs: 0 rape, 1 cherry, 2 black locust, 3 chestnut,
+        // 4..7 wildflowers. Water is deliberately absent from this comparison.
+        for (int kind = 0; kind < 4; kind++)
+            if (surface.GetSugarMassMg(x, y, kind) > threshold) return kind;
+        double wildflower = surface.GetSugarMassMg(x, y, NectarSourceIdentity.Wildflower);
+        if (wildflower > threshold) return 4;
+        return 4; // No strict majority, unknown source, or mixed nectar.
+    }
+
+    public void SetSurface(FrameSurface value, BeeCycleRuntime runtime = null)
+    {
+        bool changed = surface != value;
+        surface = value;
+        broodRuntime = runtime;
+        if (states == null) return;
+        for (int i = 0; i < dependencies.Count; i++)
+        {
+            var next = surface == null ? default : Read(dependencies[i]);
+            if (!states[i].Same(next)) changed = true;
+            states[i] = next;
+        }
+        if (changed)
+        {
+            RefreshCount++; SetVerticesDirty();
+            foreach (var layer in layers) layer.SetVerticesDirty();
+        }
+    }
+
+    private State Cached(int index) => states[dependencies.BinarySearch(index)];
+    public static float WallAlpha(byte maximumConstruction, float minimum, float maximum)
+        => Mathf.Lerp(minimum, maximum, maximumConstruction / 100f);
+
+    protected override void OnPopulateMesh(VertexHelper vh)
+        => PopulateTexture(vh, primaryTexture);
+
+    internal void PopulateTexture(VertexHelper vh, Texture texture)
+    {
+        vh.Clear();
+        if (surface == null || texture == null || radius <= 0) return;
+        float scale = radius / 40f;
+        for (int index = firstIndex; index < lastIndex; index++)
+        {
+            int x = index % columns, y = index / columns;
+            var center = origin + new Vector2(Mathf.Sqrt(3f) * radius * (x + .5f + (y & 1) * .5f), radius + y * 1.5f * radius);
+            var cell = Cached(index);
+            if (cell.Complete) DrawSprite(vh, texture, artwork.completeCell, center, new Vector2(60, 69), new Vector2(.5f, .5f), scale, 0, 1, true);
+            if (cell.Nectar > 0) DrawSprite(vh, texture, artwork.Nectar(cell.NectarKind), center, new Vector2(57, 63), new Vector2(.5f, .5f), scale * cell.Nectar, 0, cell.NectarAlpha, true);
+            Sprite occupant = cell.Occupant == 1 ? artwork.pollen : cell.Occupant == 2 ? artwork.egg : cell.Occupant == 3 ? artwork.larva : cell.Occupant == 4 ? artwork.cappedPupa : null;
+            // Supplied square artwork shares a canvas: preserve its aspect and
+            // internal whitespace (the egg is intentionally much smaller than the cap).
+            if (occupant != null) DrawSprite(vh, texture, occupant, center, new Vector2(96, 96), new Vector2(.5f, .5f),
+                scale * (cell.Occupant == 1 ? cell.PollenScale : 1), 0, 1, true);
+        }
+        foreach (var node in nodes)
+        {
+            int active = 0, corner = 0; byte maximum = 0;
+            for (int i = 0; i < node.Cells.Count; i++)
+            {
+                byte construction = Cached(node.Cells[i]).Construction;
+                if (construction > 0) { active++; corner = node.Corners[i]; }
+                if (construction > maximum) maximum = construction;
+            }
+            if (active == 0) continue;
+            float angle = 60 * corner - 60;
+            if (active == 1)
+                DrawSprite(vh, texture, artwork.wallTwoArm, node.Position, new Vector2(40, 18), new Vector2(.5f, 4f / 18), scale, angle, WallAlpha(maximum, alphaMin, alphaMax));
+            else
+                DrawSprite(vh, texture, artwork.wallThreeArm, node.Position, new Vector2(40, 34), new Vector2(.5f, 20f / 34), scale, angle, WallAlpha(maximum, alphaMin, alphaMax));
+        }
+    }
+
+    private void BuildLayers()
+    {
+        foreach (var layer in layers)
+        {
+            layer.gameObject.SetActive(false);
+            if (Application.isPlaying) Destroy(layer.gameObject); else DestroyImmediate(layer.gameObject);
+        }
+        layers.Clear(); geometry.Clear(); primaryTexture = null;
+        var textures = new HashSet<Texture>();
+        var sprites = new[] { artwork.completeCell, artwork.rapeSeedNectar, artwork.cherryBlossomNectar,
+            artwork.blackLocustNectar, artwork.chestnutNectar, artwork.wildflowerNectar,
+            artwork.pollen, artwork.egg, artwork.larva, artwork.cappedPupa, artwork.wallTwoArm, artwork.wallThreeArm };
+        foreach (var sprite in sprites)
+        {
+            if (sprite == null) continue;
+            if (!geometry.ContainsKey(sprite)) geometry.Add(sprite, new SpriteGeometry
+                { Vertices = sprite.vertices, UV = sprite.uv, Triangles = sprite.triangles });
+            if (!textures.Add(sprite.texture)) continue;
+            if (primaryTexture == null) { primaryTexture = sprite.texture; continue; }
+            var child = new GameObject("CellSprite_" + sprite.name, typeof(RectTransform), typeof(CanvasRenderer));
+            child.transform.SetParent(transform, false);
+            var rect = (RectTransform)child.transform;
+            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
+            var layer = child.AddComponent<FrameCellSpriteLayer>();
+            layer.Owner = this; layer.Texture = sprite.texture; layer.raycastTarget = false;
+            layers.Add(layer);
+        }
+    }
+
+    // Use actual Sprite geometry/UVs, including sliced and tightly packed sprites.
+    // Reference dimensions preserve the SVG layout regardless of image resolution.
+    private void DrawSprite(VertexHelper vh, Texture texture, Sprite sprite, Vector2 anchor,
+        Vector2 size, Vector2 topLeftPivot, float scale, float angle, float alpha, bool preserveOrientation = false)
+    {
+        if (sprite == null || sprite.texture != texture) return;
+        var source = geometry[sprite];
+        int start = vh.currentVertCount;
+        float radians = angle * Mathf.Deg2Rad, cos = Mathf.Cos(radians), sin = Mathf.Sin(radians);
+        var matrix = transform.localToWorldMatrix;
+        bool unmirror = preserveOrientation && matrix.m00 * matrix.m11 - matrix.m01 * matrix.m10 < 0;
+        for (int i = 0; i < source.Vertices.Length; i++)
+        {
+            Vector2 pixel = source.Vertices[i] * sprite.pixelsPerUnit + sprite.pivot;
+            Vector2 p = new Vector2((pixel.x / sprite.rect.width - topLeftPivot.x) * size.x,
+                (pixel.y / sprite.rect.height - (1 - topLeftPivot.y)) * size.y) * scale;
+            // Keep source-art handedness on both faces and with the cell-grid mirror.
+            // Only reflect about the cell center; cell positions and wall topology stay intact.
+            if (unmirror) p.x = -p.x;
+            var vertex = UIVertex.simpleVert;
+            vertex.position = anchor + new Vector2(p.x * cos - p.y * sin, p.x * sin + p.y * cos);
+            vertex.color = new Color(1, 1, 1, alpha);
+            vertex.uv0 = source.UV[i];
+            vh.AddVert(vertex);
+        }
+        for (int i = 0; i < source.Triangles.Length; i += 3)
+            vh.AddTriangle(start + source.Triangles[i], start + source.Triangles[i + 1], start + source.Triangles[i + 2]);
+    }
+}

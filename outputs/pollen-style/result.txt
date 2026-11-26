@@ -1,0 +1,1 @@
+PASS 20 pollen lifecycle, save migration, deterministic UV/color and shader checks; WorldSaveTests passed.

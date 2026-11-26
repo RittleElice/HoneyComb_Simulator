@@ -19,7 +19,7 @@ public sealed partial class FrameSurface
 
     public event Action<FrameSurface, CellContentLoss> ContentLost;
     // Array payload only; excludes small object headers and the existing spatial/UI grids.
-    public long AllocatedDataBytes => (long)cells.Length * 8 + (materials?.AllocatedDataBytes ?? 0) + (thermalRegions == null ? 0 : (long)HiveGridLayout.CombColumns * HiveGridLayout.CombRows * 32);
+    public long AllocatedDataBytes => (long)cells.Length * 8 + (pollenSeeds == null ? 0 : (long)pollenSeeds.Length * 4) + (materials?.AllocatedDataBytes ?? 0) + (thermalRegions == null ? 0 : (long)HiveGridLayout.CombColumns * HiveGridLayout.CombRows * 32);
     public bool HasQuantifiedContent(int x, int y) => materials != null && materials.Has(GetIndex(x, y));
 
 
@@ -154,6 +154,7 @@ public sealed partial class FrameSurface
             loss = new CellContentLoss(index % Width, index / Width, before, reason, sugar, water, pollen, bee);
             materials?.Clear(index, before.Content);
         }
+        SyncPollenSeed(index);
         var after = cells[index];
         AdvanceRevision(before.Construction != after.Construction || before.Type != after.Type || before.Content != after.Content);
         if (removed) ContentLost?.Invoke(this, loss);
@@ -203,7 +204,7 @@ public sealed partial class FrameSurface
         if ((double)(materials?.Mass(i) ?? 0) + pollenMg > CombBalance.PollenCapacityMg * (1 + 1e-6)) return false;
         if (materials == null) materials = new CellMaterialStore(cells.Length);
         if (!materials.AddPollen(i, pollenMg)) return false;
-        cells[i].SetQuantifiedContent(CellContentKind.Pollen); AdvanceRevision(); return true;
+        cells[i].SetQuantifiedContent(CellContentKind.Pollen); SyncPollenSeed(i); AdvanceRevision(); return true;
     }
     public bool TrySetBrood(int x, int y, long beeId)
     {
