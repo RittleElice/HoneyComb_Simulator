@@ -2,6 +2,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
+public enum PollenTextureBlend
+{
+    [InspectorName("일반 (Normal)")] Normal = 0,
+    [InspectorName("곱하기 (Multiply)")] Multiply = 1,
+    [InspectorName("스크린 (Screen)")] Screen = 2,
+    [InspectorName("오버레이 (Overlay)")] Overlay = 3
+}
+
 [System.Serializable]
 public sealed class FrameCellArtwork
 {
@@ -16,6 +24,12 @@ public sealed class FrameCellArtwork
     public Sprite cappedPupa;
     public Sprite pollen;
     public Texture2D pollenTexture;
+    [Min(.01f), Tooltip("화분 내부 질감의 크기 배율. 1은 기존 크기이며, 2는 무늬가 두 배 커집니다. 화분 이미지 크기는 바뀌지 않습니다.")]
+    public float pollenTextureScale = 1f;
+    [Range(0f, 1f), Tooltip("질감의 불투명도. 0은 질감 없음, 1은 완전히 적용. 화분 이미지 자체의 불투명도는 유지됩니다.")]
+    public float pollenTextureOpacity = 1f;
+    [Tooltip("화분 이미지와 질감을 합성하는 방식입니다.")]
+    public PollenTextureBlend pollenTextureBlend = PollenTextureBlend.Multiply;
     public Color pollenColorA = Color.white;
     public Color pollenColorB = new Color(1f, .7f, .3f, 1f);
     [HideInInspector] public Shader pollenShader;
@@ -282,6 +296,8 @@ public class FrameCellMesh : MaskableGraphic
         {
             pollenStyleMaterial = new Material(artwork.pollenShader) { hideFlags = HideFlags.HideAndDontSave };
             pollenStyleMaterial.SetTexture("_DetailTex", artwork.pollenTexture != null ? artwork.pollenTexture : Texture2D.whiteTexture);
+            pollenStyleMaterial.SetFloat("_DetailOpacity", artwork.pollenTexture != null ? Mathf.Clamp01(artwork.pollenTextureOpacity) : 0f);
+            pollenStyleMaterial.SetFloat("_DetailBlend", (float)artwork.pollenTextureBlend);
             if(canvas != null) canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
         }
         material = null;
@@ -332,7 +348,7 @@ public class FrameCellMesh : MaskableGraphic
             var vertex = UIVertex.simpleVert;
             vertex.position = anchor + new Vector2(p.x * cos - p.y * sin, p.x * sin + p.y * cos);
             vertex.color = new Color(tint.r, tint.g, tint.b, alpha);
-            var uv=new Vector2(pixel.x/sprite.rect.width-.5f,pixel.y/sprite.rect.height-.5f);
+            var uv=new Vector2(pixel.x/sprite.rect.width-.5f,pixel.y/sprite.rect.height-.5f) / Mathf.Max(.01f,artwork.pollenTextureScale);
             vertex.uv1 = new Vector4(uv.x*Mathf.Cos(rotation)-uv.y*Mathf.Sin(rotation)+offset.x,uv.x*Mathf.Sin(rotation)+uv.y*Mathf.Cos(rotation)+offset.y,pollenSeed==0?0:1,0);
             vertex.uv0 = source.UV[i];
             vh.AddVert(vertex);
