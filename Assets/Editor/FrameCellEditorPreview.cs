@@ -9,6 +9,7 @@ using UnityEngine;
 // Ephemeral edit-mode artwork. Never binds or mutates the presenter's real frame.
 internal sealed class FrameCellEditorPreview : IDisposable
 {
+    ulong sampleSeed=WeatherSimulator.DefaultSeed;
     GameObject root;
     Canvas parentCanvas;
     AdditionalCanvasShaderChannels previousChannels;
@@ -19,6 +20,18 @@ internal sealed class FrameCellEditorPreview : IDisposable
     RectTransform lastArea;
     static readonly FieldInfo Art=typeof(FrameCellPresenter).GetField("artwork",BindingFlags.Instance|BindingFlags.NonPublic);
     internal GameObject Root=>root;
+
+    internal void Regenerate(FrameCellPresenter presenter)
+    {
+        ulong next;
+        do { next=BitConverter.ToUInt64(Guid.NewGuid().ToByteArray(),0); } while((int)next==(int)sampleSeed);
+        SetSeed(presenter,next);
+    }
+    internal void ResetSamples(FrameCellPresenter presenter)=>SetSeed(presenter,WeatherSimulator.DefaultSeed);
+    internal void SetSeed(FrameCellPresenter presenter,ulong seed)
+    {
+        Dispose();sampleSeed=seed;Update(presenter);
+    }
 
     internal void Update(FrameCellPresenter presenter)
     {
@@ -67,7 +80,7 @@ internal sealed class FrameCellEditorPreview : IDisposable
     {
         // Reuse the new-game initializer in an isolated, non-ticking model. No
         // GameBootstrap binding, save writes, or modification of the live world.
-        var world=new GameWorld(new WeatherSimulator(WeatherSimulator.DefaultSeed,WeatherAssetLoader.LoadBaseline()));
+        var world=new GameWorld(new WeatherSimulator(sampleSeed,WeatherAssetLoader.LoadBaseline()));
         try
         {
             world.BeeCycle.SeedDemo();

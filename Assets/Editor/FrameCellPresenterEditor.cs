@@ -61,7 +61,16 @@ public sealed class FrameCellPresenterEditor : Editor
         preview = EditorGUILayout.Toggle("씬 화면 배열 미리보기", preview);
         using(new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode))
             imagePreview=EditorGUILayout.Toggle(new GUIContent("예시 이미지 미리보기","재생하지 않고 새 게임 초기 배치의 벽·내용물·봉충을 표시합니다. 예시 데이터는 저장되지 않습니다."),imagePreview);
-        if(imagePreview)EditorGUILayout.HelpBox("새 게임 초기 배치의 예시입니다. 실제 게임과 프리팹에는 저장되지 않습니다. 선택을 해제하거나 재생하면 임시 표시가 제거됩니다.",MessageType.Info);
+        if(imagePreview)
+        {
+            using(new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode||area==null||EditorUtility.IsPersistent(target)))
+            using(new EditorGUILayout.HorizontalScope())
+            {
+                if(GUILayout.Button("예시 랜덤 재생성"))samplePreview.Regenerate((FrameCellPresenter)target);
+                if(GUILayout.Button("초기 예시로 복원"))samplePreview.ResetSamples((FrameCellPresenter)target);
+            }
+            EditorGUILayout.HelpBox("초기 구역은 유지하고 랜덤 재생성 시 밀원·수분·저장량·봉충 발달도를 다시 섞습니다. 실제 게임과 프리팹에는 저장되지 않습니다. 선택을 해제하거나 재생하면 임시 표시가 제거됩니다.",MessageType.Info);
+        }
         if(imagePreview&&area==null)EditorGUILayout.HelpBox("소방 표시 영역을 먼저 연결해 주세요.",MessageType.Warning);
         if(imagePreview&&EditorUtility.IsPersistent(target))EditorGUILayout.HelpBox("씬에 배치한 소비장을 선택하거나 프리팹 모드를 열어 확인해 주세요.",MessageType.Info);
         UpdateImagePreview();

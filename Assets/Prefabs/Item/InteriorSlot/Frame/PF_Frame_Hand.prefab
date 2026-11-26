@@ -129,8 +129,8 @@ MonoBehaviour:
     pollenTextureScale: 0.4
     pollenTextureOpacity: 0.3
     pollenTextureBlend: 1
-    pollenColorA: {r: 0.93710685, g: 0.93710685, b: 0.93710685, a: 1}
-    pollenColorB: {r: 0.8679245, g: 0.406669, b: 0.406669, a: 1}
+    pollenColorA: {r: 1, g: 1, b: 1, a: 1}
+    pollenColorB: {r: 1, g: 0.53144646, b: 0.53144646, a: 1}
     pollenShader: {fileID: 4800000, guid: 6f25c9063f334fe89642612be96eb455, type: 3}
     egg: {fileID: 21300000, guid: 1e28019abce046a9bc8435024555c34d, type: 3}
     larva: {fileID: 21300000, guid: 40b892ab0c05429da7c2118a8671922f, type: 3}
@@ -141,14 +141,15 @@ MonoBehaviour:
   wallMaximumAlpha: 1
   nectarMinimumScale: 0.5
   pollenMinimumScale: 0.5
-  nectarMaximumScale: 0.95
-  pollenMaximumScale: 0.95
+  nectarMaximumScale: 1
+  pollenMaximumScale: 1
   larvaMinimumScale: 0.4
   larvaMaximumScale: 0.95
   pupaStartColor: {r: 0.8490566, g: 0.8490566, b: 0.8490566, a: 1}
   pupaEndColor: {r: 0.7019608, g: 0.5411765, b: 0.3607843, a: 1}
-  completeCellOpacity: 0.7
+  completeCellOpacity: 0.6
   eggRotationRange: {x: 30, y: 60}
+  completeCellColor: {r: 1, g: 0.5372549, b: 0, a: 1}
   cellsPerMesh: 100
 --- !u!1 &4271564072480153360
 GameObject:
