@@ -124,7 +124,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         if(Bees.Count>0)return;
         var defaults=UnityEngine.Resources.Load<BeeCycleSettingsAsset>("BeeCycleParameters");
         if(initialSettings!=null)ApplySettings(initialSettings);
-        else if(defaults!=null){var settings=UnityEngine.JsonUtility.FromJson<BeeCycleSettings>(UnityEngine.JsonUtility.ToJson(defaults.values));settings.UpgradeForageFormula();settings.UpgradeRelocationFormulas();ApplySettings(settings);}
+        else if(defaults!=null){var settings=UnityEngine.JsonUtility.FromJson<BeeCycleSettings>(UnityEngine.JsonUtility.ToJson(defaults.values));settings.UpgradeForageFormula();settings.UpgradeRelocationFormulas();settings.UpgradeLoadForageFormulas();ApplySettings(settings);}
         var box=World.Apiary.GetItemSlot(0,0).Item;if(box?.InteriorSlots==null)return;
         var initialLayout=LoadInitialCombLayout();
         int highest=ThermalWorld.Items(World).Max(i=>i.Id);
@@ -399,7 +399,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         else if((choice-=recover)<0)b.task=CycleTask.Recover;
         else if((choice-=store)<0)b.task=CycleTask.Store;
         else if((choice-=relocate)<0){if(!StartRelocation(b))ChooseCore(b,false);}
-        else for(int i=0;i<b.DesireCount;i++){var d=b.DesireAt(i);if((choice-=d.weight)<0){b.task=d.task;b.target=d.target;b.hasTarget=true;break;}}
+        else for(int i=0;i<b.DesireCount;i++){var d=b.DesireAt(i);if((choice-=ForageChoiceWeight(b,d.task,d.weight))<0){b.task=d.task;b.target=d.target;b.hasTarget=true;break;}}
     }
     void End(CycleBee b,CycleEnd end)
     {
@@ -419,10 +419,11 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         if(b.task==CycleTask.None)Choose(b);
         if(b.task==CycleTask.None){Act(b,CycleAction.Idle);return;}
         b.elapsed++;
-        if(Random()<FInterrupt(b.elapsed))
+        if((Settings.forageLoadBased==0||!b.outside)&&Random()<FInterrupt(b.elapsed))
         {if(b.outside){b.returning=true;b.interruptAfterReturn=true;}else{End(b,CycleEnd.Interrupted);Act(b,CycleAction.Idle);return;}}
         if(b.outside)
         {
+            if(Settings.forageLoadBased!=0){RunLoadForage(b);return;}
             Act(b,CycleAction.Outside);b.outsideRemaining--;
             if(b.returning||b.outsideRemaining<=0)
             {
@@ -463,7 +464,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
                 if(Move(b,b.target.Grid,ref time)){
                     b.forageSource=SelectForageSource(b.task==CycleTask.ForagePollen);
                     if(b.forageSource<0){End(b,CycleEnd.ResourceMissing);break;}
-                    b.returnPoint=new CyclePoint(b.target.Grid);b.outside=true;b.outsideRemaining=F("forageDuration");World.BeeLocations.Remove(b.id);InvalidateBeePosition(b);Act(b,CycleAction.Outside,time);
+                    b.returnPoint=new CyclePoint(b.target.Grid);b.outside=true;b.outsideRemaining=Settings.forageLoadBased!=0?0:F("forageDuration");World.BeeLocations.Remove(b.id);InvalidateBeePosition(b);Act(b,CycleAction.Outside,time);
                 }break;
             default:
                 if(!b.hasTarget||!regionAt.TryGetValue(b.target.Grid,out var r)){End(b,CycleEnd.PathBlocked);break;}

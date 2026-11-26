@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 // Immutable runtime values. Equal vectors can share storage without sharing mutable bee state.
@@ -35,7 +35,7 @@ public sealed partial class BeeCycleRuntime
     readonly Dictionary<(int,bool),List<IndexedCommand>> groupCommands=new Dictionary<(int,bool),List<IndexedCommand>>();
     readonly HashSet<int> localCommandGroups=new HashSet<int>();
     readonly Dictionary<(CycleDesireState,long),double> desireTotals=new Dictionary<(CycleDesireState,long),double>();
-    double DesireTotal(CycleBee bee,double initial){if(bee.mutableDesires!=null){for(int i=0;i<bee.DesireCount;i++)initial+=bee.DesireAt(i).weight;return initial;}var state=bee.desireState??CycleDesireState.Empty;var key=(state,BitConverter.DoubleToInt64Bits(initial));if(desireTotals.TryGetValue(key,out double result))return result;result=initial;foreach(var d in state.Values)result+=d.weight;if(desireTotals.Count<8192)desireTotals.Add(key,result);return result;}
+    double DesireTotal(CycleBee bee,double initial){if(Settings.forageLoadBased!=0){for(int i=0;i<bee.DesireCount;i++){var d=bee.DesireAt(i);initial+=ForageChoiceWeight(bee,d.task,d.weight);}return initial;}if(bee.mutableDesires!=null){for(int i=0;i<bee.DesireCount;i++)initial+=bee.DesireAt(i).weight;return initial;}var state=bee.desireState??CycleDesireState.Empty;var key=(state,BitConverter.DoubleToInt64Bits(initial));if(desireTotals.TryGetValue(key,out double result))return result;result=initial;foreach(var d in state.Values)result+=d.weight;if(desireTotals.Count<8192)desireTotals.Add(key,result);return result;}
     void BeginDesireTick(){desireTotals.Clear();desireContexts.Clear();desireTransitions.Clear();desireStates.Clear();localCommandGroups.Clear();groupCommands.Clear();foreach(var c in indexedCommands){var command=c.command;if(command.localOnly)localCommandGroups.Add(command.group);var key=(command.group,command.task==CycleTask.Lay);if(!groupCommands.TryGetValue(key,out var list)){list=new List<IndexedCommand>();groupCommands.Add(key,list);}list.Add(c);}}
     CycleDesireState InternDesires(CycleDesireState state){if(desireStates.TryGetValue(state,out var prior))return prior;desireStates.Add(state,state);return state;}
     void UpdateDesires(CycleBee b)

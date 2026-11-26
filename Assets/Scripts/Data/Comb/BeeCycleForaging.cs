@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -64,8 +64,10 @@ public sealed partial class BeeCycleRuntime
                 else {q.bee.cargo.Add(source,amount);Counters.externalSugar+=amount;}
             }
         }
+        if(Settings.forageLoadBased!=0)ResetForageSelection();
         foreach(var q in forageRequests){
             if(q.bee.stage==CycleStage.Dead)continue;
+            if(Settings.forageLoadBased!=0){FinishLoadForageTick(q.bee,q.pollen,q.amount);continue;}
             FinishForage(q.bee,q.bee.lastAcquired>0||q.amount<=0?CycleEnd.Completed:CycleEnd.ResourceMissing);
             BaseHeat(q.bee);
         }

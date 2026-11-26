@@ -49,6 +49,10 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     [CycleSince(10)] public double relocateDensityStart=4,relocateDensityStop=2;
     [CycleSince(10)] public double relocateTemperatureWeight=30,relocateCrowdingWeight=30;
     [CycleSince(10)] public double relocateTemperatureScale=6,relocateDistanceMm=200,relocateMinImprovement=0.1,relocateMinEnergyFraction=0.1;
+    [CycleSince(12)] public double forageShortageReturnRate=0.2;
+    [CycleSince(11)] public int forageLoadBased=1;
+    [CycleSince(11)] public double forageSugarRate=1.875,foragePollenRate=1.875,forageReturnExponent=2,forageDepartureExponent=2;
+    public void UpgradeLoadForageFormulas(){foreach(var f in BeeCycleRules.Defaults())if((f.name=="forageCollectSugar"||f.name=="forageCollectPollen"||f.name=="forageReturnChance"||f.name=="forageDepartureWeight"||f.name=="forageShortageReturnChance")&&!formulas.Exists(x=>x.name==f.name))formulas.Add(f);}
     public void UpgradeRelocationFormulas(){foreach(var f in BeeCycleRules.Defaults())if(f.name.StartsWith("relocate")&&!formulas.Exists(x=>x.name==f.name))formulas.Add(f);}
     public void UpgradeBroodHeatFormula(bool legacy=false)
     {
@@ -70,6 +74,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
         if(representativeScale<=0||reserveTarget<=0||maxEnergy<=0||maxHealth<=0||carryCapacity<=0||pollenCarryCapacity<=0||energyPerSugar<=0||speed<=0||storageDistanceMm<=0||stockSugarPerBee<=0||stockPollenPerBee<=0||desiredEmptyCellsPerBee<=0||sugarPerBuildPoint<=0||recoveryEnergy<=0||heatEnergy<=0||broodTarget<=0||larvaSugarPerTick<=0||larvaPollenPerTick<=0||larvaEnergyPerTick<=0||heatDeficitScale<=0||storageHeightScale<=0||broodMinTemperature>=broodIdealTemperature||broodIdealTemperature>=broodMaxTemperature||eggEnd>=larvaEnd||larvaEnd>=adultStart||adultStart>=maxDevelopment||adultStart>=queenMaxDevelopment)
             throw new ArgumentException("Positive capacity/rate denominator required.");
         if(relocateEnabled>1||relocateColdStart < -273.15||relocateColdStart>=relocateColdStop||relocateColdStop>=relocateHotStop||relocateHotStop>=relocateHotStart||relocateDensityStop>=relocateDensityStart||relocateTemperatureScale<=0||relocateDistanceMm<=0||relocateMinEnergyFraction>1)throw new ArgumentException("Invalid relocation settings.");
+        if(forageShortageReturnRate>1||forageLoadBased>1||forageSugarRate<=0||foragePollenRate<=0||forageReturnExponent<=0||forageDepartureExponent<=0)throw new ArgumentException("Invalid load forage settings.");
         if(broodThermalCoupling>1||routeCacheEntries<1||demoConstruction>100||demoFrames>8)throw new ArgumentException("Invalid cache/demo limits.");
     }
 }

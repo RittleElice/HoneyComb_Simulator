@@ -13,7 +13,23 @@ MonoBehaviour:
   m_Name: BeeCycleParameters
   m_EditorClassIdentifier: Assembly-CSharp::BeeCycleSettingsAsset
   values:
+    forageShortageReturnRate: 0.2
+    forageLoadBased: 1
+    forageSugarRate: 1.875
+    foragePollenRate: 1.875
+    forageReturnExponent: 2
+    forageDepartureExponent: 2
     formulas:
+    - name: forageCollectSugar
+      expression: forageSugarRate*time
+    - name: forageCollectPollen
+      expression: foragePollenRate*time
+    - name: forageShortageReturnChance
+      expression: clamp(ratio,0,1)*forageShortageReturnRate
+    - name: forageReturnChance
+      expression: pow(clamp(ratio,0,1),forageReturnExponent)
+    - name: forageDepartureWeight
+      expression: pow(clamp(1-ratio,0,1),forageDepartureExponent)
     - name: relocateTemperatureDesire
       expression: relocateTemperatureWeight*clamp(ratio,0,1)
     - name: relocateCrowdingDesire
