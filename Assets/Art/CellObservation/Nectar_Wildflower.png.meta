@@ -3,8 +3,8 @@ guid: f0f9ee41c0e02554ca51176a119eb78f
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 7810317847323518934
-    second: "\uD654\uBC00_\uC7A1\uD654_0"
+      213: -1820133339595241327
+    second: Nectar_Wildflower_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Nactar_Wildflower
+      name: Nectar_Wildflower_0
       rect:
         serializedVersion: 2
         x: 0
@@ -121,15 +121,15 @@ TextureImporter:
         width: 57
         height: 63
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 6d7ac9883b2d36c60800000000000000
-      internalID: 7810317847323518934
+      spriteID: 19884910f569db6e0800000000000000
+      internalID: -1820133339595241327
       vertices: []
       indices: 
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: ec000054995cd1f449ee5a99b35be25d
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Nactar_Wildflower: 7810317847323518934
+      Nectar_Wildflower_0: -1820133339595241327
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

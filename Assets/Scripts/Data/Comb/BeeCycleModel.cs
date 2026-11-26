@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 public enum CycleTask { None, Feed, Rest, Recover, Store, ForageNectar, ForagePollen, Build, Lay, Nurse, Heat, Clear, Relocate }
@@ -16,7 +16,9 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     public double basalSugar=0.003, basalEnergy=0.0275, movementEnergy=0.01;
     public double feedRate=2, restRate=8, energyPerSugar=10, recoveryRate=2, recoveryEnergy=2;
     public double speed=10, acquireRate=5, storeRate=5;
-    // Reserved for apiary destination-field movement; not used by hive surface movement.
+    [CycleSince(14)] public int directionRoutingEnabled=1,apiaryMovementEnabled=1;
+    [CycleSince(14)] public double apiaryArrivalStopPercent=50,apiaryCellMeters=1,apiaryFlightMetersPerSecond=1;
+    // Apiary probabilities do not change interior movement. Legacy radius/exponent remain wire-compatible but unused.
     [CycleSince(13)] public double apiaryWaitPercent=5,apiaryFollowDirectionPercent=80,apiaryOtherDirectionPercent=15;
     [CycleSince(13)] public int apiaryReturnRadius=1;
     [CycleSince(13)] public double apiaryReturnDistanceExponent=1;
@@ -80,6 +82,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
         if(relocateEnabled>1||relocateColdStart < -273.15||relocateColdStart>=relocateColdStop||relocateColdStop>=relocateHotStop||relocateHotStop>=relocateHotStart||relocateDensityStop>=relocateDensityStart||relocateTemperatureScale<=0||relocateDistanceMm<=0||relocateMinEnergyFraction>1)throw new ArgumentException("Invalid relocation settings.");
         if(forageShortageReturnRate>1||forageLoadBased>1||forageSugarRate<=0||foragePollenRate<=0||forageReturnExponent<=0||forageDepartureExponent<=0)throw new ArgumentException("Invalid load forage settings.");
         if(apiaryWaitPercent>100||apiaryFollowDirectionPercent>100||apiaryOtherDirectionPercent>100||Math.Abs(apiaryWaitPercent+apiaryFollowDirectionPercent+apiaryOtherDirectionPercent-100)>1e-9)throw new ArgumentException("양봉장 이동 확률은 각각 0~100%, 합계 100%여야 합니다.");
+        if(directionRoutingEnabled>1||apiaryMovementEnabled>1||apiaryArrivalStopPercent<=0||apiaryArrivalStopPercent>100||apiaryCellMeters<=0||apiaryFlightMetersPerSecond<=0)throw new ArgumentException("Invalid apiary movement settings.");
         if(broodThermalCoupling>1||routeCacheEntries<1||demoConstruction>100||demoFrames>8)throw new ArgumentException("Invalid cache/demo limits.");
     }
 }
@@ -138,6 +141,9 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
 }
 [Serializable] public sealed class CycleBee
 {
+    internal bool directionActive;
+    internal CyclePoint directionTarget;
+    internal CycleApiaryFlight apiaryFlight;
     public long id;
     public bool queen;
     public int homeBox,broodColumn,broodRow;
@@ -174,6 +180,8 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
 {
     public long completed,resourceFailed,pathFailed,interrupted,commands;
     public long deaths,emerged,eggs;
+    [CycleSince(14)] public long apiaryLandings,apiaryLandingDistance,apiaryArrivals,apiarySteps;
+    [CycleSince(14)] public double apiaryTravelSeconds,apiaryMoveSeconds,apiaryWaitSeconds;
     public long[] actions=new long[15];
     public double externalSugar,externalPollen,discardedWater,consumedSugar,built;
     public double heatJ,lostSugar,lostPollen,consumedPollen;

@@ -1,6 +1,8 @@
-public sealed partial class BeeCycleRuntime
+﻿public sealed partial class BeeCycleRuntime
 {
     // Read-only, indexed lookup for the currently observed comb. No whole-colony scan.
+    public bool TryGetObservationDetails(long id,out CycleStage stage,out double development,out double health)
+    {stage=default;development=health=0;if(!byId.TryGetValue(id,out var bee))return false;stage=bee.stage;development=bee.development;health=bee.health;return true;}
     public bool TryGetObservationStage(long beeId, out CycleStage stage)
     {
         if (byId.TryGetValue(beeId, out var bee)) { stage = bee.stage; return true; }

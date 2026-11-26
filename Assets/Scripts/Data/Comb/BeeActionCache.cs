@@ -27,7 +27,7 @@ public sealed partial class BeeCycleRuntime
         if(!positionKnown){positionFound=World.BeeLocations.TryGet(bee.id,out cachedPosition);positionKnown=true;}
         position=cachedPosition;return positionFound;
     }
-    void ClearActionGeometry(){freshMovements.Clear();movementGeometry.Clear();storageChoices.Clear();routeDistances.Clear();pathTemplates.Clear();edgeLengths.Clear();cachedPathPoints=0;positionKnown=airKnown=false;}
+    void ClearActionGeometry(){ClearDirections();freshMovements.Clear();movementGeometry.Clear();storageChoices.Clear();routeDistances.Clear();pathTemplates.Clear();edgeLengths.Clear();cachedPathPoints=0;positionKnown=airKnown=false;}
     List<CyclePoint> FindPath(BeeGridPosition start,BeeGridPosition target,bool queen)
     {
         var key=(start,target,queen);if(pathTemplates.TryGetValue(key,out var template))return new List<CyclePoint>(template);
@@ -99,7 +99,7 @@ public sealed partial class BeeCycleRuntime
         for(int i=0;i<neighbours.Count;i++)
         {
             var move=neighbours[i];if(!move.Target.Equals(target))continue;
-            edge.Worker=true;edge.Queen|=move.AllowsQueen;
+            if(!AllowedSurfaceEdge(start,target))continue;edge.Worker=true;edge.Queen|=move.AllowsQueen;
         }
         if(forageSelectionActive&&movementGeometry.Count<65536)movementGeometry.Add(key,edge);
         return edge;

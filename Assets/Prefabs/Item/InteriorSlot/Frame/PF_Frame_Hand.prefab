@@ -118,38 +118,38 @@ MonoBehaviour:
     wallTwoArm: {fileID: 108120564646386909, guid: b79ed32dde8b6414d8af1d8aaa104222, type: 3}
     wallThreeArm: {fileID: 285975524632947541, guid: fd36f67624cd1a34cb4d49a381c2bc8d, type: 3}
     completeCell: {fileID: -8879938817343946026, guid: a1d492d49f6444045a10ce8fab240b83, type: 3}
-    rapeSeedNectar: {fileID: 5668267880197773126, guid: 47473757255ec8046ae28d1fd9607b4a, type: 3}
-    cherryBlossomNectar: {fileID: -6769574989968551802, guid: 0f58421a18c267447a5a3eaede1d4a4e, type: 3}
-    blackLocustNectar: {fileID: -7231228680672823943, guid: 8ef2908dc0ee4be4bba464a374226089, type: 3}
-    chestnutNectar: {fileID: 5679476736230718730, guid: 5bf90569848b11a458dc10f59b4324a2, type: 3}
-    wildflowerNectar: {fileID: 7810317847323518934, guid: f0f9ee41c0e02554ca51176a119eb78f, type: 3}
+    rapeSeedNectar: {fileID: 4476253181002983998, guid: 47473757255ec8046ae28d1fd9607b4a, type: 3}
+    cherryBlossomNectar: {fileID: 31525823278318573, guid: 0f58421a18c267447a5a3eaede1d4a4e, type: 3}
+    blackLocustNectar: {fileID: -3445287051538342089, guid: 8ef2908dc0ee4be4bba464a374226089, type: 3}
+    chestnutNectar: {fileID: -7799938274841935448, guid: 5bf90569848b11a458dc10f59b4324a2, type: 3}
+    wildflowerNectar: {fileID: -1820133339595241327, guid: f0f9ee41c0e02554ca51176a119eb78f, type: 3}
     cappedPupa: {fileID: 21300000, guid: bb1cd445e018425caa3371fa782db7c4, type: 3}
     pollen: {fileID: -2485924460058043253, guid: 6a11f2e317d3e8542a43c904743d6a8a, type: 3}
     pollenTexture: {fileID: 2800000, guid: 316514b4e7ea2c74e8fd658eab1ef57e, type: 3}
     pollenTextureScale: 0.4
     pollenTextureOpacity: 0.3
     pollenTextureBlend: 1
-    pollenColorA: {r: 1, g: 1, b: 1, a: 1}
-    pollenColorB: {r: 1, g: 0.53144646, b: 0.53144646, a: 1}
+    pollenColorA: {r: 0.754717, g: 0.754717, b: 0.754717, a: 1}
+    pollenColorB: {r: 1, g: 0.5774668, b: 0.4235294, a: 1}
     pollenShader: {fileID: 4800000, guid: 6f25c9063f334fe89642612be96eb455, type: 3}
     egg: {fileID: 21300000, guid: 1e28019abce046a9bc8435024555c34d, type: 3}
     larva: {fileID: 21300000, guid: 40b892ab0c05429da7c2118a8671922f, type: 3}
   representativeNectarPercent: 50
   dryNectarAlpha: 1
-  wetNectarAlpha: 0.3
+  wetNectarAlpha: 0.4
   wallMinimumAlpha: 0.3
   wallMaximumAlpha: 1
-  nectarMinimumScale: 0.5
-  pollenMinimumScale: 0.5
+  nectarMinimumScale: 0.6
+  pollenMinimumScale: 0.6
   nectarMaximumScale: 1
   pollenMaximumScale: 1
   larvaMinimumScale: 0.4
   larvaMaximumScale: 0.95
   pupaStartColor: {r: 0.8490566, g: 0.8490566, b: 0.8490566, a: 1}
   pupaEndColor: {r: 0.7019608, g: 0.5411765, b: 0.3607843, a: 1}
-  completeCellOpacity: 0.6
+  completeCellOpacity: 0.5
   eggRotationRange: {x: 30, y: 60}
-  completeCellColor: {r: 1, g: 0.5372549, b: 0, a: 1}
+  completeCellColor: {r: 1, g: 0.5669892, b: 0, a: 1}
   cellsPerMesh: 100
 --- !u!1 &4271564072480153360
 GameObject:

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 public sealed partial class BeeCycleRuntime
@@ -9,6 +9,7 @@ public sealed partial class BeeCycleRuntime
     readonly Dictionary<(EquipmentThermalState,int),double> relocationOccupancy=new Dictionary<(EquipmentThermalState,int),double>();
     readonly Dictionary<long,RelocationContribution> relocationContributions=new Dictionary<long,RelocationContribution>();
     readonly HashSet<(EquipmentThermalState,int)> relocationSeen=new HashSet<(EquipmentThermalState,int)>();
+    readonly Dictionary<int,List<RelocationSite>> relocationByGroup=new Dictionary<int,List<RelocationSite>>();
     int relocationTopology=-1;
     void BeginRelocationTick()
     {
@@ -18,6 +19,7 @@ public sealed partial class BeeCycleRuntime
         if(relocationTopology!=topology.Builds){
             relocationSites.Clear();
             foreach(var p in topology.Positions)if(RelocationSiteAt(p,out var site))relocationSites.Add(site);
+            relocationByGroup.Clear();foreach(var site in relocationSites){if(!relocationByGroup.TryGetValue(site.Group,out var list))relocationByGroup.Add(site.Group,list=new List<RelocationSite>());list.Add(site);}
             relocationTopology=topology.Builds;
         }
         foreach(var bee in Bees)TrackRelocationBee(bee);
@@ -67,7 +69,7 @@ public sealed partial class BeeCycleRuntime
         if(!RelocationEligible(bee)||!BeePosition(bee,out var p)||!RelocationSiteAt(p,out var here))return false;
         double currentT=RelocationTemperatureScore(here.Owner.TemperatureC(here.Index)),currentD=RelocationCrowdingScore(RelocationDensity(here));
         double total=0;bool found=false;BeeGridPosition selected=default;relocationSeen.Clear();
-        foreach(var site in relocationSites){
+        foreach(var site in relocationByGroup[here.Group]){
             var key=(site.Owner,site.Index);if(site.Group!=here.Group||key.Equals((here.Owner,here.Index))||relocationSeen.Contains(key))continue;
             double t=RelocationTemperatureScore(site.Owner.TemperatureC(site.Index)),d=RelocationCrowdingScore(RelocationDensity(site,RepresentedBees(bee)));
             double improvement=currentT+currentD-t-d;

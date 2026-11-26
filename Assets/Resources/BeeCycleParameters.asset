@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,6 +13,11 @@ MonoBehaviour:
   m_Name: BeeCycleParameters
   m_EditorClassIdentifier: Assembly-CSharp::BeeCycleSettingsAsset
   values:
+    directionRoutingEnabled: 1
+    apiaryMovementEnabled: 1
+    apiaryArrivalStopPercent: 50
+    apiaryCellMeters: 1
+    apiaryFlightMetersPerSecond: 1
     apiaryWaitPercent: 5
     apiaryFollowDirectionPercent: 80
     apiaryOtherDirectionPercent: 15

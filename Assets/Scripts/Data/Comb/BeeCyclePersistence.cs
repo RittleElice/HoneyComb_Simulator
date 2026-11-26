@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.IO;
 using System.Reflection;
@@ -9,24 +9,24 @@ public sealed partial class BeeCycleRuntime
     internal void Write(BinaryWriter w,bool compact=true)
     {
         if(Failure!=null||LastMinute!=World.CurrentGameMinute)throw new InvalidDataException("Incomplete bee tick.");
-        w.Write(13);w.Write(compact);w.Write(LastMinute);w.Write(RandomState);w.Write(nextId);
+        w.Write(14);w.Write(compact);w.Write(LastMinute);w.Write(RandomState);w.Write(nextId);
         CycleBinary.Write(w,typeof(BeeCycleSettings),Settings);
         if(compact)WriteCompactBees(w);else CycleBinary.Write(w,Bees.GetType(),Bees);
-        CycleBinary.Write(w,typeof(CycleCounters),Counters);CycleBinary.Write(w,Commands.GetType(),Commands);
+        CycleBinary.Write(w,typeof(CycleCounters),Counters);CycleBinary.Write(w,Commands.GetType(),Commands);WriteMovementExtension(w).GetAwaiter().GetResult();
     }
     internal async System.Threading.Tasks.Task WriteAsync(BinaryWriter w,Func<System.Threading.Tasks.Task> checkpoint)
     {
         if(Failure!=null||LastMinute!=World.CurrentGameMinute)throw new InvalidDataException("Incomplete bee tick.");
-        w.Write(13);w.Write(true);w.Write(LastMinute);w.Write(RandomState);w.Write(nextId);CycleBinary.Write(w,typeof(BeeCycleSettings),Settings);
-        await WriteCompactBeesAsync(w,checkpoint);CycleBinary.Write(w,typeof(CycleCounters),Counters);CycleBinary.Write(w,Commands.GetType(),Commands);
+        w.Write(14);w.Write(true);w.Write(LastMinute);w.Write(RandomState);w.Write(nextId);CycleBinary.Write(w,typeof(BeeCycleSettings),Settings);
+        await WriteCompactBeesAsync(w,checkpoint);CycleBinary.Write(w,typeof(CycleCounters),Counters);CycleBinary.Write(w,Commands.GetType(),Commands);await WriteMovementExtension(w,checkpoint);
     }
     internal void Read(BinaryReader r,bool validateOnly=false)
     {
-        int version=r.ReadInt32();if(version!=1&&version!=2&&version!=3&&version!=4&&version!=5&&version!=6&&version!=7&&version!=8&&version!=9&&version!=10&&version!=11&&version!=12&&version!=13)throw new InvalidDataException("Unknown bee cycle version.");
+        int version=r.ReadInt32();if(version!=1&&version!=2&&version!=3&&version!=4&&version!=5&&version!=6&&version!=7&&version!=8&&version!=9&&version!=10&&version!=11&&version!=12&&version!=13&&version!=14)throw new InvalidDataException("Unknown bee cycle version.");
         bool compact=version>=6?r.ReadBoolean():version==5;
         LastMinute=r.ReadInt64();RandomState=r.ReadUInt32();nextId=r.ReadInt64();
         Settings=(BeeCycleSettings)CycleBinary.Read(r,typeof(BeeCycleSettings),version);if(version<8)Settings.representativeScale=1;if(version<9){Settings.eggBasalHeatJ=Settings.larvaBasalHeatJ=Settings.pupaBasalHeatJ=Settings.basalHeatJ;Settings.broodThermalCoupling=0;Settings.UpgradeBroodHeatFormula(true);}if(version==1)Settings.UpgradeForageFormula();if(version<4)Settings.demoEggs=Settings.demoLarvae=Settings.demoPupae=0;if(version<10)Settings.UpgradeRelocationFormulas();if(version<12)Settings.UpgradeLoadForageFormulas();rules=new BeeCycleRules(Settings);unitInputs.Clear();scalarInputs.Clear();developmentInputs.Clear();
-        if(compact)ReadCompactBees(r,validateOnly);else Bees=(System.Collections.Generic.List<CycleBee>)CycleBinary.Read(r,typeof(System.Collections.Generic.List<CycleBee>),version);
+        if(compact)ReadCompactBees(r,validateOnly,version);else Bees=(System.Collections.Generic.List<CycleBee>)CycleBinary.Read(r,typeof(System.Collections.Generic.List<CycleBee>),version);
         Counters=(CycleCounters)CycleBinary.Read(r,typeof(CycleCounters),version);Commands=(System.Collections.Generic.List<CycleCommand>)CycleBinary.Read(r,typeof(System.Collections.Generic.List<CycleCommand>),version);byId.Clear();
         if(LastMinute!=World.CurrentGameMinute||RandomState==0||nextId<=0||Counters.actions.Length!=15)throw new InvalidDataException("Invalid bee clock.");
         foreach(var b in Bees)
@@ -41,6 +41,7 @@ public sealed partial class BeeCycleRuntime
             byId.Add(b.id,b);nextId=Math.Max(nextId,b.id+1);
             if(b.mutableDesires!=null){b.desireState=InternDesires(CycleDesireState.From(b.mutableDesires));b.mutableDesires=null;b.desireIndex=null;}
         }
+        if(version>=14)ReadMovementExtension(r,validateOnly);
     }
 }
 [AttributeUsage(AttributeTargets.Field)]
@@ -182,7 +183,7 @@ internal static class CycleBinary
     }
     // Keep field order and rejection rules aligned with ReadCompactBee and ReadCompactBees.
     // Validation consumes records without constructing per-bee cargo or path objects.
-    internal static long ValidateCompactBee(BinaryReader r,int stateCount,int sources,System.Collections.Generic.HashSet<long> seen,Func<long,bool> hasLocation)
+    internal static long ValidateCompactBee(BinaryReader r,int stateCount,int sources,System.Collections.Generic.HashSet<long> seen,Func<long,bool> hasLocation,System.Collections.Generic.Dictionary<long,byte> movementFlags=null)
     {
         long id=r.ReadInt64();
         r.ReadBoolean();
@@ -225,6 +226,7 @@ internal static class CycleBinary
         if(id<=0||!seen.Add(id)||reserve<0||energy<0||health<0||development<0||pollen<0||pathIndex<0||pathIndex>pathCount||progress<0)throw new InvalidDataException("Invalid bee state.");
         if(stage!=CycleStage.Dead&&!outside&&!hasLocation(id))throw new InvalidDataException("Missing bee location.");
         if(cargoInvalid)throw new InvalidDataException("Invalid cargo.");
+        if(movementFlags!=null&&(outside||stage==CycleStage.Dead))movementFlags[id]=(byte)((stage==CycleStage.Dead?1:0)|(outside?2:0));
         return id;
     }
     public static void Write(BinaryWriter w,Type t,object v)

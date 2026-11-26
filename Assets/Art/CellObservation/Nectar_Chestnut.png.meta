@@ -3,8 +3,8 @@ guid: 5bf90569848b11a458dc10f59b4324a2
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 5679476736230718730
-    second: "\uD654\uBC00_\uBC24_0"
+      213: -7799938274841935448
+    second: Nectar_Chestnut_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Nectar_Chestnut
+      name: Nectar_Chestnut_0
       rect:
         serializedVersion: 2
         x: 0
@@ -121,15 +121,15 @@ TextureImporter:
         width: 57
         height: 63
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: a0d702d100e81de40800000000000000
-      internalID: 5679476736230718730
+      spriteID: 8a1c212077d01c390800000000000000
+      internalID: -7799938274841935448
       vertices: []
       indices: 
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5475f96d593bded4da7ce51c85c4fec0
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Nectar_Chestnut: 5679476736230718730
+      Nectar_Chestnut_0: -7799938274841935448
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

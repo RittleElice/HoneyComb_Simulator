@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -40,6 +40,10 @@ public sealed partial class BeeCycleRuntime
     }
     void FinishForage(CycleBee bee,CycleEnd result)
     {
+        if(Settings.apiaryMovementEnabled!=0){
+            if(!BeginForageReturn(bee,result)){bee.returning=true;bee.interruptAfterReturn=result==CycleEnd.Interrupted;}
+            return;
+        }
         World.BeeLocations.Set(World,bee.id,bee.returnPoint.Grid);InvalidateBeePosition(bee);
         bee.outside=false;bee.returning=false;bee.interruptAfterReturn=false;
         End(bee,result);

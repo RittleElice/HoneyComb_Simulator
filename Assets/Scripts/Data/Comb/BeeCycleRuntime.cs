@@ -41,10 +41,13 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         readonly RouteDomain domain;
         readonly ushort[] small;
         readonly int[] large;
-        internal long Bytes=>small!=null?(long)small.Length*2:(long)large.Length*4;
+        readonly double[] cachedDistances;
+        internal long Bytes=>(small!=null?(long)small.Length*2:(long)large.Length*4)+(long)cachedDistances.Length*8;
+        internal bool TryDistance(BeeGridPosition target,out double value){value=double.NaN;if(domain.Ids.TryGetValue(target,out int id)&&id<cachedDistances.Length)value=cachedDistances[id];return !double.IsNaN(value);}
+        internal void RememberDistance(BeeGridPosition target,double value){if(domain.Ids.TryGetValue(target,out int id)&&id<cachedDistances.Length)cachedDistances[id]=value;}
         internal CompactRouteTree(Dictionary<BeeGridPosition,BeeGridPosition> source,RouteDomain domain)
         {
-            this.domain=domain;int count=domain.Points.Count;
+            this.domain=domain;int count=domain.Points.Count;cachedDistances=new double[count];for(int i=0;i<count;i++)cachedDistances[i]=double.NaN;
             if(count<=ushort.MaxValue){small=new ushort[count];foreach(var p in source)small[domain.Ids[p.Key]]=(ushort)(domain.Ids[p.Value]+1);}
             else{large=new int[count];foreach(var p in source)large[domain.Ids[p.Key]]=domain.Ids[p.Value]+1;}
         }
@@ -72,9 +75,9 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         int group=topology.TryAir(start,out var air)&&air!=null?air.Group:int.MinValue;
         if(!routeDomains.TryGetValue(group,out var domain)){domain=new RouteDomain();routeDomains.Add(group,domain);}
         foreach(var p in tree){domain.Add(p.Key);domain.Add(p.Value);}
-        long bytes=(long)domain.Points.Count*(domain.Points.Count<=ushort.MaxValue?2:4);
+        long bytes=(long)domain.Points.Count*((domain.Points.Count<=ushort.MaxValue?2:4)+8);
         int limit=(int)Math.Min(4096L,Math.Max(1L,(long)Settings.routeCacheEntries*32));
-        // Bound predecessor arrays to 32 MiB; keep one oversized tree so distance queries work.
+        // Bound source predecessor/distance arrays to 32 MiB; keep one oversized tree so distance queries work.
         while(routeTrees.Count>0&&(routeTrees.Count>=limit||cachedRouteBytes+bytes>RouteByteBudget))
         {var key=routeOrder.Last.Value;cachedRouteBytes-=routeTrees[key].Bytes;routeOrder.RemoveLast();routeNodes.Remove(key);routeTrees.Remove(key);}
         var added=(start,queen);var compact=new CompactRouteTree(tree,domain);
@@ -94,7 +97,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     public BeeCycleRuntime(GameWorld world){World=world;LastMinute=world.CurrentGameMinute;rules=new BeeCycleRules(Settings);}
     public void ApplySettings(BeeCycleSettings settings)
     {
-        var next=new BeeCycleRules(settings);Settings=settings;rules=next;unitInputs.Clear();scalarInputs.Clear();developmentInputs.Clear();ResetForageSelection();storageChoices.Clear();freshMovements.Clear();
+        var next=new BeeCycleRules(settings);Settings=settings;rules=next;unitInputs.Clear();scalarInputs.Clear();developmentInputs.Clear();ResetForageSelection();storageChoices.Clear();freshMovements.Clear();ClearDirections();
     }
     public double RepresentedBees(CycleBee b)=>b.queen?1:Settings.representativeScale;
     public double ReserveTarget(CycleBee b)=>Settings.reserveTarget*RepresentedBees(b);
@@ -242,8 +245,8 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             if(minute!=LastMinute+1)throw new InvalidOperationException("Bee minute mismatch.");
             cancellation.ThrowIfCancellationRequested();
             if(Bees.Count==0){LastMinute=minute;return;}
-            World.Thermal.Refresh();await RefreshRegionsAsync(slice);RefreshCommands();stimulusCache.Clear();decayCache.Clear();requests.Clear();forageRequests.Clear();heat.Clear();
-            ResetForageSelection();storageChoices.Clear();forageSelectionActive=true;
+            World.Thermal.Refresh();await RefreshRegionsAsync(slice);RefreshApiaryPlacement();RefreshCommands();stimulusCache.Clear();decayCache.Clear();requests.Clear();forageRequests.Clear();heat.Clear();
+            ResetForageSelection();storageChoices.Clear();directedMovements.Clear();forageSelectionActive=true;
             BeginRelocationTick();
             int count=Bees.Count;
             for(int i=0;i<count;i++)
@@ -405,7 +408,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     {
         switch(end){case CycleEnd.Completed:Counters.completed++;break;case CycleEnd.ResourceMissing:Counters.resourceFailed++;break;case CycleEnd.PathBlocked:Counters.pathFailed++;break;case CycleEnd.Interrupted:Counters.interrupted++;break;}
         if(b.task==CycleTask.Store&&end==CycleEnd.Completed)b.hasStoreExclusion=false;
-        b.forageSource=-1;b.task=CycleTask.None;b.hasTarget=b.hasWaypoint=false;b.path.Clear();b.pathIndex=0;b.progress=0;b.elapsed=0;
+        b.directionActive=false;b.forageSource=-1;b.task=CycleTask.None;b.hasTarget=b.hasWaypoint=false;b.path.Clear();b.pathIndex=0;b.progress=0;b.elapsed=0;
     }
     void Act(CycleBee b,CycleAction action,double time=1)
     {
@@ -415,12 +418,14 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     }
     void Run(CycleBee b)
     {
+        double availableTime=1;
+        if(b.apiaryFlight!=null&&(!AdvanceApiary(b,ref availableTime)||availableTime<=1e-12))return;
         if(b.task==CycleTask.Rest)TryRelocateFromRest(b);
         if(b.task==CycleTask.None)Choose(b);
-        if(b.task==CycleTask.None){Act(b,CycleAction.Idle);return;}
+        if(b.task==CycleTask.None){Act(b,CycleAction.Idle,availableTime);return;}
         b.elapsed++;
         if((Settings.forageLoadBased==0||!b.outside)&&Random()<FInterrupt(b.elapsed))
-        {if(b.outside){b.returning=true;b.interruptAfterReturn=true;}else{End(b,CycleEnd.Interrupted);Act(b,CycleAction.Idle);return;}}
+        {if(b.outside){b.returning=true;b.interruptAfterReturn=true;}else{End(b,CycleEnd.Interrupted);Act(b,CycleAction.Idle,availableTime);return;}}
         if(b.outside)
         {
             if(Settings.forageLoadBased!=0){RunLoadForage(b);return;}
@@ -439,12 +444,12 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             }return;
         }
         if(!BeePosition(b,out var here)){End(b,CycleEnd.PathBlocked);return;}
-        double time=1;
+        double time=availableTime;
         switch(b.task)
         {
             case CycleTask.Feed:
                 if(b.reserve>=ReserveTarget(b)-1e-9){End(b,CycleEnd.Completed);break;}
-                if(b.cargo.Sugar<=0){Acquire(b,here,false);break;}
+                if(b.cargo.Sugar<=0){Acquire(b,here,false,time);break;}
                 double eat=b.cargo.Consume(BeeAmount(b,"feedAmount",new CycleInputs{amount=ReserveTarget(b)-b.reserve,time=time}));b.reserve+=eat;Act(b,CycleAction.Feed,time);break;
             case CycleTask.Relocate: RunRelocation(b,ref time);break;
             case CycleTask.Rest: Rest(b,time);break;
@@ -464,14 +469,18 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
                 if(Move(b,b.target.Grid,ref time)){
                     b.forageSource=SelectForageSource(b.task==CycleTask.ForagePollen);
                     if(b.forageSource<0){End(b,CycleEnd.ResourceMissing);break;}
+                    if(Settings.apiaryMovementEnabled!=0){
+                        if(!apiaryEquipment.ContainsKey(b.target.equipment)){End(b,CycleEnd.PathBlocked);break;}
+                        b.returnPoint=new CyclePoint(b.target.Grid);StartApiary(b,1,b.target.Grid,ref time);break;
+                    }
                     b.returnPoint=new CyclePoint(b.target.Grid);b.outside=true;b.outsideRemaining=Settings.forageLoadBased!=0?0:F("forageDuration");World.BeeLocations.Remove(b.id);InvalidateBeePosition(b);Act(b,CycleAction.Outside,time);
                 }break;
             default:
                 if(!b.hasTarget||!regionAt.TryGetValue(b.target.Grid,out var r)){End(b,CycleEnd.PathBlocked);break;}
                 if(b.task==CycleTask.Clear&&!r.clearing){End(b,CycleEnd.Completed);break;}
-                if(b.task==CycleTask.Build&&b.cargo.Sugar<BuildPointCost){Acquire(b,here,false);break;}
+                if(b.task==CycleTask.Build&&b.cargo.Sugar<BuildPointCost){Acquire(b,here,false,time);break;}
                 if(b.task==CycleTask.Nurse&&((r.nurseSugar>0&&b.cargo.Sugar<=0)||(r.nurseSugar<=0&&r.nursePollen>0&&b.cargo.pollen<=0)))
-                {Acquire(b,here,r.nurseSugar<=0);break;}
+                {Acquire(b,here,r.nurseSugar<=0,time);break;}
                 if(!Move(b,r.position,ref time))break;
                 if(b.task==CycleTask.Build){if(r.unfinished==0){End(b,CycleEnd.Completed);break;}requests.Add(new Request{bee=b,region=r,kind=3,amount=Math.Min(F("buildAmount",new CycleInputs{time=time}),b.cargo.Sugar/BuildPointCost)});Act(b,CycleAction.Build,time);}
                 else if(b.task==CycleTask.Lay){Lay(b,r,time);}
@@ -488,18 +497,18 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         if(b.reserve<=0)
         {
             if(b.cargo.Sugar>0){double n=b.cargo.Consume(Math.Min(Settings.feedRate*RepresentedBees(b)*time,ReserveTarget(b)-b.reserve));b.reserve+=n;Act(b,CycleAction.Feed,time);}
-            else if(BeePosition(b,out var p))Acquire(b,p,false);
+            else if(BeePosition(b,out var p))Acquire(b,p,false,time);
             return;
         }
         double gain=Math.Min(F("restAmount",new CycleInputs{time=time,amount=Settings.maxEnergy-b.energy}),b.reserve*EnergyPerSugar(b));
         b.reserve-=gain/EnergyPerSugar(b);Counters.consumedSugar+=gain/EnergyPerSugar(b);b.energy+=gain;Act(b,CycleAction.Rest,time);
     }
-    void Acquire(CycleBee b,BeeGridPosition here,bool pollen)
+    void Acquire(CycleBee b,BeeGridPosition here,bool pollen,double availableTime=1)
     {
         if(CargoFree(b,pollen)<=1e-8){End(b,CycleEnd.ResourceMissing);return;}
         var r=SelectRegion(b,here,false,pollen);
         if(r==null){End(b,CycleEnd.ResourceMissing);return;}
-        double time=1;if(!Move(b,r.position,ref time))return;
+        double time=availableTime;if(!Move(b,r.position,ref time))return;
         requests.Add(new Request{bee=b,region=r,kind=pollen?1:0,amount=BeeAmount(b,"acquireAmount",new CycleInputs{amount=CargoFree(b,pollen),time=time})});Act(b,CycleAction.Acquire,time);
     }
     static bool RegionEligible(Region r,CycleBee b,bool storage,bool pollen)
@@ -546,12 +555,32 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         if(start.Equals(target))return 0;
         if(!TryRouteTree(start,queen,out var previous)){FindPathUncached(start,target,queen);if(!TryRouteTree(start,queen,out previous))return double.PositiveInfinity;}
         if(!previous.ContainsKey(target))return double.PositiveInfinity;
-        double n=0;for(var p=target;!p.Equals(start);p=previous[p])n+=Distance(previous[p],p);return n;
+        if(previous.TryDistance(target,out double known))return known;double n=0;for(var p=target;!p.Equals(start);p=previous[p])n+=Distance(previous[p],p);previous.RememberDistance(target,n);return n;
     }
     double DistanceUncached(BeeGridPosition a,BeeGridPosition b)
     {var x=World.BeeLocations.Topology(World).SupportCell(a);var y=World.BeeLocations.Topology(World).SupportCell(b);return Math.Max(5,Math.Abs(x.X-y.X)*(x.Dx+y.Dx)/2+Math.Abs(x.Y-y.Y)*(x.Dy+y.Dy)/2+Math.Abs(x.Z-y.Z)*(x.Dz+y.Dz)/2);}
     double PathLength(BeeGridPosition p,List<CyclePoint> path){double n=0;foreach(var q in path){n+=Distance(p,q.Grid);p=q.Grid;}return n;}
     bool Move(CycleBee b,BeeGridPosition target,ref double time)
+    {
+        if(!BeePosition(b,out var start)){End(b,CycleEnd.PathBlocked);return false;}
+        if(!AllowedSurfaceEdge(start,target)){End(b,CycleEnd.PathBlocked);return false;}
+        var topology=World.BeeLocations.Topology(World);
+        if(!topology.IsExposed(target)){End(b,CycleEnd.PathBlocked);return false;}
+        if(Settings.apiaryMovementEnabled!=0&&topology.SupportCell(start).Group!=topology.SupportCell(target).Group){
+            if(!apiaryEntries.TryGetValue(start.EquipmentId,out var exit)||!apiaryEquipment.ContainsKey(target.EquipmentId)){End(b,CycleEnd.PathBlocked);return false;}
+            if(!MoveLocal(b,exit,ref time))return false;
+            if(!StartApiary(b,3,target,ref time))return false;
+        }
+        return MoveLocal(b,target,ref time);
+    }
+    bool MoveLocal(CycleBee b,BeeGridPosition target,ref double time)
+    {
+        if(Settings.directionRoutingEnabled!=0&&b.path.Count==0&&(b.directionActive||WantsDirections(target,b.queen)))return MoveDirected(b,target,ref time);
+        bool done=MoveLegacy(b,target,ref time);
+        if(b.pathIndex>=b.path.Count){b.path.Clear();if(Settings.directionRoutingEnabled!=0)b.path.TrimExcess();b.pathIndex=0;}
+        return done;
+    }
+    bool MoveLegacy(CycleBee b,BeeGridPosition target,ref double time)
     {
         if(!BeePosition(b,out var here)){End(b,CycleEnd.PathBlocked);return false;}
         if(here.Equals(target)){b.hasWaypoint=false;return true;}
@@ -626,7 +655,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         if(b.stage!=CycleStage.Adult&&BeePosition(b,out var p)&&items.TryGetValue(p.EquipmentId,out var item)&&item.GetContent<FrameData>() is FrameData frame)
         {var face=p.Face==BeeFace.MinusY?frame.Front:frame.Back;if(face.GetBeeId(b.broodColumn,b.broodRow)==b.id)face.TryClearContent(b.broodColumn,b.broodRow);}
         Counters.lostSugar+=b.cargo.Sugar+b.reserve+b.broodSugar;Counters.lostPollen+=b.cargo.pollen+b.broodPollen;
-        b.cargo=new CycleCargo();b.reserve=b.broodSugar=b.broodPollen=0;b.stage=CycleStage.Dead;b.task=CycleTask.None;b.action=CycleAction.Dead;b.outside=b.returning=false;b.path.Clear();b.pathIndex=0;b.progress=0;b.ClearDesires();World.BeeLocations.Remove(b.id);InvalidateBeePosition(b);Counters.deaths++;
+        b.cargo=new CycleCargo();b.reserve=b.broodSugar=b.broodPollen=0;b.stage=CycleStage.Dead;b.apiaryFlight=null;b.directionActive=false;b.task=CycleTask.None;b.action=CycleAction.Dead;b.outside=b.returning=false;b.path.Clear();b.pathIndex=0;b.progress=0;b.ClearDesires();World.BeeLocations.Remove(b.id);InvalidateBeePosition(b);Counters.deaths++;
     }
 }
 

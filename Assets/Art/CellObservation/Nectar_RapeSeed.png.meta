@@ -3,8 +3,8 @@ guid: 47473757255ec8046ae28d1fd9607b4a
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 5668267880197773126
-    second: "\uD654\uBC00_\uC720\uCC44_0"
+      213: 4476253181002983998
+    second: Nectar_RapeSeed_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Nactar_RapeSeed
+      name: Nectar_RapeSeed_0
       rect:
         serializedVersion: 2
         x: 0
@@ -121,15 +121,15 @@ TextureImporter:
         width: 57
         height: 63
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 647d1f2fa9bb9ae40800000000000000
-      internalID: 5668267880197773126
+      spriteID: e3a256a4d88de1e30800000000000000
+      internalID: 4476253181002983998
       vertices: []
       indices: 
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 2fbbb363beb99a746903d2c505a5c2c5
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Nactar_RapeSeed: 5668267880197773126
+      Nectar_RapeSeed_0: 4476253181002983998
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
