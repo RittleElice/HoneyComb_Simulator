@@ -115,6 +115,10 @@ MonoBehaviour:
   outlineColor: {r: 0.5, g: 0.3, b: 0.1, a: 0.8}
   outlineWidth: 1
   artwork:
+    cappedPupa: {fileID: 21300000, guid: bb1cd445e018425caa3371fa782db7c4, type: 3}
+    pollen: {fileID: 21300000, guid: 49f991ed8c9045cfaa9c8454c0ce4c6a, type: 3}
+    egg: {fileID: 21300000, guid: 1e28019abce046a9bc8435024555c34d, type: 3}
+    larva: {fileID: 21300000, guid: 40b892ab0c05429da7c2118a8671922f, type: 3}
     wallTwoArm: {fileID: 108120564646386909, guid: b79ed32dde8b6414d8af1d8aaa104222, type: 3}
     wallThreeArm: {fileID: 285975524632947541, guid: fd36f67624cd1a34cb4d49a381c2bc8d, type: 3}
     completeCell: {fileID: -8879938817343946026, guid: a1d492d49f6444045a10ce8fab240b83, type: 3}

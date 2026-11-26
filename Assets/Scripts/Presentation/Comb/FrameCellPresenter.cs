@@ -44,6 +44,8 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
     [SerializeField, Range(0f, 1f)] private float wallMaximumAlpha = 1f;
     [Tooltip("화밀이 조금이라도 있을 때 표시할 최소 가로·세로 크기. 최대 크기에 대한 비율입니다.")]
     [SerializeField, Range(0.01f, 1f)] private float nectarMinimumScale = 0.3f;
+    [Tooltip("화분이 조금이라도 있을 때 표시할 최소 크기. 저장량에 따라 최대 크기까지 증가합니다.")]
+    [SerializeField, Range(0.01f, 1f)] private float pollenMinimumScale = 0.3f;
 
     [Header("Performance")]
     [SerializeField, Range(50, 500)]
@@ -54,6 +56,14 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
     private FrameSide lastSide;
     private int lastRevision = -1;
     private int lastBalanceRevision = -1;
+    private BeeCycleRuntime broodRuntime;
+    private long lastBroodMinute = -1;
+    public void BindBroodRuntime(BeeCycleRuntime runtime)
+    {
+        broodRuntime = runtime;
+        lastBroodMinute = -1;
+        foreach (var mesh in meshes) mesh.SetSurface(frame?.GetFacingSurface(), broodRuntime);
+    }
     private float displayScale;
     private RectTransform visualRoot;
 
@@ -82,13 +92,18 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         if (frame == null || cellArea == null)
             return;
 
-        if (lastSide != frame.FacingSide || lastRevision != frame.GetFacingSurface().Revision || lastBalanceRevision != CombBalance.Revision)
+        var activeRuntime = GameBootstrap.Instance?.GameWorld?.BeeCycle ?? broodRuntime;
+        bool runtimeChanged = activeRuntime != broodRuntime;
+        broodRuntime = activeRuntime;
+        long minute = broodRuntime?.LastMinute ?? -1;
+        if (runtimeChanged || lastBroodMinute != minute || lastSide != frame.FacingSide || lastRevision != frame.GetFacingSurface().Revision || lastBalanceRevision != CombBalance.Revision)
         {
             ApplyFacingSide();
-            foreach (var mesh in meshes) mesh.SetSurface(frame.GetFacingSurface());
+            foreach (var mesh in meshes) mesh.SetSurface(frame.GetFacingSurface(), broodRuntime);
             lastSide = frame.FacingSide;
             lastRevision = frame.GetFacingSurface().Revision;
             lastBalanceRevision = CombBalance.Revision;
+            lastBroodMinute = minute;
         }
         Vector2 size = cellArea.rect.size;
 
@@ -102,6 +117,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
 
     public void Rebuild()
     {
+        broodRuntime = GameBootstrap.Instance?.GameWorld?.BeeCycle ?? broodRuntime;
         ClearMeshes();
         ApplyFacingSide();
 
@@ -167,9 +183,9 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
             FrameCellMesh mesh = go.AddComponent<FrameCellMesh>();
 
             mesh.ConfigureArt(columns, start, end, radius, origin, topology,
-                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale, artwork, representativeNectarPercent, dryNectarAlpha, wetNectarAlpha);
+                wallMinimumAlpha, wallMaximumAlpha, nectarMinimumScale, artwork, representativeNectarPercent, dryNectarAlpha, wetNectarAlpha, pollenMinimumScale);
 
-            mesh.SetSurface(frame.GetFacingSurface());
+            mesh.SetSurface(frame.GetFacingSurface(), broodRuntime);
             meshes.Add(mesh);
         }
 
@@ -178,6 +194,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         lastOffset = cellOffset; lastCellScale = cellScale; lastFlipCellsX = flipCellsX;
         lastSide = frame.FacingSide; lastRevision = frame.GetFacingSurface().Revision;
         lastBalanceRevision = CombBalance.Revision;
+        lastBroodMinute = broodRuntime?.LastMinute ?? -1;
     }
 
     private void ApplyFacingSide()
@@ -226,6 +243,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
         wallMinimumAlpha = Mathf.Clamp01(wallMinimumAlpha);
         wallMaximumAlpha = Mathf.Clamp(wallMaximumAlpha, wallMinimumAlpha, 1f);
         nectarMinimumScale = Mathf.Clamp(nectarMinimumScale, .01f, 1f);
+        pollenMinimumScale = Mathf.Clamp(pollenMinimumScale, .01f, 1f);
         representativeNectarPercent = Mathf.Clamp(representativeNectarPercent, 50f, 100f);
         dryNectarAlpha = Mathf.Clamp01(dryNectarAlpha); wetNectarAlpha = Mathf.Clamp01(wetNectarAlpha);
 

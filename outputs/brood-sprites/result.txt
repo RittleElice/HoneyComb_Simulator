@@ -1,0 +1,1 @@
+PASS 71 sprite binding, egg/larva/pupa transitions, adult/dead/unknown handling, pollen consumption, minute-driven refresh and facing-surface checks.
