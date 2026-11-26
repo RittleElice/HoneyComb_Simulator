@@ -31,30 +31,35 @@ public sealed partial class BeeCycleRuntime
             }
         }
     }
+    double[] storeSugarDemand=Array.Empty<double>(),storePollenDemand=Array.Empty<double>();
+    CycleCargo[] storeCargo=Array.Empty<CycleCargo>();
     void StoreBatch(Region r)
     {
-        var sugarDemand=new double[batch.Count];var pollenDemand=new double[batch.Count];
-        for(int i=0;i<batch.Count;i++){var q=batch[i];double fraction=q.bee.cargo.Mass>0?Math.Min(1,q.amount/q.bee.cargo.Mass):0;sugarDemand[i]=q.bee.cargo.Sugar*fraction;pollenDemand[i]=q.bee.cargo.pollen*fraction;}
+        if(storeSugarDemand.Length<batch.Count){storeSugarDemand=new double[batch.Count];storePollenDemand=new double[batch.Count];}
+        if(storeCargo.Length<batch.Count)storeCargo=new CycleCargo[batch.Count];
+        var sugarDemand=storeSugarDemand;var pollenDemand=storePollenDemand;
+        for(int i=0;i<batch.Count;i++){var q=batch[i];var cargo=q.bee.cargo;storeCargo[i]=cargo;double sugar=cargo.Sugar,mass=sugar+cargo.pollen;double fraction=mass>0?Math.Min(1,q.amount/mass):0;sugarDemand[i]=sugar*fraction;pollenDemand[i]=cargo.pollen*fraction;}
         Cells(r,(x,y)=>{
-            double sugar=0,pollen=0;for(int i=0;i<batch.Count;i++){sugar+=sugarDemand[i];pollen+=pollenDemand[i];}
             double sf=Free(r.surface,x,y,false),pf=Free(r.surface,x,y,true);
             if(sf<=0&&pf<=0)return;
+            double sugar=0,pollen=0;for(int i=0;i<batch.Count;i++){sugar+=sugarDemand[i];pollen+=pollenDemand[i];}
             bool usePollen=sf<=0||(pf>0&&pollen>0&&Random()*(sugar+pollen)<pollen);
             double total=usePollen?pollen:sugar;if(total<=0)return;
             double allocation=Math.Min(total,usePollen?pf:sf);
             for(int i=0;i<batch.Count;i++)
             {
-                var b=batch[i].bee;double request=allocation*(usePollen?pollenDemand[i]:sugarDemand[i])/total;
-                if(usePollen){double actual=r.surface.DepositCycle(x,y,0,request,true);b.cargo.pollen=Math.Max(0,b.cargo.pollen-actual);pollenDemand[i]=Math.Max(0,pollenDemand[i]-actual);}
+                var cargo=storeCargo[i];double request=allocation*(usePollen?pollenDemand[i]:sugarDemand[i])/total;
+                if(usePollen){double actual=r.surface.DepositCycle(x,y,0,request,true);cargo.pollen=Math.Max(0,cargo.pollen-actual);pollenDemand[i]=Math.Max(0,pollenDemand[i]-actual);}
                 else
                 {
-                    double own=b.cargo.Sugar;if(own<=0)continue;double actual=0;
-                    foreach(var s in b.cargo.sugars){double n=r.surface.DepositCycle(x,y,s.source,request*s.mass/own,false);s.mass=Math.Max(0,s.mass-n);actual+=n;}
+                    double own=cargo.Sugar;if(own<=0)continue;double actual=0;
+                    foreach(var s in cargo.sugars){double n=r.surface.DepositCycle(x,y,s.source,request*s.mass/own,false);s.mass=Math.Max(0,s.mass-n);actual+=n;}
                     sugarDemand[i]=Math.Max(0,sugarDemand[i]-actual);
                 }
             }
         });
         foreach(var q in batch)if(q.bee.cargo.Mass<1e-7)End(q.bee,CycleEnd.Completed);
+        Array.Clear(storeCargo,0,batch.Count);
     }
     void BuildBatch(Region r,double total)
     {
@@ -73,7 +78,7 @@ public sealed partial class BeeCycleRuntime
             if(!r.surface.TrySetConstruction(cx,cy,(byte)(r.surface.GetCell(cx,cy).Construction+amount)))break;
             actual+=amount;remaining-=amount;
         }
-        foreach(var q in batch)Counters.consumedSugar+=q.bee.cargo.Consume(actual*q.amount/total*Settings.sugarPerBuildPoint);
+        foreach(var q in batch)Counters.consumedSugar+=q.bee.cargo.Consume(actual*q.amount/total*BuildPointCost);
         Counters.built+=actual;
     }
     void NurseBatch(Region r)
@@ -81,7 +86,7 @@ public sealed partial class BeeCycleRuntime
         foreach(bool pollen in new[]{false,true})
         {
             double need=0,supply=0;
-            foreach(var b in r.brood)if(b.stage==CycleStage.Larva)need+=Math.Max(0,(pollen?Settings.larvaPollenPerTick:Settings.larvaSugarPerTick)*Settings.broodReserveTicks-(pollen?b.broodPollen:b.broodSugar));
+            foreach(var b in r.brood)if(b.stage==CycleStage.Larva)need+=Math.Max(0,(pollen?Settings.larvaPollenPerTick:Settings.larvaSugarPerTick)*Settings.representativeScale*Settings.broodReserveTicks-(pollen?b.broodPollen:b.broodSugar));
             foreach(var q in batch)supply+=Math.Min(q.amount,pollen?q.bee.cargo.pollen:q.bee.cargo.Sugar);
             double actual=Math.Min(need,supply);if(actual<=0)continue;
             foreach(var q in batch)
@@ -91,7 +96,7 @@ public sealed partial class BeeCycleRuntime
             }
             foreach(var b in r.brood)if(b.stage==CycleStage.Larva)
             {
-                double n=actual*Math.Max(0,(pollen?Settings.larvaPollenPerTick:Settings.larvaSugarPerTick)*Settings.broodReserveTicks-(pollen?b.broodPollen:b.broodSugar))/need;
+                double n=actual*Math.Max(0,(pollen?Settings.larvaPollenPerTick:Settings.larvaSugarPerTick)*Settings.representativeScale*Settings.broodReserveTicks-(pollen?b.broodPollen:b.broodSugar))/need;
                 if(pollen)b.broodPollen+=n;else b.broodSugar+=n;
             }
         }
@@ -123,13 +128,13 @@ public sealed partial class BeeCycleRuntime
         double factor=F("broodTemperature",new CycleInputs{temperature=r.temperature});
         if(b.stage==CycleStage.Larva)
         {
-            double resource=Math.Min(1,Math.Min(b.broodSugar/Settings.larvaSugarPerTick,b.broodPollen/Settings.larvaPollenPerTick));
+            double resource=Math.Min(1,Math.Min(b.broodSugar/(Settings.larvaSugarPerTick*RepresentedBees(b)),b.broodPollen/(Settings.larvaPollenPerTick*RepresentedBees(b))));
             double energy=Math.Min(1,b.energy/Settings.larvaEnergyPerTick);factor=F("larvaDevelopmentFactor",new CycleInputs{ratio=factor,available=resource,amount=energy});
             factor=Math.Min(factor,Math.Min(resource,energy));
-            double sugar=Settings.larvaSugarPerTick*factor,pollen=Settings.larvaPollenPerTick*factor;
+            double sugar=Settings.larvaSugarPerTick*RepresentedBees(b)*factor,pollen=Settings.larvaPollenPerTick*RepresentedBees(b)*factor;
             b.broodSugar=Math.Max(0,b.broodSugar-sugar);b.broodPollen=Math.Max(0,b.broodPollen-pollen);b.energy=Math.Max(0,b.energy-Settings.larvaEnergyPerTick*factor);
             // Assimilation uses the consumed sugar; the provisional conversion is editable.
-            b.energy=Math.Min(Settings.maxEnergy,b.energy+sugar*Settings.energyPerSugar);
+            b.energy=Math.Min(Settings.maxEnergy,b.energy+sugar*EnergyPerSugar(b));
             Counters.consumedSugar+=sugar;Counters.consumedPollen+=pollen;
             if(resource<=0)b.health=Math.Max(0,b.health-F("starvation",new CycleInputs{time=1}));
         }

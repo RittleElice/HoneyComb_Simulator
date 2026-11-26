@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -29,6 +29,7 @@ public sealed partial class BeeCycleWindow
         lines.Add(new[]{"벌 목록·Task","소비장·소방","수치·수식","집계"}[tab]);
         if(tab==0)
         {
+            lines.Add($"표시 수는 대표 개체 · 일벌·봉충 1개체 = 실제 {w.BeeCycle.Settings.representativeScale:F2}마리 · 여왕은 1마리");
             int count=0,adult=0,brood=0,outside=0;
             foreach(var b in w.BeeCycle.Bees)
             {
@@ -36,12 +37,13 @@ public sealed partial class BeeCycleWindow
                 if(b.stage==CycleStage.Adult)adult++;else if(b.stage!=CycleStage.Dead)brood++;
                 if(b.outside)outside++;
                 if(count>=page*100 && count<page*100+100)
-                    lines.Add($"{b.id} {(b.queen?"여왕":"일벌")} {b.stage} | {b.development:F3} | E {b.energy:F1} H {b.health:F1} | {b.cargo.Sugar:F2}/{b.cargo.pollen:F2}mg | {b.task} → {b.action}");
+                    lines.Add($"{b.id} {(b.queen?"여왕":"일벌")} {b.stage} | {b.development:F3} | E {b.energy:F1} H {b.health:F1} | {b.cargo.Sugar:F2}/{b.cargo.pollen:F2}mg | {TaskLabel(b.task)} → {b.action}");
                 count++;
                 if(b.id==selected)
                 {
                     lines.Add($"선택 벌 {b.id} · 위치 {(b.outside?"외부 채집":w.BeeLocations.TryGet(b.id,out var p)?p.ToString():"없음")} · 체내 당분 {b.reserve:F3} · Task {b.elapsed:F1}분 · 이동 {b.progress:F2}mm");
                     lines.Add($"목표 {(b.hasTarget?b.target.Grid.ToString():"없음")} · 다음 이동 {(b.pathIndex<b.path.Count?b.path[b.pathIndex].Grid.ToString():"없음")}");
+                    lines.Add($"자리 이동 상태 욕구 {w.BeeCycle.RelocationWeight(b):F3}");
                     foreach(var d in b.desires)lines.Add($"욕구 {d.task} → {d.target.Grid} : {d.weight:F3}");
                 }
             }

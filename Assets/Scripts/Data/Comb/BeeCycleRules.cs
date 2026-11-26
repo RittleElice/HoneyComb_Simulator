@@ -45,6 +45,9 @@ public sealed class BeeCycleRules
     public static List<CycleFormula> Defaults()=>new List<CycleFormula>{
         new CycleFormula("deficit","clamp(1-amount/max(available,0.000000001),0,1)"),
         new CycleFormula("commandChance","1"),
+        new CycleFormula("relocateTemperatureDesire","relocateTemperatureWeight*clamp(ratio,0,1)"),
+        new CycleFormula("relocateCrowdingDesire","relocateCrowdingWeight*clamp(ratio,0,1)"),
+        new CycleFormula("relocateDestination","amount/(1+distance/relocateDistanceMm)"),
         new CycleFormula("feedDesire","feedWeight * pow(clamp(ratio,0,1),2)"),
         new CycleFormula("restDesire","restWeight * pow(clamp(ratio,0,1),2)"),
         new CycleFormula("recoverDesire","recoverWeight * pow(clamp(ratio,0,1),2)"),
@@ -63,6 +66,7 @@ public sealed class BeeCycleRules
         new CycleFormula("broodTemperature","clamp(min((temperature-broodMinTemperature)/(broodIdealTemperature-broodMinTemperature),(broodMaxTemperature-temperature)/(broodMaxTemperature-broodIdealTemperature)),0,1)"),
         new CycleFormula("broodDevelopment","broodTick*ratio*time"),
         new CycleFormula("basalHeat","basalHeatJ*time"),
+        new CycleFormula("broodBasalHeat","amount*time"),
         new CycleFormula("additionalHeat","extraHeatJ*time"),
         new CycleFormula("basalSugarCost","basalSugar*time"),
         new CycleFormula("basalEnergyCost","basalEnergy*time"),

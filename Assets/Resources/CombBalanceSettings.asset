@@ -38,7 +38,7 @@ MonoBehaviour:
 
     PollenSpecificHeatJPerKgK: 1800
 
-    BroodHeatCapacityJPerK: 0.30
+    BroodHeatCapacityJPerK: 0
 
     AirDensityKgPerM3: 1.2
 

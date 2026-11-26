@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Collections.Generic;
 public sealed partial class BeeCycleRuntime
@@ -18,6 +18,12 @@ public sealed partial class BeeCycleRuntime
         int count=SaveBinary.Count(r,1000000);var states=new CycleDesireState[count];
         for(int i=0;i<count;i++){int length=SaveBinary.Count(r,1000000);var values=new CycleDesireState.Entry[length];for(int j=0;j<length;j++){var d=(CycleDesire)CycleBinary.Read(r,typeof(CycleDesire),3);values[j]=new CycleDesireState.Entry(d.task,d.target,d.weight);}states[i]=InternDesires(new CycleDesireState(values));}
         count=SaveBinary.Count(r,10000000);Bees=new List<CycleBee>(validateOnly?0:count);var seen=new HashSet<long>();
+        if(validateOnly){
+            int sources=World.Weather?.Nectar?.Sources.Length??0;
+            Func<long,bool> located=id=>World.BeeLocations.TryGet(id,out _);
+            for(int i=0;i<count;i++){long id=CycleBinary.ValidateCompactBee(r,states.Length,sources,seen,located);nextId=Math.Max(nextId,id+1);}
+            return;
+        }
         for(int i=0;i<count;i++){
             var b=CycleBinary.ReadCompactBee(r,states);
             if(b.forageSource < -1 || b.forageSource >= (World.Weather?.Nectar?.Sources.Length??0))throw new InvalidDataException("Invalid forage source.");

@@ -1,14 +1,14 @@
-; 25 columns x 12 rows, top to bottom. Repeated on both faces of each initial frame.
-; #=initial unfinished construction parameter (default 0), .=complete empty, H=nectar, P=pollen, B=brood.
-#########################
-#########################
-###########HHH###########
-#########HHHHHHH#########
-########.PPPPPPP.########
-########..BBBBB..########
-########..BBBBB..########
-#########.BBBBB.#########
-##########.....##########
-#########################
-#########################
-#########################
+; 25 columns x 12 rows. Initial stores bridge early spring growth.
+; # unfinished, . empty, H nectar, P pollen, B brood. Repeated on four faces.
+HHHHHHHHHHHHHHHHHHHHHHHHH
+HHHHHHHHHHHHHHHHHHHHHHHHH
+HHHHHHHHHHHHHHHHHHHHHHHHH
+HHHHHHHHHHHHHHHHHHHHHHHHH
+HHHHHHHHHHHHHHHHHHHHHHHHH
+HHHPPPPPPPBBBBBPPPPPPPHHH
+PPPPPPPPPPBBBBBPPPPPPPPPP
+PPPPPPP.PPBBBBBPPP.PPPPPP
+PPPPP...............PPPPP
+PPPPPPPPPPPPPPPPPPPPPPPPP
+PPPPPPPPPPPPPPPPPPPPPPPPP
+###########PP############

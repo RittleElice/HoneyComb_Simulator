@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 internal sealed partial class CellMaterialStore
 {
@@ -48,5 +48,5 @@ public sealed partial class FrameSurface
         return ok?(pollen?GetPollenMassMg(x,y):GetSugarMassMg(x,y,source))-before:0;
     }
     static float PreviousPositive(float value)
-    {if(value<=0)return 0;var b=BitConverter.GetBytes(value);return BitConverter.ToSingle(BitConverter.GetBytes(BitConverter.ToInt32(b,0)-1),0);}
+    {if(value<=0)return 0;return BitConverter.Int32BitsToSingle(BitConverter.SingleToInt32Bits(value)-1);}
 }

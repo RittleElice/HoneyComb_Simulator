@@ -14,6 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BeeCycleSettingsAsset
   values:
     formulas:
+    - name: relocateTemperatureDesire
+      expression: relocateTemperatureWeight*clamp(ratio,0,1)
+    - name: relocateCrowdingDesire
+      expression: relocateCrowdingWeight*clamp(ratio,0,1)
+    - name: relocateDestination
+      expression: amount/(1+distance/relocateDistanceMm)
     - name: deficit
       expression: clamp(1-amount/max(available,0.000000001),0,1)
     - name: commandChance
@@ -54,6 +60,8 @@ MonoBehaviour:
       expression: broodTick*ratio*time
     - name: basalHeat
       expression: basalHeatJ*time
+    - name: broodBasalHeat
+      expression: amount*time
     - name: additionalHeat
       expression: extraHeatJ*time
     - name: basalSugarCost
@@ -90,6 +98,19 @@ MonoBehaviour:
       expression: starvationDamage*time
     - name: layChance
       expression: clamp(queenLayPerMinute*time,0,1)
+    relocateEnabled: 1
+    relocateColdStart: 18
+    relocateColdStop: 20
+    relocateHotStop: 35
+    relocateHotStart: 38
+    relocateDensityStart: 4
+    relocateDensityStop: 2
+    relocateTemperatureWeight: 30
+    relocateCrowdingWeight: 30
+    relocateTemperatureScale: 6
+    relocateDistanceMm: 200
+    relocateMinImprovement: 0.1
+    relocateMinEnergyFraction: 0.1
     naturalDecay: 10
     commandMaximum: 0.003
     feedWeight: 200
@@ -130,9 +151,13 @@ MonoBehaviour:
     demoFrames: 2
     demoConstruction: 0
     routeCacheEntries: 128
-    demoSugar: 42000
-    demoWater: 10000
-    demoPollen: 4000
+    demoSugar: 2000000
+    demoWater: 476190.4761904762
+    demoPollen: 1000000
+    eggBasalHeatJ: 0.000084
+    larvaBasalHeatJ: 0.03
+    pupaBasalHeatJ: 0.0144
+    broodThermalCoupling: 1
     basalHeatJ: 0.02712
     extraHeatJ: 0.6
     heatEnergy: 0.1
@@ -161,7 +186,7 @@ MonoBehaviour:
     larvaEnergyPerTick: 0.005
     nurseRate: 1
     queenLayPerMinute: 0.1
-    broodTarget: 60
+    broodTarget: 240
     starvationDamage: 0.01
     maxDevelopment: 200
     queenMaxDevelopment: 1500
@@ -171,3 +196,4 @@ MonoBehaviour:
     demoEggs: 20
     demoLarvae: 20
     demoPupae: 20
+    representativeScale: 11.05

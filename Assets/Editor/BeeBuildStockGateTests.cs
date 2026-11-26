@@ -6,8 +6,9 @@ public static class BeeBuildStockGateTests {
  static void Call(BeeCycleRuntime r,string m)=>typeof(BeeCycleRuntime).GetMethod(m,BindingFlags.Instance|BindingFlags.NonPublic).Invoke(r,null);
  static void Check(bool b,string s){if(!b)throw new Exception(s);}
  public static void Run(){
- var w=new GameWorld(new WeatherSimulator(WeatherSimulator.DefaultSeed,WeatherAssetLoader.LoadBaseline(),null,123456789UL));w.BeeCycle.SeedDemo();
- try{var r=w.BeeCycle;var cfg=r.Settings;cfg.buildStockSugarPerBee=24;cfg.desiredEmptyCellsPerBee=5;r.ApplySettings(cfg);Call(r,"RefreshCommands");var existing=r.Commands.Where(c=>c.task==CycleTask.Build).ToArray();Check(existing.Length>0,"surplus permits new construction commands");
+ var w=new GameWorld(new WeatherSimulator(WeatherSimulator.DefaultSeed,WeatherAssetLoader.LoadBaseline(),null,123456789UL));w.BeeCycle.SeedDemo(new BeeCycleSettings{representativeScale=1,demoSugar=42000,demoWater=10000,demoPollen=4000});
+ // Keep demand positive even after clearing the expanded initial honey region.
+ try{var r=w.BeeCycle;var cfg=r.Settings;cfg.buildStockSugarPerBee=24;cfg.desiredEmptyCellsPerBee=20;r.ApplySettings(cfg);Call(r,"RefreshCommands");var existing=r.Commands.Where(c=>c.task==CycleTask.Build).ToArray();Check(existing.Length>0,"surplus permits new construction commands");
  FrameSurface food=null;int fx=0,fy=0;
  foreach(var region in r.Regions)for(int y=region.z*4;y<(region.z+1)*4;y++)for(int x=region.x*5;x<(region.x+1)*5;x++)if(region.surface.GetCell(x,y).Content==CellContentKind.Nectar){region.surface.TryClearContent(x,y);food=region.surface;fx=x;fy=y;}
  Call(r,"RefreshRegions");Call(r,"RefreshCommands");Check(existing.All(c=>r.Commands.Contains(c)),"existing commands persist after stock depleted");

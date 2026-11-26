@@ -24,6 +24,7 @@ MonoBehaviour:
   MoistureExteriorAirFilmM: 0.01
   MoistureWindCoefficient: 0.025
   HeatWindCoefficient: 4
+  AirConductivityMultiplier: 4
   BalanceRelativeTolerance: 1e-11
   BalanceMassTolerance: 1e-10
   BalanceLinearIterations: 3000

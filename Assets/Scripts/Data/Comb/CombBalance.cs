@@ -10,7 +10,7 @@ public sealed class CombBalanceParameters
     public float WaterSpecificHeatJPerKgK = 4180f;
     public float SugarSpecificHeatJPerKgK = 1250f;
     public float PollenSpecificHeatJPerKgK = 1800f;
-    public float BroodHeatCapacityJPerK = 0.30f; // per occupied cell, pending bee mass model
+    public float BroodHeatCapacityJPerK = 0f; // Temporary model: brood heat generation remains, body heat storage is omitted.
     public float AirDensityKgPerM3 = 1.2f;
     public float AirSpecificHeatJPerKgK = 1005f;
     public float WoodDensityKgPerM3 = 500f;

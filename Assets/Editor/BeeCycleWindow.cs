@@ -7,6 +7,8 @@ using UnityEngine;
 
 public sealed partial class BeeCycleWindow : EditorWindow
 {
+    static string TaskLabel(CycleTask task)=>task==CycleTask.Relocate?"자리 이동":task.ToString();
+
     GameWorld testWorld;
     int x,y,tab,page,frameIndex,side,cellX,cellY;
     long selected;
@@ -67,9 +69,10 @@ public sealed partial class BeeCycleWindow : EditorWindow
     {
         var bees=w.BeeCycle.Bees.Where(b=>w.BeeCycle.BelongsTo(b,ids)||(b.stage==CycleStage.Dead&&ids.Contains(b.homeBox))).ToList();
         EditorGUILayout.LabelField($"전체 {bees.Count} · 성충 {bees.Count(b=>b.stage==CycleStage.Adult)} · 봉충 {bees.Count(b=>b.stage!=CycleStage.Adult&&b.stage!=CycleStage.Dead)} · 외부 {bees.Count(b=>b.outside)}");
+        EditorGUILayout.LabelField($"표시 수는 대표 개체 · 일벌·봉충 1개체 = 실제 {w.BeeCycle.Settings.representativeScale:F2}마리 · 여왕은 1마리");
         page=EditorGUILayout.IntSlider("페이지 (100마리)",page,0,Math.Max(0,(bees.Count-1)/100));
         EditorGUILayout.LabelField("ID / 종류·단계 / 발달 / Energy / Health / 당분·화분 / Task → 행동",EditorStyles.boldLabel);
-        foreach(var b in bees.Skip(page*100).Take(100))if(GUILayout.Button($"{b.id} {(b.queen?"여왕":"일벌")} {b.stage} | {b.development:F3} | E {b.energy:F1} H {b.health:F1} | {b.cargo.Sugar:F2}/{b.cargo.pollen:F2}mg | {b.task} → {b.action}"))selected=b.id;
+        foreach(var b in bees.Skip(page*100).Take(100))if(GUILayout.Button($"{b.id} {(b.queen?"여왕":"일벌")} {b.stage} | {b.development:F3} | E {b.energy:F1} H {b.health:F1} | {b.cargo.Sugar:F2}/{b.cargo.pollen:F2}mg | {TaskLabel(b.task)} → {b.action}"))selected=b.id;
         var chosen=bees.Find(b=>b.id==selected);if(chosen==null)return;
         EditorGUILayout.Space();EditorGUILayout.LabelField($"벌 {chosen.id} 상세",EditorStyles.boldLabel);
         EditorGUILayout.LabelField("위치",chosen.outside?"외부 채집":w.BeeLocations.TryGet(chosen.id,out var p)?p.ToString():"없음");
@@ -77,8 +80,9 @@ public sealed partial class BeeCycleWindow : EditorWindow
         if(chosen.outside)EditorGUILayout.LabelField("채집 밀원",chosen.forageSource>=0?w.Weather.Nectar.Settings.Sources[chosen.forageSource].Name+$" · 남은 {chosen.outsideRemaining:F1}분":"기존 저장: 귀환 시 선택");
         EditorGUILayout.LabelField("목표",chosen.hasTarget?chosen.target.Grid.ToString():"없음");
         EditorGUILayout.LabelField("다음 이동",chosen.pathIndex<chosen.path.Count?chosen.path[chosen.pathIndex].Grid.ToString():"없음");
+        EditorGUILayout.LabelField("자리 이동 상태 욕구",w.BeeCycle.RelocationWeight(chosen).ToString("F3"));
         foreach(var d in chosen.desires)EditorGUILayout.LabelField($"{d.task} → {d.target.Grid}",d.weight.ToString("F3"));
-        EditorGUILayout.LabelField($"운반 용량: 당분 {chosen.cargo.Sugar:F2}/{w.BeeCycle.Settings.carryCapacity:F2} mg · 화분 {chosen.cargo.pollen:F2}/{w.BeeCycle.Settings.pollenCarryCapacity:F2} mg");
+        EditorGUILayout.LabelField($"운반 용량: 당분 {chosen.cargo.Sugar:F2}/{w.BeeCycle.Settings.carryCapacity*w.BeeCycle.RepresentedBees(chosen):F2} mg · 화분 {chosen.cargo.pollen:F2}/{w.BeeCycle.Settings.pollenCarryCapacity*w.BeeCycle.RepresentedBees(chosen):F2} mg");
         foreach(var s in chosen.cargo.sugars)EditorGUILayout.LabelField($"화원 {s.source} 당분",$"{s.mass:F4}mg");
     }
     void Frames(GameWorld w,List<ItemData> equipment)
@@ -123,7 +127,7 @@ public sealed partial class BeeCycleWindow : EditorWindow
         if(GUILayout.Button("검사 후 현재 월드에 적용"))try{var copy=JsonUtility.FromJson<BeeCycleSettings>(JsonUtility.ToJson(draft));w.BeeCycle.ApplySettings(copy);message="수치·수식을 현재 월드에 적용했습니다. 저장 시 함께 보존됩니다.";}catch(Exception e){message=e.Message;}
         if(GUILayout.Button("JSON으로 표시"))json=JsonUtility.ToJson(draft,true);
         json=EditorGUILayout.TextArea(json,GUILayout.MinHeight(100));
-        if(GUILayout.Button("JSON 읽기·검사"))try{var copy=JsonUtility.FromJson<BeeCycleSettings>(json);copy.UpgradeForageFormula();new BeeCycleRules(copy);draft=copy;message="JSON 검사를 통과했습니다. 적용 버튼으로 반영하세요.";}catch(Exception e){message=e.Message;}
+        if(GUILayout.Button("JSON 읽기·검사"))try{var copy=JsonUtility.FromJson<BeeCycleSettings>(json);copy.UpgradeForageFormula();copy.UpgradeRelocationFormulas();new BeeCycleRules(copy);draft=copy;message="JSON 검사를 통과했습니다. 적용 버튼으로 반영하세요.";}catch(Exception e){message=e.Message;}
         if(GUILayout.Button("새 게임 기본 파라미터로 저장"))try
         {
             new BeeCycleRules(draft);const string path="Assets/Resources/BeeCycleParameters.asset";

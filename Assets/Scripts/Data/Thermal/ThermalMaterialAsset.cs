@@ -66,6 +66,9 @@ public sealed class ThermalMaterials
         }
         var transfer=Resources.Load<PyramidTransferSettings>("Thermal/PyramidTransferSettings");
         if(transfer==null)throw new InvalidOperationException("Missing pyramid transfer settings");
+        // Keep the measured source asset intact. Only the solver snapshot uses effective air conductivity.
+        var air=result[(int)ThermalMaterialKind.Air];
+        result[(int)ThermalMaterialKind.Air]=new ThermalMaterialValue(air.Density,air.SpecificHeat,(float)(air.Conductivity*transfer.Read().AirConductivityMultiplier),air.EffectiveVolumetricHeatCapacityJPerM3K);
         return new ThermalMaterials(result) { live = true, loadedRevision = assetRevision, transferSettings=transfer };
     }
 }

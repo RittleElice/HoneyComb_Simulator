@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine;
 public sealed class ThermalExchangeSettingsMenu : EditorWindow {
     private Vector2 scroll;
@@ -21,8 +21,8 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
         EditorGUILayout.Space();EditorGUILayout.LabelField("소방 내용물 열용량",EditorStyles.boldLabel);
         var so=new SerializedObject(comb);so.Update();var values=so.FindProperty("values");
         string[] names={"WaterSpecificHeatJPerKgK","SugarSpecificHeatJPerKgK","PollenSpecificHeatJPerKgK","BroodHeatCapacityJPerK"};
-        string[] labels={"수분 비열 (J/kg·K)","당분 비열 (J/kg·K)","화분 비열 (J/kg·K)","봉충 소방 열용량 (J/K)"};
-        for(int i=0;i<names.Length;i++)EditorGUILayout.PropertyField(values.FindPropertyRelative(names[i]),new GUIContent(labels[i],i==3?"봉충이 있는 소방의 열용량입니다.\n높이면 같은 열을 받아도 온도가 천천히 변하고, 낮추면 빠르게 변합니다. 봉충의 자체 발열 출력은 아닙니다.":"해당 내용물 1kg의 온도를 1°C 바꾸는 데 필요한 열량입니다.\n높이면 같은 질량과 열량에서 온도 변화가 작아지고, 낮추면 커집니다. 수분 비열은 액상수에 해당하며 공기 수증기 비열과는 별개입니다."));
+        string[] labels={"수분 비열 (J/kg·K)","당분 비열 (J/kg·K)","화분 비열 (J/kg·K)","봉충 추가 열용량 (J/K)"};
+        for(int i=0;i<names.Length;i++)EditorGUILayout.PropertyField(values.FindPropertyRelative(names[i]),new GUIContent(labels[i],i==3?"봉충 한 개체가 소방에 추가하는 열용량입니다. 0이면 봉충의 열 저장만 생략하며 밀랍·저장 먹이의 열용량과 봉충 발열은 유지됩니다.\n높이면 같은 열을 받아도 온도가 천천히 변하고, 낮추면 빠르게 변합니다. 봉충의 자체 발열 출력은 아닙니다.":"해당 내용물 1kg의 온도를 1°C 바꾸는 데 필요한 열량입니다.\n높이면 같은 질량과 열량에서 온도 변화가 작아지고, 낮추면 커집니다. 수분 비열은 액상수에 해당하며 공기 수증기 비열과는 별개입니다."));
         if(so.ApplyModifiedProperties()&&!comb.TryApply(out string error))Debug.LogError(error);
         if(GUILayout.Button("소방 용량 등 전체 설정 열기"))Selection.activeObject=comb;
         DrawHeatingPanels();
@@ -36,9 +36,9 @@ public sealed class ThermalExchangeSettingsMenu : EditorWindow {
             }
         }
     }
-    private void DrawTransfers(){DrawBalanceFields("외부 열교환",new[]{"AirOutside","WoodOutside","CombOutside","InsulationOutside","HeatWindCoefficient"},new[]{"공기 경계 (W/m²·K)","목재 경계 (W/m²·K)","소비장 경계 (W/m²·K)","단열재 경계 (W/m²·K)","풍속당 열교환 증가 (W/m²·K)/(m/s)"});}
+    private void DrawTransfers(){DrawBalanceFields("공기 열전달 · 외부 열교환",new[]{"AirConductivityMultiplier","AirOutside","WoodOutside","CombOutside","InsulationOutside","HeatWindCoefficient"},new[]{"공기 유효 열전달 보정 (1=물성 전도만)","공기 경계 (W/m²·K)","목재 경계 (W/m²·K)","소비장 경계 (W/m²·K)","단열재 경계 (W/m²·K)","풍속당 열교환 증가 (W/m²·K)/(m/s)"});}
     private void DrawMoisture(){DrawBalanceFields("수분 이동과 풀이 정확도",new[]{"MoistureAirPermeability","MoistureWoodPermeability","MoistureAirMobility","MoistureInsulationMobility","MoistureEvaporationMobility","MoistureExteriorAirFilmM","MoistureWindCoefficient","BalanceRelativeTolerance","BalanceMassTolerance","BalanceMassAbsoluteToleranceKg","BalanceLinearIterations","BalanceNonlinearIterations"},new[]{"공기 투습계수 (kg/m·s·Pa)","목재 투습계수 (kg/m·s·Pa)","혼합 경계 공기 이동 배율","단열재 이동 배율","화밀 증발 배율","외부 공기막 두께 (m)","풍속 수분 교환 계수","선형 상대 오차","수분 수지 상대 오차","수분 수지 절대 오차 (kg)","선형 최대 반복","비선형 최대 반복"});}
-    private void DrawBalanceFields(string title,string[] names,string[] labels){EditorGUILayout.Space();EditorGUILayout.LabelField(title,EditorStyles.boldLabel);var asset=Resources.Load<PyramidTransferSettings>("Thermal/PyramidTransferSettings");if(asset==null)return;var so=new SerializedObject(asset);so.Update();for(int i=0;i<names.Length;i++)EditorGUILayout.PropertyField(so.FindProperty(names[i]),new GUIContent(labels[i]));if(so.ApplyModifiedProperties()){try{asset.Read();}catch(System.Exception e){Debug.LogError(e.Message);}}}
+    private void DrawBalanceFields(string title,string[] names,string[] labels){EditorGUILayout.Space();EditorGUILayout.LabelField(title,EditorStyles.boldLabel);var asset=Resources.Load<PyramidTransferSettings>("Thermal/PyramidTransferSettings");if(asset==null)return;var so=new SerializedObject(asset);so.Update();for(int i=0;i<names.Length;i++)EditorGUILayout.PropertyField(so.FindProperty(names[i]),new GUIContent(labels[i]));if(so.ApplyModifiedProperties()){try{asset.Read();ThermalMaterials.NotifyAssetsChanged();}catch(System.Exception e){Debug.LogError(e.Message);}}}
     private void DrawMaterials(){
         string[] labels={"공기","목재","밀랍","단열재"};
         for(int i=0;i<labels.Length;i++){
