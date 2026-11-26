@@ -13,6 +13,11 @@ MonoBehaviour:
   m_Name: BeeCycleParameters
   m_EditorClassIdentifier: Assembly-CSharp::BeeCycleSettingsAsset
   values:
+    apiaryWaitPercent: 5
+    apiaryFollowDirectionPercent: 80
+    apiaryOtherDirectionPercent: 15
+    apiaryReturnRadius: 1
+    apiaryReturnDistanceExponent: 1
     forageShortageReturnRate: 0.2
     forageLoadBased: 1
     forageSugarRate: 1.875

@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 // Ephemeral edit-mode artwork. Never binds or mutates the presenter's real frame.
 internal sealed class FrameCellEditorPreview : IDisposable
 {
     GameObject root;
+    Canvas parentCanvas;
+    AdditionalCanvasShaderChannels previousChannels;
     FrameSurface surface;
     readonly Dictionary<long,(CycleStage stage,float progress)> brood=new Dictionary<long,(CycleStage,float)>();
     string lastSettings;
@@ -28,9 +31,14 @@ internal sealed class FrameCellEditorPreview : IDisposable
         ClearRoot();
         if(surface==null)CreateSamples();
         lastSettings=settings;lastArea=area;lastSize=area.rect.size;
-        root=new GameObject("소방 예시 (저장되지 않음)",typeof(RectTransform),typeof(Canvas));
+        root=new GameObject("소방 예시 (저장되지 않음)",typeof(RectTransform));
+        StageUtility.PlaceGameObjectInCurrentStage(root);
         root.hideFlags=HideFlags.HideAndDontSave;
         root.transform.SetParent(area,false);
+        parentCanvas=area.GetComponentInParent<Canvas>();
+        if(parentCanvas){previousChannels=parentCanvas.additionalShaderChannels;parentCanvas.additionalShaderChannels|=AdditionalCanvasShaderChannels.TexCoord1;}
+        EditorSceneManager.sceneSaving+=BeforeSceneSave;
+        PrefabStage.prefabSaving+=BeforePrefabSave;
         var rect=(RectTransform)root.transform;rect.anchorMin=rect.anchorMax=rect.pivot=new Vector2(.5f,.5f);rect.sizeDelta=area.rect.size;
         rect.anchoredPosition=data.FindProperty("cellOffset").vector2Value;
         var size=data.FindProperty("cellScale").vector2Value;rect.localScale=new Vector3(size.x*(data.FindProperty("flipCellsX").boolValue?-1:1),size.y,1);
@@ -73,6 +81,15 @@ internal sealed class FrameCellEditorPreview : IDisposable
         }
         finally { world.Thermal?.Dispose(); }
     }
-    void ClearRoot(){if(root)UnityEngine.Object.DestroyImmediate(root);root=null;}
+    void BeforeSceneSave(UnityEngine.SceneManagement.Scene scene,string path){if(root&&root.scene==scene)ClearRoot();}
+    void BeforePrefabSave(GameObject contents){if(root&&root.scene==contents.scene)ClearRoot();}
+    void ClearRoot()
+    {
+        EditorSceneManager.sceneSaving-=BeforeSceneSave;PrefabStage.prefabSaving-=BeforePrefabSave;
+        if(root)UnityEngine.Object.DestroyImmediate(root);root=null;
+        if(parentCanvas)parentCanvas.additionalShaderChannels=previousChannels;parentCanvas=null;
+    }
     public void Dispose(){ClearRoot();surface=null;brood.Clear();lastSettings=null;lastArea=null;}
 }
+
+

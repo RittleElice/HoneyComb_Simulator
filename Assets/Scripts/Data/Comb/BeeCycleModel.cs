@@ -16,6 +16,10 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
     public double basalSugar=0.003, basalEnergy=0.0275, movementEnergy=0.01;
     public double feedRate=2, restRate=8, energyPerSugar=10, recoveryRate=2, recoveryEnergy=2;
     public double speed=10, acquireRate=5, storeRate=5;
+    // Reserved for apiary destination-field movement; not used by hive surface movement.
+    [CycleSince(13)] public double apiaryWaitPercent=5,apiaryFollowDirectionPercent=80,apiaryOtherDirectionPercent=15;
+    [CycleSince(13)] public int apiaryReturnRadius=1;
+    [CycleSince(13)] public double apiaryReturnDistanceExponent=1;
     public double forageMinutes=8, forageSugar=15, forageWater=15, foragePollen=15;
     public double stockSugarPerBee=700, stockPollenPerBee=4;
     public double buildPoints=1, sugarPerBuildPoint=8, desiredEmptyCellsPerBee=0.1;
@@ -75,6 +79,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
             throw new ArgumentException("Positive capacity/rate denominator required.");
         if(relocateEnabled>1||relocateColdStart < -273.15||relocateColdStart>=relocateColdStop||relocateColdStop>=relocateHotStop||relocateHotStop>=relocateHotStart||relocateDensityStop>=relocateDensityStart||relocateTemperatureScale<=0||relocateDistanceMm<=0||relocateMinEnergyFraction>1)throw new ArgumentException("Invalid relocation settings.");
         if(forageShortageReturnRate>1||forageLoadBased>1||forageSugarRate<=0||foragePollenRate<=0||forageReturnExponent<=0||forageDepartureExponent<=0)throw new ArgumentException("Invalid load forage settings.");
+        if(apiaryWaitPercent>100||apiaryFollowDirectionPercent>100||apiaryOtherDirectionPercent>100||Math.Abs(apiaryWaitPercent+apiaryFollowDirectionPercent+apiaryOtherDirectionPercent-100)>1e-9)throw new ArgumentException("양봉장 이동 확률은 각각 0~100%, 합계 100%여야 합니다.");
         if(broodThermalCoupling>1||routeCacheEntries<1||demoConstruction>100||demoFrames>8)throw new ArgumentException("Invalid cache/demo limits.");
     }
 }
