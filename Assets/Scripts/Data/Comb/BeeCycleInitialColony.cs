@@ -37,20 +37,27 @@ public sealed partial class BeeCycleRuntime
         if(CombBalance.NectarVolumeMl(Settings.demoSugar,Settings.demoWater)>honey.Count*CombBalance.LiquidCapacityMl*0.999999||Settings.demoPollen>pollenSlots.Count*CombBalance.PollenCapacityMg*0.999999)throw new InvalidOperationException("Initial H/P cells have insufficient capacity for configured food.");
         double sugar=Settings.demoSugar,water=Settings.demoWater,pollen=Settings.demoPollen;
         var balance=CombBalance.Snapshot();
-        double initialVolume=CombBalance.NectarVolumeMl(sugar,water);
-        double cellVolume=honey.Count>0?initialVolume/honey.Count:0;
-        double waterVolumeFraction=initialVolume>0?water/(1000*balance.WaterDensityGPerMl)/initialVolume:0;
-        // Five source bands across each face and five repeating moisture levels
-        // down the H rows. Center the levels over actual H slots, including partial
-        // rows, so the existing whole-colony sugar/water totals are preserved.
-        double meanLevel=honey.Count>0?honey.Average(c=>(c.region.surface.Height-1-c.y)%5):0;
-        double moistureVariation=1.6*Math.Min(waterVolumeFraction,1-waterVolumeFraction);
+        // Five fill levels across each source band; five water mass fractions down rows.
+        // The defaults match this palette. Normalize against configured totals so custom
+        // initial sugar/water settings remain authoritative (including zero-mass cases).
+        var sugarWeights=new double[honey.Count];var waterWeights=new double[honey.Count];
+        double[] moistureLevels={.3,.4,.5,.65,.8};
+        double totalSugarWeight=0,totalWaterWeight=0;
+        for(int i=0;i<honey.Count;i++)
+        {
+            var c=honey[i];double fill=.1+.2*(c.x%5),moisture=moistureLevels[(c.region.surface.Height-1-c.y)%5];
+            double mass=CombBalance.LiquidCapacityMl*fill/((1-moisture)/(1000*balance.SugarEffectiveDensityGPerMl)+moisture/(1000*balance.WaterDensityGPerMl));
+            sugarWeights[i]=mass*(1-moisture);waterWeights[i]=mass*moisture;
+            totalSugarWeight+=sugarWeights[i];totalWaterWeight+=waterWeights[i];
+        }
+        for(int i=0;i<honey.Count;i++)
+            if(CombBalance.NectarVolumeMl(Settings.demoSugar*sugarWeights[i]/totalSugarWeight,Settings.demoWater*waterWeights[i]/totalWaterWeight)>CombBalance.LiquidCapacityMl)
+                throw new InvalidOperationException("Initial nectar palette exceeds cell capacity; reduce configured initial sugar/water.");
         for(int i=0;i<honey.Count;i++)
         {
             var c=honey[i];int n=honey.Count-i;
-            double fraction=waterVolumeFraction+moistureVariation*((c.region.surface.Height-1-c.y)%5-meanLevel)/4;
-            float w=(float)(n==1?water:Math.Min(water,cellVolume*fraction*1000*balance.WaterDensityGPerMl));
-            float s=(float)(n==1?sugar:Math.Min(sugar,cellVolume*(1-fraction)*1000*balance.SugarEffectiveDensityGPerMl));
+            float s=(float)(n==1?sugar:Math.Min(sugar,Settings.demoSugar*sugarWeights[i]/totalSugarWeight));
+            float w=(float)(n==1?water:Math.Min(water,Settings.demoWater*waterWeights[i]/totalWaterWeight));
             int source=Math.Min(4,c.x*5/c.region.surface.Width);
             if((s>0||w>0)&&!c.region.surface.TryAddNectar(c.x,c.y,source,s,w))throw new InvalidOperationException("Initial nectar placement failed.");
             sugar=Math.Max(0,sugar-s);water=Math.Max(0,water-w);
@@ -67,7 +74,12 @@ public sealed partial class BeeCycleRuntime
             int count=stage==CycleStage.Egg?Settings.demoEggs:stage==CycleStage.Larva?Settings.demoLarvae:Settings.demoPupae;
             for(int i=0;i<count;i++)
             {
-                var c=brood[next++];var b=Add(c.region.position,c.region.box);b.stage=stage;b.development=stage==CycleStage.Egg?0:stage==CycleStage.Larva?Settings.eggEnd:Settings.larvaEnd;b.reserve=0;b.broodColumn=c.x;b.broodRow=c.y;
+                var c=brood[next++];var b=Add(c.region.position,c.region.box);b.stage=stage;b.development=stage==CycleStage.Egg?0:stage==CycleStage.Larva?Settings.eggEnd:Settings.larvaEnd;
+                // Interleaved faces receive the same five visible stage-local ages.
+                double progress=new[]{0.0,.25,.5,.75,.95}[(i/Math.Max(1,faceIndex))%5];
+                if(stage==CycleStage.Larva)b.development=Settings.eggEnd+progress*(Settings.larvaEnd-Settings.eggEnd);
+                else if(stage==CycleStage.Pupa)b.development=Settings.larvaEnd+progress*(Settings.adultStart-Settings.larvaEnd);
+                b.reserve=0;b.broodColumn=c.x;b.broodRow=c.y;
                 if(!c.region.surface.TrySetBrood(c.x,c.y,b.id))throw new InvalidOperationException("Initial brood placement failed.");
             }
         }

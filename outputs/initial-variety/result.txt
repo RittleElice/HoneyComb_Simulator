@@ -1,0 +1,1 @@
+PASS 1104 initial palette, all-face brood progress, quantities and saved-state checks. Sugar=528016.71899414063mg Water=538519.55065917969mg Pollen=1000000mg.
