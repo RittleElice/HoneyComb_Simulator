@@ -27,6 +27,8 @@ public sealed class FrameCellArtwork
     public Sprite chestnutNectarOutside;
     public Sprite wildflowerNectarOutside;
     public Sprite cappedPupa;
+    [Min(.01f), Tooltip("봉개 이미지 전체 크기 배율. 1은 기본 크기입니다. 텍스처 무늬 크기는 별도로 조절합니다.")]
+    public float cappingImageScale = 1f;
     public Texture2D cappingTexture;
     [Min(.01f)] public float cappingTextureScale = 1f;
     [Range(0f,1f)] public float cappingTextureOpacity = 1f;
@@ -337,7 +339,7 @@ public class FrameCellMesh : MaskableGraphic
             // Supplied square artwork shares a canvas: preserve its aspect and
             // internal whitespace (the egg is intentionally much smaller than the cap).
             if (occupant != null) DrawSprite(vh, texture, occupant, center, cell.Occupant == 1 ? new Vector2(57, 63) : cell.Occupant == 4 ? new Vector2(57,57f*72f/68f) : new Vector2(96, 96), new Vector2(.5f, .5f),
-                scale * (cell.Occupant == 1 ? cell.PollenScale : cell.Occupant == 3 ? larvaMaximum*Mathf.Lerp(larvaMinimum,1,cell.BroodProgress) : 1),
+                scale * (cell.Occupant == 1 ? cell.PollenScale : cell.Occupant == 3 ? larvaMaximum*Mathf.Lerp(larvaMinimum,1,cell.BroodProgress) : cell.Occupant == 4 ? Mathf.Max(.01f,artwork.cappingImageScale) : 1),
                 cell.Occupant == 2 ? Mathf.Lerp(eggAngleMin,eggAngleMax,PollenRandom(cell.BroodSeed,6)) : cell.Occupant == 3 ? PollenRandom(cell.BroodSeed,5)*360f : 0, 1, true, cell.Occupant == 1 ? cell.PollenSeed : 0,
                 cell.Occupant == 4 ? Color.Lerp(pupaStart,pupaEnd,cell.BroodProgress) : (Color?)null,
                 cell.Occupant == 4 ? cell.BroodSeed : 0);
@@ -391,7 +393,7 @@ public class FrameCellMesh : MaskableGraphic
             artwork.blackLocustNectar, artwork.chestnutNectar, artwork.wildflowerNectar,
             artwork.rapeSeedNectarOutside, artwork.cherryBlossomNectarOutside,
             artwork.blackLocustNectarOutside, artwork.chestnutNectarOutside, artwork.wildflowerNectarOutside,
-            artwork.pollen, artwork.egg, artwork.larva, artwork.cappedPupa, artwork.wallTwoArm, artwork.wallThreeArm };
+            artwork.pollen, artwork.egg, artwork.larva, artwork.wallTwoArm, artwork.wallThreeArm, artwork.cappedPupa };
         foreach (var sprite in sprites)
         {
             if (sprite == null) continue;
@@ -413,6 +415,21 @@ public class FrameCellMesh : MaskableGraphic
 
     // Use actual Sprite geometry/UVs, including sliced and tightly packed sprites.
     // Reference dimensions preserve the SVG layout regardless of image resolution.
+    // Flatten only the cap graphics after all chunk containers. Their owner still
+    // supplies geometry and dirty updates; no additional canvas or per-cell objects.
+    public void PlaceCappingAboveWalls(RectTransform displayRoot)
+    {
+        if(!displayRoot||artwork.cappedPupa==null)return;
+        foreach(var layer in layers)
+            if(layer.Texture==artwork.cappedPupa.texture)
+            {
+                layer.transform.SetParent(displayRoot,false);
+                var rect=(RectTransform)layer.transform;
+                rect.anchorMin=Vector2.zero;rect.anchorMax=Vector2.one;
+                rect.offsetMin=rect.offsetMax=Vector2.zero;
+                rect.SetAsLastSibling();
+            }
+    }
     private void DrawSprite(VertexHelper vh, Texture texture, Sprite sprite, Vector2 anchor,
         Vector2 size, Vector2 topLeftPivot, float scale, float angle, float alpha, bool preserveOrientation = false, uint pollenSeed = 0, Color? tintOverride = null, uint cappingSeed = 0)
     {
@@ -457,6 +474,12 @@ public class FrameCellMesh : MaskableGraphic
         if(cappingStyleMaterial!=null){if(Application.isPlaying)Destroy(cappingStyleMaterial);else DestroyImmediate(cappingStyleMaterial);}
         cappingStyleMaterial=null;
     }
-    protected override void OnDestroy(){ReleasePollenMaterial();base.OnDestroy();}
+    protected override void OnDestroy()
+    {
+        foreach(var layer in layers)
+            if(layer&&layer.transform.parent!=transform)
+            {if(Application.isPlaying)Destroy(layer.gameObject);else DestroyImmediate(layer.gameObject);}
+        ReleasePollenMaterial();base.OnDestroy();
+    }
 
 }

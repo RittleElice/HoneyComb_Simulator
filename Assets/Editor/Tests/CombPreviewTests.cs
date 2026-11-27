@@ -31,6 +31,24 @@ public static class CombPreviewTests
 
    var art=(FrameCellArtwork)typeof(FrameCellPresenter).GetField("artwork",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(presenter);
    Check(art.cappedPupa.name.StartsWith("Capping_Base"),"new capping sprite bound");
+   var chunkRoots=preview.Root.GetComponentsInChildren<FrameCellMesh>();
+   int lastChunk=chunkRoots.Max(m=>m.transform.GetSiblingIndex());
+   var capLayers=preview.Root.GetComponentsInChildren<FrameCellSpriteLayer>().Where(l=>l.mainTexture==art.cappedPupa.texture).ToArray();
+   Check(capLayers.Length==chunkRoots.Length,"one cap batch per chunk");
+   Check(capLayers.All(l=>l.transform.parent==preview.Root.transform&&l.transform.GetSiblingIndex()>lastChunk),"all cap batches above all wall chunks");
+   Func<(float width,Vector2 uv)> capMetrics=()=>{
+    foreach(var m in preview.Root.GetComponentsInChildren<FrameCellMesh>())using(var vh=new VertexHelper()){
+     typeof(FrameCellMesh).GetMethod("PopulateTexture",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(m,new object[]{vh,art.cappedPupa.texture});
+     if(vh.currentVertCount==0)continue;float low=float.MaxValue,high=float.MinValue;var first=new UIVertex();vh.PopulateUIVertex(ref first,0);
+     for(int i=0;i<art.cappedPupa.vertices.Length;i++){var v=new UIVertex();vh.PopulateUIVertex(ref v,i);low=Math.Min(low,v.position.x);high=Math.Max(high,v.position.x);}
+     return (high-low,new Vector2(first.uv1.x,first.uv1.y));
+    }throw new Exception("No caps for scale test");
+   };
+   var baseCap=capMetrics();data.FindProperty("artwork.cappingImageScale").floatValue=1.5f;data.ApplyModifiedProperties();preview.Update(presenter);
+   var largeCap=capMetrics();Check(Math.Abs(largeCap.width/baseCap.width-1.5f)<.001f&&largeCap.uv==baseCap.uv,"image scale changes geometry only");
+   data.FindProperty("artwork.cappingTextureScale").floatValue=2;data.ApplyModifiedProperties();preview.Update(presenter);
+   var texturedCap=capMetrics();Check(Math.Abs(texturedCap.width-largeCap.width)<.001f&&texturedCap.uv!=largeCap.uv,"texture scale changes UV only");
+   data.FindProperty("artwork.cappingImageScale").floatValue=1;data.FindProperty("artwork.cappingTextureScale").floatValue=1;data.ApplyModifiedProperties();preview.Update(presenter);meshes=preview.Root.GetComponentsInChildren<FrameCellMesh>();
    var cappingUV=new System.Collections.Generic.List<Vector2>();
    foreach(var mesh in meshes)using(var vh=new VertexHelper()){
     typeof(FrameCellMesh).GetMethod("PopulateTexture",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(mesh,new object[]{vh,art.cappedPupa.texture});

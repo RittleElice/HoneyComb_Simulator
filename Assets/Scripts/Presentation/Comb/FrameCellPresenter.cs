@@ -211,6 +211,7 @@ public class FrameCellPresenter : MonoBehaviour, IItemDataBound
             meshes.Add(mesh);
         }
 
+        foreach(var mesh in meshes)mesh.PlaceCappingAboveWalls(visualRoot);
         lastAreaSize = area.size;
         lastFill = areaFill;
         lastOffset = cellOffset; lastCellScale = cellScale; lastFlipCellsX = flipCellsX;

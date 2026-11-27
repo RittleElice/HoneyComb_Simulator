@@ -129,9 +129,9 @@ MonoBehaviour:
     chestnutNectarOutside: {fileID: 7679477449304720846, guid: 345a37df81c7ce544955b4e6ad5fe079, type: 3}
     wildflowerNectarOutside: {fileID: 2570316317307430386, guid: 4c69887ccd66b7f42bf45669625c9984, type: 3}
     cappedPupa: {fileID: 4787532661322305568, guid: 360cf03485342a340b735dc80af30130, type: 3}
-    cappingTexture: {fileID: 0}
+    cappingTexture: {fileID: 2800000, guid: 23bb1e8157ca99c4798d3f35a95664d0, type: 3}
     cappingTextureScale: 1
-    cappingTextureOpacity: 1
+    cappingTextureOpacity: 0.6
     cappingTextureBlend: 1
     pollen: {fileID: -2485924460058043253, guid: 6a11f2e317d3e8542a43c904743d6a8a, type: 3}
     pollenTexture: {fileID: 2800000, guid: 316514b4e7ea2c74e8fd658eab1ef57e, type: 3}
@@ -154,8 +154,8 @@ MonoBehaviour:
   pollenMaximumScale: 1
   larvaMinimumScale: 0.4
   larvaMaximumScale: 0.95
-  pupaStartColor: {r: 0.8490566, g: 0.8490566, b: 0.8490566, a: 1}
-  pupaEndColor: {r: 0.7019608, g: 0.5411765, b: 0.3607843, a: 1}
+  pupaStartColor: {r: 0.7169812, g: 0.4834467, b: 0.27732283, a: 1}
+  pupaEndColor: {r: 0.44654083, g: 0.21290484, b: 0.074423425, a: 1}
   completeCellOpacity: 0.7
   eggRotationRange: {x: 30, y: 60}
   completeCellColor: {r: 1, g: 0.5669892, b: 0, a: 1}

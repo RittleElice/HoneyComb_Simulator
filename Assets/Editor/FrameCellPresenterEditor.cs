@@ -107,7 +107,7 @@ public sealed class FrameCellPresenterEditor : Editor
         Group("알", "artwork.egg", "이미지", "eggRotationRange", "회전 범위 (도)");
         Group("애벌레", "artwork.larva", "이미지", "larvaMinimumScale", "최소 크기 (최대 대비)",
             "larvaMaximumScale", "최대 크기 배율");
-        Group("번데기 봉개", "artwork.cappedPupa", "이미지", "pupaStartColor", "발달 시작 색", "pupaEndColor", "발달 완료 색",
+        Group("번데기 봉개", "artwork.cappedPupa", "이미지", "artwork.cappingImageScale", "이미지 크기", "pupaStartColor", "발달 시작 색", "pupaEndColor", "발달 완료 색",
             "artwork.cappingTexture", "텍스처", "artwork.cappingTextureScale", "텍스처 크기",
             "artwork.cappingTextureOpacity", "텍스처 불투명도", "artwork.cappingTextureBlend", "텍스처 합성 방식");
         Group("배열 미리보기와 성능", "outlineColor", "미리보기 선 색", "outlineWidth", "선 두께", "cellsPerMesh", "묶음당 소방 수");
