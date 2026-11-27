@@ -30,6 +30,8 @@ MonoBehaviour:
     forageReturnExponent: 2
     forageDepartureExponent: 2
     formulas:
+    - name: workDesireRelief
+      expression: actionRate*ratio
     - name: demandNext
       expression: clamp(amount+available-need,0,100)
     - name: demandProbability
@@ -274,6 +276,14 @@ MonoBehaviour:
     demoPupae: 20
     representativeScale: 11.05
 
+    workDesireEnabled: 1
+    workBuildRelief: 5
+    workNurseRelief: 5
+    workHeatRelief: 5
+    workClearRelief: 5
+    workLayRelief: 5
+    workNectarRelief: 5
+    workPollenRelief: 5
     demandEnabled: 1
     demandFailureWindow: 10
     demandSugarDays: 7.0

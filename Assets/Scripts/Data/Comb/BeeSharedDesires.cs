@@ -28,35 +28,23 @@ internal sealed class CycleDesireState : IEquatable<CycleDesireState>
 }
 public sealed partial class BeeCycleRuntime
 {
-    sealed class DesireContext { internal readonly List<IndexedCommand> commands=new List<IndexedCommand>(); }
-    readonly Dictionary<(int,bool,BeeGridPosition),DesireContext> desireContexts=new Dictionary<(int,bool,BeeGridPosition),DesireContext>();
-    readonly Dictionary<(CycleDesireState,DesireContext),CycleDesireState> desireTransitions=new Dictionary<(CycleDesireState,DesireContext),CycleDesireState>();
+    // Only persistence deduplicates immutable snapshots. Runtime desires belong to each bee.
     readonly Dictionary<CycleDesireState,CycleDesireState> desireStates=new Dictionary<CycleDesireState,CycleDesireState>();
-    readonly Dictionary<(int,bool),List<IndexedCommand>> groupCommands=new Dictionary<(int,bool),List<IndexedCommand>>();
-    readonly HashSet<int> localCommandGroups=new HashSet<int>();
-    readonly Dictionary<(CycleDesireState,long),double> desireTotals=new Dictionary<(CycleDesireState,long),double>();
-    double DesireTotal(CycleBee bee,double initial){if(Settings.forageLoadBased!=0){for(int i=0;i<bee.DesireCount;i++){var d=bee.DesireAt(i);initial+=ForageChoiceWeight(bee,d.task,d.weight);}return initial;}if(bee.mutableDesires!=null){for(int i=0;i<bee.DesireCount;i++)initial+=bee.DesireAt(i).weight;return initial;}var state=bee.desireState??CycleDesireState.Empty;var key=(state,BitConverter.DoubleToInt64Bits(initial));if(desireTotals.TryGetValue(key,out double result))return result;result=initial;foreach(var d in state.Values)result+=d.weight;if(desireTotals.Count<8192)desireTotals.Add(key,result);return result;}
-    void BeginDesireTick(){desireTotals.Clear();desireContexts.Clear();desireTransitions.Clear();desireStates.Clear();localCommandGroups.Clear();groupCommands.Clear();foreach(var c in indexedCommands){var command=c.command;if(command.localOnly)localCommandGroups.Add(command.group);var key=(command.group,command.task==CycleTask.Lay);if(!groupCommands.TryGetValue(key,out var list)){list=new List<IndexedCommand>();groupCommands.Add(key,list);}list.Add(c);}}
-    CycleDesireState InternDesires(CycleDesireState state){if(desireStates.TryGetValue(state,out var prior))return prior;desireStates.Add(state,state);return state;}
+    double DesireTotal(CycleBee bee,double initial)
+    {
+        for(int i=0;i<bee.DesireCount;i++){var d=bee.DesireAt(i);initial+=ForageChoiceWeight(bee,d.task,d.weight);}
+        return initial;
+    }
+    void BeginDesireTick(){desireStates.Clear();}
+    CycleDesireState InternDesires(CycleDesireState state)
+    {
+        if(desireStates.TryGetValue(state,out var prior))return prior;
+        desireStates.Add(state,state);return state;
+    }
     void UpdateDesires(CycleBee b)
     {
-        // A caller that exposes mutable desires gets its own list and retains legacy mutation semantics.
-        if(b.mutableDesires!=null){UpdateMutableDesires(b);return;}
-        bool located=Position(b,out var p);var air=located?Air(p):null;int group=air==null?int.MinValue:air.Group;
-        var key=(group,b.queen,localCommandGroups.Contains(group)?p:default(BeeGridPosition));
-        if(!desireContexts.TryGetValue(key,out var context)){
-            context=new DesireContext();
-            if(air!=null&&groupCommands.TryGetValue((group,b.queen),out var eligible))foreach(var c in eligible){var command=c.command;if(command.group==group&&(!command.localOnly||command.target.Grid.Equals(p))&&(b.queen==(command.task==CycleTask.Lay)))context.commands.Add(c);}
-            desireContexts.Add(key,context);
-        }
-        var prior=b.desireState??CycleDesireState.Empty;
-        if(!desireTransitions.TryGetValue((prior,context),out var next)){
-            var list=prior.Materialize();var lookup=new Dictionary<int,CycleDesire>(list.Count);
-            foreach(var d in list){if(Settings.demandEnabled!=0)d.weight=Decay(d.weight);lookup[DesireKey(d.task,d.target.Grid)]=d;}
-            foreach(var indexed in context.commands){var c=indexed.command;if(!lookup.TryGetValue(indexed.key,out var d)){d=new CycleDesire{task=c.task,target=c.target};list.Add(d);lookup.Add(indexed.key,d);}double amount=Stimulus(c);if(amount>0){d.weight+=amount;d.stimulatedThisTick=true;}}
-            for(int i=list.Count-1;i>=0;i--){var d=list[i];if(Settings.demandEnabled==0&&!d.stimulatedThisTick)d.weight=Decay(d.weight);if(d.weight==0)list.RemoveAt(i);}
-            next=InternDesires(CycleDesireState.From(list));desireTransitions.Add((prior,context),next);
-        }
-        b.desireState=next;
+        // Materialize a private list once after loading; never change another bee's snapshot.
+        if(b.mutableDesires==null){var own=b.desires;}
+        UpdateMutableDesires(b);
     }
 }

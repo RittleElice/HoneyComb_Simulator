@@ -11,6 +11,14 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
 {
     public List<CycleFormula> formulas=BeeCycleRules.Defaults();
     public double naturalDecay=10, commandMaximum=0.003;
+    [CycleSince(16)] public int workDesireEnabled=1;
+    [CycleSince(16)] public double workBuildRelief=5;
+    [CycleSince(16)] public double workNurseRelief=5;
+    [CycleSince(16)] public double workHeatRelief=5;
+    [CycleSince(16)] public double workClearRelief=5;
+    [CycleSince(16)] public double workLayRelief=5;
+    [CycleSince(16)] public double workNectarRelief=5;
+    [CycleSince(16)] public double workPollenRelief=5;
     [CycleSince(15)] public int demandEnabled=1;
     [CycleSince(15)] public int demandFailureWindow=10;
     [CycleSince(15)] public double demandSugarDays=7.0;
@@ -121,7 +129,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
         if(formulas!=null && !formulas.Exists(f=>f.name=="forageSourceWeight"))
             formulas.Add(new CycleFormula("forageSourceWeight","available"));
     }
-    void ValidateDemandSettings(){if(demandEnabled<0||demandEnabled>1||demandFailureWindow<1||demandFailureWindow>10000||demandSugarDays<=0||demandPollenDays<=0||demandSugarReserveDays<=0||demandPollenReserveDays<=0||demandStorageDays<=0||demandSupplyMinutes<=0||demandGrowthSugarRange<=0||demandGrowthPollenRange<=0||demandCandidateLoadScale<=0||demandCandidateWorkFloor<=0||demandCandidateFoodFloor<=0||demandForecastForagerFraction<=0||demandForecastForagerFraction>1||demandBuildBroadcast>100||demandClearBroadcast>100||demandNurseBroadcast>100||demandHeatBroadcast>100)throw new ArgumentException("Invalid demand settings");}
+    void ValidateDemandSettings(){if(workDesireEnabled<0||workDesireEnabled>1||demandEnabled<0||demandEnabled>1||demandFailureWindow<1||demandFailureWindow>10000||demandSugarDays<=0||demandPollenDays<=0||demandSugarReserveDays<=0||demandPollenReserveDays<=0||demandStorageDays<=0||demandSupplyMinutes<=0||demandGrowthSugarRange<=0||demandGrowthPollenRange<=0||demandCandidateLoadScale<=0||demandCandidateWorkFloor<=0||demandCandidateFoodFloor<=0||demandForecastForagerFraction<=0||demandForecastForagerFraction>1||demandBuildBroadcast>100||demandClearBroadcast>100||demandNurseBroadcast>100||demandHeatBroadcast>100)throw new ArgumentException("Invalid demand settings");}
     public void Validate()
     {
         foreach(var field in typeof(BeeCycleSettings).GetFields())

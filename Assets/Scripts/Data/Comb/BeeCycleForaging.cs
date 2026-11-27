@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -64,6 +64,7 @@ public sealed partial class BeeCycleRuntime
                 if(q.source!=source || q.bee.stage==CycleStage.Dead)continue;
                 double amount=q.pollen?(pollen>0?taken.pollen*(q.amount/pollen):0):(sugar>0?taken.sugar*(q.amount/sugar):0);
                 q.bee.lastAcquired=amount;
+                RelieveWork(q.bee,q.pollen?CycleTask.ForagePollen:CycleTask.ForageNectar,amount/Math.Max(1e-9,(q.pollen?Settings.foragePollenRate:Settings.forageSugarRate)*RepresentedBees(q.bee)),q.pollen?Settings.workPollenRelief:Settings.workNectarRelief);
                 if(q.pollen){q.bee.cargo.pollen+=amount;Counters.externalPollen+=amount;}
                 else {q.bee.cargo.Add(source,amount);Counters.externalSugar+=amount;}
             }
@@ -71,6 +72,7 @@ public sealed partial class BeeCycleRuntime
         if(Settings.forageLoadBased!=0)ResetForageSelection();
         foreach(var q in forageRequests){
             if(q.bee.stage==CycleStage.Dead)continue;
+            if(Settings.workDesireEnabled!=0&&!HasCurrentWorkDesire(q.bee)){FinishForage(q.bee,CycleEnd.Completed);BaseHeat(q.bee);continue;}
             if(Settings.forageLoadBased!=0){FinishLoadForageTick(q.bee,q.pollen,q.amount);continue;}
             FinishForage(q.bee,q.bee.lastAcquired>0||q.amount<=0?CycleEnd.Completed:CycleEnd.ResourceMissing);
             BaseHeat(q.bee);

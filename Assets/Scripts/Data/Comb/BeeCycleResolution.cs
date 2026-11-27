@@ -23,7 +23,7 @@ public sealed partial class BeeCycleRuntime
                 {
                     bool pollen=kind==1;var cargo=new CycleCargo();double remaining=total;
                     Cells(r,(x,y)=>{if(remaining<=1e-10)return;var taken=r.surface.WithdrawCycle(x,y,remaining,pollen,out double water);remaining-=taken.Mass;cargo.Add(taken,1);Counters.discardedWater+=water;});
-                    foreach(var q in batch){double share=q.amount/total;q.bee.cargo.Add(cargo,share);q.bee.lastAcquired=cargo.Mass*share;if(cargo.Mass<=0){RecordDemandFailure(q.bee,pollen?1:0);End(q.bee,CycleEnd.ResourceMissing);}}
+                    foreach(var q in batch){double share=q.amount/total;q.bee.cargo.Add(cargo,share);q.bee.lastAcquired=cargo.Mass*share;if(q.bee.task==CycleTask.Clear)RelieveWork(q.bee,CycleTask.Clear,q.bee.lastAcquired/Math.Max(1e-9,Settings.acquireRate*RepresentedBees(q.bee)),Settings.workClearRelief);if(cargo.Mass<=0){RecordDemandFailure(q.bee,pollen?1:0);End(q.bee,CycleEnd.ResourceMissing);}}
                 }
                 else if(kind==2)StoreBatch(r);
                 else if(kind==3)BuildBatch(r,total);
@@ -69,7 +69,7 @@ public sealed partial class BeeCycleRuntime
         {
             int cx=-1,cy=-1;double weights=0;
             Cells(r,(x,y)=>{
-                var c=r.surface.GetCell(x,y);if(c.IsComplete)return;
+                var c=r.surface.GetCell(x,y);if(Settings.workDesireEnabled!=0?c.Construction>=100:c.IsComplete)return;
                 int adjacent=0;
                 for(int dy=-1;dy<=1;dy++)for(int dx=-1;dx<=1;dx++)if(Math.Abs(dx)+Math.Abs(dy)==1&&r.surface.IsInside(x+dx,y+dy)&&r.surface.GetCell(x+dx,y+dy).Construction>0)adjacent++;
                 double w=F("buildCellWeight",new CycleInputs{amount=adjacent});weights+=w;if(Random()*weights<w){cx=x;cy=y;}
@@ -78,7 +78,7 @@ public sealed partial class BeeCycleRuntime
             if(!r.surface.TrySetConstruction(cx,cy,(byte)(r.surface.GetCell(cx,cy).Construction+amount)))break;
             actual+=amount;remaining-=amount;
         }
-        foreach(var q in batch)Counters.consumedSugar+=q.bee.cargo.Consume(actual*q.amount/total*BuildPointCost);
+        foreach(var q in batch){double work=actual*q.amount/total;Counters.consumedSugar+=q.bee.cargo.Consume(work*BuildPointCost);RelieveWork(q.bee,CycleTask.Build,work/Math.Max(1e-9,Settings.buildPoints),Settings.workBuildRelief);}
         Counters.built+=actual;
     }
     void NurseBatch(Region r)
@@ -93,6 +93,7 @@ public sealed partial class BeeCycleRuntime
             {
                 double n=actual*Math.Min(q.amount,pollen?q.bee.cargo.pollen:q.bee.cargo.Sugar)/supply;
                 if(pollen)q.bee.cargo.pollen=Math.Max(0,q.bee.cargo.pollen-n);else q.bee.cargo.Consume(n);
+                RelieveWork(q.bee,CycleTask.Nurse,n/Math.Max(1e-9,Settings.nurseRate*RepresentedBees(q.bee)),Settings.workNurseRelief);
             }
             foreach(var b in r.brood)if(b.stage==CycleStage.Larva)
             {
@@ -114,7 +115,7 @@ public sealed partial class BeeCycleRuntime
         if(cx<0)return;
         var b=Add(r.position,queen.homeBox);b.stage=CycleStage.Egg;b.development=0;b.reserve=0;b.broodColumn=cx;b.broodRow=cy;
         if(!r.surface.TrySetBrood(cx,cy,b.id))throw new InvalidOperationException("Brood reservation changed during action.");
-        Counters.eggs++;
+        Counters.eggs++;RelieveWork(queen,CycleTask.Lay,1,Settings.workLayRelief);
     }
     void DevelopBrood(CycleBee b)
     {

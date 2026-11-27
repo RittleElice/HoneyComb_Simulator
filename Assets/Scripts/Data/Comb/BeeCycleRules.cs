@@ -44,6 +44,7 @@ public sealed class BeeCycleRules
     public double Eval(string name,CycleInputs data=default)
     {input=data;double v=formulas[name].Evaluate(lookup);if(v<0)throw new InvalidOperationException("Negative formula result: "+name);return v;}
     public static List<CycleFormula> DemandDefaults()=>new List<CycleFormula>{
+        new CycleFormula("workDesireRelief","actionRate*ratio"),
         new CycleFormula("demandNext","clamp(amount+available-need,0,100)"),
         new CycleFormula("demandProbability","clamp(amount/100,0,1)"),
         new CycleFormula("demandDesireNext","max(0,amount-demandDesireDecay)"),
