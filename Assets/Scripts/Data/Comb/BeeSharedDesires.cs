@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 // Immutable runtime values. Equal vectors can share storage without sharing mutable bee state.
@@ -52,9 +52,9 @@ public sealed partial class BeeCycleRuntime
         var prior=b.desireState??CycleDesireState.Empty;
         if(!desireTransitions.TryGetValue((prior,context),out var next)){
             var list=prior.Materialize();var lookup=new Dictionary<int,CycleDesire>(list.Count);
-            foreach(var d in list)lookup[DesireKey(d.task,d.target.Grid)]=d;
+            foreach(var d in list){if(Settings.demandEnabled!=0)d.weight=Decay(d.weight);lookup[DesireKey(d.task,d.target.Grid)]=d;}
             foreach(var indexed in context.commands){var c=indexed.command;if(!lookup.TryGetValue(indexed.key,out var d)){d=new CycleDesire{task=c.task,target=c.target};list.Add(d);lookup.Add(indexed.key,d);}double amount=Stimulus(c);if(amount>0){d.weight+=amount;d.stimulatedThisTick=true;}}
-            for(int i=list.Count-1;i>=0;i--){var d=list[i];if(!d.stimulatedThisTick)d.weight=Decay(d.weight);if(d.weight==0)list.RemoveAt(i);}
+            for(int i=list.Count-1;i>=0;i--){var d=list[i];if(Settings.demandEnabled==0&&!d.stimulatedThisTick)d.weight=Decay(d.weight);if(d.weight==0)list.RemoveAt(i);}
             next=InternDesires(CycleDesireState.From(list));desireTransitions.Add((prior,context),next);
         }
         b.desireState=next;

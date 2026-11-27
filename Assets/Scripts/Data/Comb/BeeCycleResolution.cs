@@ -23,7 +23,7 @@ public sealed partial class BeeCycleRuntime
                 {
                     bool pollen=kind==1;var cargo=new CycleCargo();double remaining=total;
                     Cells(r,(x,y)=>{if(remaining<=1e-10)return;var taken=r.surface.WithdrawCycle(x,y,remaining,pollen,out double water);remaining-=taken.Mass;cargo.Add(taken,1);Counters.discardedWater+=water;});
-                    foreach(var q in batch){double share=q.amount/total;q.bee.cargo.Add(cargo,share);q.bee.lastAcquired=cargo.Mass*share;if(cargo.Mass<=0)End(q.bee,CycleEnd.ResourceMissing);}
+                    foreach(var q in batch){double share=q.amount/total;q.bee.cargo.Add(cargo,share);q.bee.lastAcquired=cargo.Mass*share;if(cargo.Mass<=0){RecordDemandFailure(q.bee,pollen?1:0);End(q.bee,CycleEnd.ResourceMissing);}}
                 }
                 else if(kind==2)StoreBatch(r);
                 else if(kind==3)BuildBatch(r,total);
@@ -103,7 +103,7 @@ public sealed partial class BeeCycleRuntime
     }
     void Lay(CycleBee queen,Region r,double time)
     {
-        if(!queen.queen||r.empty==0){End(queen,CycleEnd.Completed);return;}
+        if(!queen.queen||r.empty==0){if(queen.queen&&r.empty==0)RecordDemandFailure(queen,2);End(queen,CycleEnd.Completed);return;}
         Act(queen,CycleAction.Lay,time);if(Random()>=F("layChance",new CycleInputs{time=time}))return;
         int cx=-1,cy=-1;double total=0;bool hasBrood=regions.Exists(v=>v.frame==r.frame&&v.brood.Count>0);
         Cells(r,(x,y)=>{

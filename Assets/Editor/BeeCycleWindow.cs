@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using System.Collections.Generic;
 
@@ -110,6 +110,7 @@ public sealed partial class BeeCycleWindow : EditorWindow
 
             EditorGUILayout.Space();EditorGUILayout.LabelField("선택한 벌통의 활성 명령",EditorStyles.boldLabel);
 
+            foreach(var line in w.BeeCycle.DemandObservation(ids))EditorGUILayout.LabelField(line);
             foreach(var command in w.BeeCycle.Commands)if(ids.Contains(command.target.equipment))EditorGUILayout.LabelField($"{command.task} → {command.target.Grid}",$"필요도 {command.need:F3} · {(command.localOnly?"해당 격자":"봉군 전체")}");
 
         }

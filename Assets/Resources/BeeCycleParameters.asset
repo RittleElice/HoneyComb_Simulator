@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -30,6 +30,56 @@ MonoBehaviour:
     forageReturnExponent: 2
     forageDepartureExponent: 2
     formulas:
+    - name: demandNext
+      expression: clamp(amount+available-need,0,100)
+    - name: demandProbability
+      expression: clamp(amount/100,0,1)
+    - name: demandDesireNext
+      expression: max(0,amount-demandDesireDecay)
+    - name: demandPulse
+      expression: demandCommandPulse
+    - name: demandDays
+      expression: amount/max(available,0.000000001)
+    - name: demandRatio
+      expression: clamp(amount/max(available,0.000000001),0,1)
+    - name: demandFoodSignal
+      expression: demandFoodShortageGain*amount+demandFoodOpportunityGain*available*ratio*need
+    - name: demandForageIncrease
+      expression: max(amount,available)+demandFailureGain*need
+    - name: demandBuildIncrease
+      expression: demandBuildGain*amount+demandFailureGain*need
+    - name: demandClearIncrease
+      expression: demandClearGain*amount*ratio+demandFailureGain*need
+    - name: demandLayIncrease
+      expression: (demandLayWorkerGain*amount+demandLayBroodGain*available)*ratio*need
+    - name: demandWorkerTarget
+      expression: max(demandWorkerMinimum,demandWorkersPerCell*amount)
+    - name: demandBroodTarget
+      expression: min(broodTarget,min(demandBroodPerWorker*amount,demandBroodPerCell*available))
+    - name: demandEmptyTarget
+      expression: max(demandEmptyMinimum,demandEmptyPerWorker*amount)+max(0,available-need)
+    - name: demandGrowthSugar
+      expression: clamp((amount-demandGrowthSugarFloor)/demandGrowthSugarRange,0,1)
+    - name: demandGrowthPollen
+      expression: clamp((amount-demandGrowthPollenFloor)/demandGrowthPollenRange,0,1)
+    - name: demandNurseIncrease
+      expression: demandRegionNurseGain*ratio
+    - name: demandHeatIncrease
+      expression: demandRegionHeatGain*ratio
+    - name: demandBuildCandidate
+      expression: amount/max(available,demandCandidateWorkFloor)/(1+need/demandCandidateLoadScale)
+    - name: demandClearCandidate
+      expression: amount/max(available,demandCandidateFoodFloor)/(1+need/demandCandidateLoadScale)
+    - name: demandLayCandidate
+      expression: amount*ratio
+    - name: demandDailySugar
+      expression: amount*demandDailyAdultSugar+available*demandDailyBroodSugar
+    - name: demandDailyPollen
+      expression: amount*demandDailyAdultPollen+available*demandDailyBroodPollen
+    - name: demandSupplyTarget
+      expression: amount*available*demandSupplyMinutes*demandForecastForagerFraction
+    - name: demandReservedCells
+      expression: amount*ratio
     - name: forageCollectSugar
       expression: forageSugarRate*time
     - name: forageCollectPollen
@@ -223,3 +273,56 @@ MonoBehaviour:
     demoLarvae: 20
     demoPupae: 20
     representativeScale: 11.05
+
+    demandEnabled: 1
+    demandFailureWindow: 10
+    demandSugarDays: 7.0
+    demandPollenDays: 5.0
+    demandSugarReserveDays: 21.0
+    demandPollenReserveDays: 14.0
+    demandStorageDays: 3.0
+    demandSupplyMinutes: 60.0
+    demandWorkerMinimum: 48.0
+    demandWorkersPerCell: 0.15
+    demandBroodPerWorker: 2.0
+    demandBroodPerCell: 0.4
+    demandEmptyMinimum: 10.0
+    demandEmptyPerWorker: 0.1
+    demandGrowthSugarFloor: 3.0
+    demandGrowthSugarRange: 7.0
+    demandGrowthPollenFloor: 2.0
+    demandGrowthPollenRange: 5.0
+    demandBuildSugarFloor: 3.0
+    demandFoodShortageGain: 4.0
+    demandFoodOpportunityGain: 2.0
+    demandFailureGain: 2.0
+    demandBuildGain: 4.0
+    demandClearGain: 3.0
+    demandLayWorkerGain: 2.0
+    demandLayBroodGain: 3.0
+    demandForageDecay: 1.0
+    demandBuildDecay: 1.0
+    demandLayDecay: 1.0
+    demandClearDecay: 1.0
+    demandRegionBuildPulse: 12.0
+    demandRegionClearPulse: 12.0
+    demandRegionBuildDecay: 2.0
+    demandRegionClearDecay: 2.0
+    demandRegionNurseGain: 6.0
+    demandRegionHeatGain: 4.0
+    demandRegionNurseDecay: 1.0
+    demandRegionHeatDecay: 1.0
+    demandBuildBroadcast: 60.0
+    demandClearBroadcast: 60.0
+    demandNurseBroadcast: 40.0
+    demandHeatBroadcast: 50.0
+    demandCommandPulse: 10.0
+    demandDesireDecay: 1.0
+    demandCandidateLoadScale: 100.0
+    demandCandidateWorkFloor: 1.0
+    demandCandidateFoodFloor: 1.0
+    demandDailyAdultSugar: 103.4
+    demandDailyBroodSugar: 17.2
+    demandDailyAdultPollen: 0.0
+    demandDailyBroodPollen: 49.6
+    demandForecastForagerFraction: 1.0

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 public enum CycleTask { None, Feed, Rest, Recover, Store, ForageNectar, ForagePollen, Build, Lay, Nurse, Heat, Clear, Relocate }
@@ -11,6 +11,58 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
 {
     public List<CycleFormula> formulas=BeeCycleRules.Defaults();
     public double naturalDecay=10, commandMaximum=0.003;
+    [CycleSince(15)] public int demandEnabled=1;
+    [CycleSince(15)] public int demandFailureWindow=10;
+    [CycleSince(15)] public double demandSugarDays=7.0;
+    [CycleSince(15)] public double demandPollenDays=5.0;
+    [CycleSince(15)] public double demandSugarReserveDays=21.0;
+    [CycleSince(15)] public double demandPollenReserveDays=14.0;
+    [CycleSince(15)] public double demandStorageDays=3.0;
+    [CycleSince(15)] public double demandSupplyMinutes=60.0;
+    [CycleSince(15)] public double demandWorkerMinimum=48.0;
+    [CycleSince(15)] public double demandWorkersPerCell=0.15;
+    [CycleSince(15)] public double demandBroodPerWorker=2.0;
+    [CycleSince(15)] public double demandBroodPerCell=0.4;
+    [CycleSince(15)] public double demandEmptyMinimum=10.0;
+    [CycleSince(15)] public double demandEmptyPerWorker=0.1;
+    [CycleSince(15)] public double demandGrowthSugarFloor=3.0;
+    [CycleSince(15)] public double demandGrowthSugarRange=7.0;
+    [CycleSince(15)] public double demandGrowthPollenFloor=2.0;
+    [CycleSince(15)] public double demandGrowthPollenRange=5.0;
+    [CycleSince(15)] public double demandBuildSugarFloor=3.0;
+    [CycleSince(15)] public double demandFoodShortageGain=4.0;
+    [CycleSince(15)] public double demandFoodOpportunityGain=2.0;
+    [CycleSince(15)] public double demandFailureGain=2.0;
+    [CycleSince(15)] public double demandBuildGain=4.0;
+    [CycleSince(15)] public double demandClearGain=3.0;
+    [CycleSince(15)] public double demandLayWorkerGain=2.0;
+    [CycleSince(15)] public double demandLayBroodGain=3.0;
+    [CycleSince(15)] public double demandForageDecay=1.0;
+    [CycleSince(15)] public double demandBuildDecay=1.0;
+    [CycleSince(15)] public double demandLayDecay=1.0;
+    [CycleSince(15)] public double demandClearDecay=1.0;
+    [CycleSince(15)] public double demandRegionBuildPulse=12.0;
+    [CycleSince(15)] public double demandRegionClearPulse=12.0;
+    [CycleSince(15)] public double demandRegionBuildDecay=2.0;
+    [CycleSince(15)] public double demandRegionClearDecay=2.0;
+    [CycleSince(15)] public double demandRegionNurseGain=6.0;
+    [CycleSince(15)] public double demandRegionHeatGain=4.0;
+    [CycleSince(15)] public double demandRegionNurseDecay=1.0;
+    [CycleSince(15)] public double demandRegionHeatDecay=1.0;
+    [CycleSince(15)] public double demandBuildBroadcast=60.0;
+    [CycleSince(15)] public double demandClearBroadcast=60.0;
+    [CycleSince(15)] public double demandNurseBroadcast=40.0;
+    [CycleSince(15)] public double demandHeatBroadcast=50.0;
+    [CycleSince(15)] public double demandCommandPulse=10.0;
+    [CycleSince(15)] public double demandDesireDecay=1.0;
+    [CycleSince(15)] public double demandCandidateLoadScale=100.0;
+    [CycleSince(15)] public double demandCandidateWorkFloor=1.0;
+    [CycleSince(15)] public double demandCandidateFoodFloor=1.0;
+    [CycleSince(15)] public double demandDailyAdultSugar=103.4;
+    [CycleSince(15)] public double demandDailyBroodSugar=17.2;
+    [CycleSince(15)] public double demandDailyAdultPollen=0.0;
+    [CycleSince(15)] public double demandDailyBroodPollen=49.6;
+    [CycleSince(15)] public double demandForecastForagerFraction=1.0;
     public double feedWeight=200,restWeight=200,recoverWeight=200,storeWeight=400;
     public double reserveTarget=8, maxEnergy=100, maxHealth=100, carryCapacity=20;
     public double basalSugar=0.003, basalEnergy=0.0275, movementEnergy=0.01;
@@ -69,6 +121,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
         if(formulas!=null && !formulas.Exists(f=>f.name=="forageSourceWeight"))
             formulas.Add(new CycleFormula("forageSourceWeight","available"));
     }
+    void ValidateDemandSettings(){if(demandEnabled<0||demandEnabled>1||demandFailureWindow<1||demandFailureWindow>10000||demandSugarDays<=0||demandPollenDays<=0||demandSugarReserveDays<=0||demandPollenReserveDays<=0||demandStorageDays<=0||demandSupplyMinutes<=0||demandGrowthSugarRange<=0||demandGrowthPollenRange<=0||demandCandidateLoadScale<=0||demandCandidateWorkFloor<=0||demandCandidateFoodFloor<=0||demandForecastForagerFraction<=0||demandForecastForagerFraction>1||demandBuildBroadcast>100||demandClearBroadcast>100||demandNurseBroadcast>100||demandHeatBroadcast>100)throw new ArgumentException("Invalid demand settings");}
     public void Validate()
     {
         foreach(var field in typeof(BeeCycleSettings).GetFields())
@@ -77,6 +130,7 @@ public enum CycleEnd { Completed, ResourceMissing, PathBlocked, Interrupted }
             double v=Convert.ToDouble(field.GetValue(this));
             if(double.IsNaN(v)||double.IsInfinity(v)||(v<0&&!field.Name.StartsWith("relocateCold")&&!field.Name.StartsWith("relocateHot")))throw new ArgumentException("Invalid setting: "+field.Name);
         }
+        ValidateDemandSettings();
         if(representativeScale<=0||reserveTarget<=0||maxEnergy<=0||maxHealth<=0||carryCapacity<=0||pollenCarryCapacity<=0||energyPerSugar<=0||speed<=0||storageDistanceMm<=0||stockSugarPerBee<=0||stockPollenPerBee<=0||desiredEmptyCellsPerBee<=0||sugarPerBuildPoint<=0||recoveryEnergy<=0||heatEnergy<=0||broodTarget<=0||larvaSugarPerTick<=0||larvaPollenPerTick<=0||larvaEnergyPerTick<=0||heatDeficitScale<=0||storageHeightScale<=0||broodMinTemperature>=broodIdealTemperature||broodIdealTemperature>=broodMaxTemperature||eggEnd>=larvaEnd||larvaEnd>=adultStart||adultStart>=maxDevelopment||adultStart>=queenMaxDevelopment)
             throw new ArgumentException("Positive capacity/rate denominator required.");
         if(relocateEnabled>1||relocateColdStart < -273.15||relocateColdStart>=relocateColdStop||relocateColdStop>=relocateHotStop||relocateHotStop>=relocateHotStart||relocateDensityStop>=relocateDensityStart||relocateTemperatureScale<=0||relocateDistanceMm<=0||relocateMinEnergyFraction>1)throw new ArgumentException("Invalid relocation settings.");

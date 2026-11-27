@@ -317,6 +317,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     }
     void RefreshCommands()
     {
+        if(Settings.demandEnabled!=0){RefreshDemandCommands();return;}
         activeCommands.Clear();commandIndex.Clear();foreach(var command in Commands){var key=(command.task,command.target.Grid);if(!commandIndex.ContainsKey(key))commandIndex.Add(key,command);}
         foreach(var pair in groups)
         {
@@ -358,13 +359,13 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     double Stimulus(CycleCommand command)
     {
         if(!stimulusCache.TryGetValue(command,out var value))
-            stimulusCache.Add(command,value=F("commandStimulus",new CycleInputs{need=command.need}));
+            stimulusCache.Add(command,value=Settings.demandEnabled!=0?F("demandPulse",new CycleInputs{need=command.need}):F("commandStimulus",new CycleInputs{need=command.need}));
         return value;
     }
     double Decay(double amount)
     {
         if(!decayCache.TryGetValue(amount,out var value))
-            decayCache.Add(amount,value=F("desireNext",new CycleInputs{amount=amount}));
+            decayCache.Add(amount,value=F(Settings.demandEnabled!=0?"demandDesireNext":"desireNext",new CycleInputs{amount=amount}));
         return value;
     }
     // Runtime-only identities retain tuple equality, without hashing the same grid for every bee.
@@ -380,7 +381,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     }
     void UpdateMutableDesires(CycleBee b)
     {
-        foreach(var d in b.desires)d.stimulatedThisTick=false;
+        foreach(var d in b.desires){d.stimulatedThisTick=false;if(Settings.demandEnabled!=0)d.weight=Decay(d.weight);}
         if(b.desireIndex==null){b.desireIndex=new Dictionary<int,CycleDesire>();foreach(var d in b.desires)b.desireIndex[DesireKey(d.task,d.target.Grid)]=d;}
         if(Position(b,out var p)&&Air(p) is BeeGridTopology.Cell air)
         foreach(var indexed in indexedCommands)
@@ -391,7 +392,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             double stimulus=Stimulus(command);
             if(stimulus>0){desire.weight+=stimulus;desire.stimulatedThisTick=true;}
         }
-        for(int i=b.desires.Count-1;i>=0;i--){var d=b.desires[i];if(!d.stimulatedThisTick)d.weight=Decay(d.weight);if(d.weight==0){b.desireIndex.Remove(DesireKey(d.task,d.target.Grid));b.desires.RemoveAt(i);}}
+        for(int i=b.desires.Count-1;i>=0;i--){var d=b.desires[i];if(Settings.demandEnabled==0&&!d.stimulatedThisTick)d.weight=Decay(d.weight);if(d.weight==0){b.desireIndex.Remove(DesireKey(d.task,d.target.Grid));b.desires.RemoveAt(i);}}
     }
     public double CargoFree(CycleBee b,bool pollen)=>Math.Max(0,(pollen?Settings.pollenCarryCapacity:Settings.carryCapacity)*RepresentedBees(b)-(pollen?b.cargo.pollen:b.cargo.Sugar));
     public double CargoRatio(CycleBee b)=>Math.Max(b.cargo.Sugar/(Settings.carryCapacity*RepresentedBees(b)),b.cargo.pollen/(Settings.pollenCarryCapacity*RepresentedBees(b)));
@@ -465,7 +466,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
                 RefreshStoreExclusion(b);
                 if(b.cargo.Mass<=1e-8){End(b,CycleEnd.Completed);break;}
                 var dest=SelectRegion(b,here,true,false);
-                if(dest==null){End(b,CycleEnd.ResourceMissing);break;}
+                if(dest==null){RecordDemandShortage(b,true,false);End(b,CycleEnd.ResourceMissing);break;}
                 if(!Move(b,dest.position,ref time))break;
                 requests.Add(new Request{bee=b,region=dest,amount=BeeAmount(b,"storeAmount",new CycleInputs{time=time,amount=b.cargo.Mass}),kind=2});Act(b,CycleAction.Store,time);break;
             case CycleTask.ForageNectar:case CycleTask.ForagePollen:
@@ -482,6 +483,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             default:
                 if(!b.hasTarget||!regionAt.TryGetValue(b.target.Grid,out var r)){End(b,CycleEnd.PathBlocked);break;}
                 if(b.task==CycleTask.Clear&&!r.clearing){End(b,CycleEnd.Completed);break;}
+                if(Settings.demandEnabled!=0&&b.task==CycleTask.Build&&r.unfinished==0){End(b,CycleEnd.Completed);break;}
                 if(b.task==CycleTask.Build&&b.cargo.Sugar<BuildPointCost){Acquire(b,here,false,time);break;}
                 if(b.task==CycleTask.Nurse&&((r.nurseSugar>0&&b.cargo.Sugar<=0)||(r.nurseSugar<=0&&r.nursePollen>0&&b.cargo.pollen<=0)))
                 {Acquire(b,here,r.nurseSugar<=0,time);break;}
@@ -511,7 +513,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     {
         if(CargoFree(b,pollen)<=1e-8){End(b,CycleEnd.ResourceMissing);return;}
         var r=SelectRegion(b,here,false,pollen);
-        if(r==null){End(b,CycleEnd.ResourceMissing);return;}
+        if(r==null){RecordDemandShortage(b,false,pollen);End(b,CycleEnd.ResourceMissing);return;}
         double time=availableTime;if(!Move(b,r.position,ref time))return;
         requests.Add(new Request{bee=b,region=r,kind=pollen?1:0,amount=BeeAmount(b,"acquireAmount",new CycleInputs{amount=CargoFree(b,pollen),time=time})});Act(b,CycleAction.Acquire,time);
     }

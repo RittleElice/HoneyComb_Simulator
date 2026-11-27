@@ -1,0 +1,84 @@
+봉군·격자 수요 명령 — 2026-11-27
+
+기존 지속 명령과 별도로 demandEnabled=1이 새 기본값이다. 0은 변경 전 비교용이다.
+매 틱 상태를 집계하고, 수요=clamp(이전+증가-감소,0,100) 후 수요/100 확률로 독립 판정한다.
+봉군: 채집·건설·산란·정리. 격자: 건설·정리·육아·발열.
+명령은 한 틱만 유지한다. 작업 완료, 명령 발생으로 수요를 초기화하거나 차감하지 않는다.
+명령 욕구는 매 틱 먼저 감소하고 그 뒤 명령 자극을 더한다. 같은 행동/목표에 합산하며 상한 없음.
+
+개체 수와 예상 소비
+성충 수에는 여왕1도 포함한다. 일벌 수 기준 W에는 여왕을 제외한다.
+하루 당분=성충 대표 개체 수*103.4+봉충 대표 개체 수*17.2mg.
+하루 화분=성충 대표 개체 수*0+봉충 대표 개체 수*49.6mg.
+각 계수는 수정 가능. 대표배율을 다시 곱하지 않는다. 배율 변경 시 이 평균계수도 재측정해야 한다.
+계수는 이전 현재설정 시험의 고갈 전58일 소비를 대표 개체·일수로 나눈 평균. 유충 화분 소비와 당분/화분 요구량 비로 봉충 당분을 분리했고, 나머지를 성충 소비로 추정했다. 알·유충·번데기 구성 및 활동에 따라 달라지는 임시 평균이다.
+
+수요 기준/게이트
+당분 최소7일·기회21일, 화분 최소5일·기회14일, 저장공간3일분.
+일벌 목표max(48,완성소방*.15), 봉충 목표min(240,일벌*2,완성소방*.4).
+빈소방 목표max(10,일벌*.1)+max(0,봉충목표-현재봉충).
+공급풍부도=채집가능 잔량/(실제 대표 일벌수*해당채집속도*60분*예상참여비율),0~1.
+채집 공급후보는 기존 밀원 선택 수식의 양의 가중치 조건과 같다. 공급이 없으면 수요는 남지만 명령후보에서 제외.
+공간요청에서 기존 격자수요/100*확보가능소방 수를 이미 요청된 공간으로 계산한다. 진행중 요청을 삭제하지 않고 새로운 요청을 억제한다.
+건설 필요가 추첨돼도 당분3일분 이하이면 격자요청은 보류한다. 기존 격자수요는 그대로 자연감소.
+건설후보: 미완성 수/남은건설량/(1+기존수요/100), 정리후보: 확보할 소방 수/옮길 당분·화분mg/(1+기존수요/100).
+정리는 다른 구역으로 전량 옮길 수 있는 경우만 요청한다. 수요가 남고 전량 이동 가능한 구역은 저장대상에서 제외한다.
+산란후보: 빈소방 수*기존 온도 적합도. 대상 없으면 명령은 보내지 않으며 봉군수요는 자연감소만 한다.
+
+격자와 명령
+건설/정리 선택 시+12, 매틱-2,60 이상 전체전달.
+육아 최대+6,매틱-1,40 이상 전체전달. 분모는 유충만의60틱 당분·화분 요구량, 두 부족비 중 큰 값.
+발열 최대+4,매틱-1,50 이상 전체전달. 봉충 있고 온도34 미만일 때 온도부족/10.
+0~100 잔여수요에 따른 명령은 문제가 해결돼도 발생할 수 있다. 실제 작업 대상이 없으면 Task만 종료한다.
+수요가 임계값 미만이면 해당 격자에 실제로 있는 일벌만 자극한다. 이상이면 같은 그룹 전체 일벌. 산란은 여왕만.
+개체 명령자극+10,매틱-1. 기존 상태기반 섭식/휴식/회복/저장/이동 욕구 및 작업 비용·속도는 유지.
+
+실패 피드백
+먹이부족은 봉군 채집, 저장·산란 공간부족은 건설/정리로 연결한다.
+최근10틱 동안 실패한 고유개체 수/현재 일벌수(0~1). 반복 실패 횟수를 그대로 더하지 않는다.
+당분과 화분은 별도 이력이며 채집 수요에는 둘 중 큰 실패비율을 반영한다.
+자원은 있지만 경로만 막힌 경우 추가 먹이/공간 자극을 발생시키지 않는다.
+정리로 해결할 수 없으면 정리 자극을 더하지 않는다. 사용자 장비 확장이 필요한 상태는 수요 기록의 공간부족으로 확인한다.
+
+저장과 관찰
+벌 저장버전15에 봉군수요/격자수요/최근실패 이력을 보존한다. 파생 인덱스는 저장하지 않는다.
+봉군 식별은 입구 장비ID, 입구 없는 그룹은 최소 소비장ID. 장비 이동 시 격자 수요는 소비장 위치 식별자로 유지된다.
+현재 그룹에서 사라진 수요는 명령을 내리지 않고 자연감소한다. 봉군 결합/분리에서 수요를 합산하지 않는다.
+Tools/HoneyComb/벌 시뮬레이션 관찰: 수치·수식 탭에서 새 수요 섹션을 편집. 집계에서 봉군·격자 수요 확인.
+기존의 stockSugarPerBee/buildStockSugarPerBee/commandMaximum/naturalDecay는 demandEnabled=0 비교모드 전용이다.
+
+수식 입력(공통)
+demandNext amount=이전수요 available=증가 need=감소.
+demandFoodSignal amount=최소비축부족 available=공급풍부도 ratio=기회비축부족 need=저장여유.
+demandForageIncrease amount=당분자극 available=화분자극 need=실패비율.
+demandBuildIncrease amount=공간부족 need=실패비율.
+demandClearIncrease amount=공간부족 ratio=이동가능여부 need=실패비율.
+demandLayIncrease amount=일벌부족 available=봉충부족 ratio=먹이여유 need=빈소방여유.
+demandDailySugar/Pollen amount=성충수 available=봉충수.
+
+수식 목록
+demandNext = clamp(amount+available-need,0,100)
+demandProbability = clamp(amount/100,0,1)
+demandDesireNext = max(0,amount-demandDesireDecay)
+demandPulse = demandCommandPulse
+demandDays = amount/max(available,0.000000001)
+demandRatio = clamp(amount/max(available,0.000000001),0,1)
+demandFoodSignal = demandFoodShortageGain*amount+demandFoodOpportunityGain*available*ratio*need
+demandForageIncrease = max(amount,available)+demandFailureGain*need
+demandBuildIncrease = demandBuildGain*amount+demandFailureGain*need
+demandClearIncrease = demandClearGain*amount*ratio+demandFailureGain*need
+demandLayIncrease = (demandLayWorkerGain*amount+demandLayBroodGain*available)*ratio*need
+demandWorkerTarget = max(demandWorkerMinimum,demandWorkersPerCell*amount)
+demandBroodTarget = min(broodTarget,min(demandBroodPerWorker*amount,demandBroodPerCell*available))
+demandEmptyTarget = max(demandEmptyMinimum,demandEmptyPerWorker*amount)+max(0,available-need)
+demandGrowthSugar = clamp((amount-demandGrowthSugarFloor)/demandGrowthSugarRange,0,1)
+demandGrowthPollen = clamp((amount-demandGrowthPollenFloor)/demandGrowthPollenRange,0,1)
+demandNurseIncrease = demandRegionNurseGain*ratio
+demandHeatIncrease = demandRegionHeatGain*ratio
+demandBuildCandidate = amount/max(available,demandCandidateWorkFloor)/(1+need/demandCandidateLoadScale)
+demandClearCandidate = amount/max(available,demandCandidateFoodFloor)/(1+need/demandCandidateLoadScale)
+demandLayCandidate = amount*ratio
+demandDailySugar = amount*demandDailyAdultSugar+available*demandDailyBroodSugar
+demandDailyPollen = amount*demandDailyAdultPollen+available*demandDailyBroodPollen
+demandSupplyTarget = amount*available*demandSupplyMinutes*demandForecastForagerFraction
+demandReservedCells = amount*ratio

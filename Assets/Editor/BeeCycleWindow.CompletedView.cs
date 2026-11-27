@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using System.Collections.Generic;
 
@@ -53,6 +53,8 @@ public sealed partial class BeeCycleWindow
         var ids=new HashSet<int>(equipment.Select(i=>i.Id));
 
         lines.Add($"양봉장 ({x}, {y}) · 벌 계산 {w.BeeCycle.LastMilliseconds:F2} ms · 사망 {w.BeeCycle.Counters.deaths}");
+
+        lines.AddRange(w.BeeCycle.DemandObservation(ids));
 
         lines.Add(new[]{"벌 목록·Task","소비장·소방","수치·수식","집계"}[tab]);
 

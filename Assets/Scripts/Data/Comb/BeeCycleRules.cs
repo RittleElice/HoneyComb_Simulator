@@ -19,6 +19,7 @@ public sealed class BeeCycleRules
     readonly Func<string,double> lookup;
     public BeeCycleRules(BeeCycleSettings settings)
     {
+        foreach(var f in DemandDefaults())if(!settings.formulas.Exists(x=>x.name==f.name))settings.formulas.Add(f);
         settings.Validate();lookup=Lookup;
         foreach(var f in typeof(BeeCycleSettings).GetFields())if(f.FieldType==typeof(double)||f.FieldType==typeof(int))values.Add(f.Name,Convert.ToDouble(f.GetValue(settings)));
         foreach(var f in settings.formulas)
@@ -42,6 +43,33 @@ public sealed class BeeCycleRules
     }
     public double Eval(string name,CycleInputs data=default)
     {input=data;double v=formulas[name].Evaluate(lookup);if(v<0)throw new InvalidOperationException("Negative formula result: "+name);return v;}
+    public static List<CycleFormula> DemandDefaults()=>new List<CycleFormula>{
+        new CycleFormula("demandNext","clamp(amount+available-need,0,100)"),
+        new CycleFormula("demandProbability","clamp(amount/100,0,1)"),
+        new CycleFormula("demandDesireNext","max(0,amount-demandDesireDecay)"),
+        new CycleFormula("demandPulse","demandCommandPulse"),
+        new CycleFormula("demandDays","amount/max(available,0.000000001)"),
+        new CycleFormula("demandRatio","clamp(amount/max(available,0.000000001),0,1)"),
+        new CycleFormula("demandFoodSignal","demandFoodShortageGain*amount+demandFoodOpportunityGain*available*ratio*need"),
+        new CycleFormula("demandForageIncrease","max(amount,available)+demandFailureGain*need"),
+        new CycleFormula("demandBuildIncrease","demandBuildGain*amount+demandFailureGain*need"),
+        new CycleFormula("demandClearIncrease","demandClearGain*amount*ratio+demandFailureGain*need"),
+        new CycleFormula("demandLayIncrease","(demandLayWorkerGain*amount+demandLayBroodGain*available)*ratio*need"),
+        new CycleFormula("demandWorkerTarget","max(demandWorkerMinimum,demandWorkersPerCell*amount)"),
+        new CycleFormula("demandBroodTarget","min(broodTarget,min(demandBroodPerWorker*amount,demandBroodPerCell*available))"),
+        new CycleFormula("demandEmptyTarget","max(demandEmptyMinimum,demandEmptyPerWorker*amount)+max(0,available-need)"),
+        new CycleFormula("demandGrowthSugar","clamp((amount-demandGrowthSugarFloor)/demandGrowthSugarRange,0,1)"),
+        new CycleFormula("demandGrowthPollen","clamp((amount-demandGrowthPollenFloor)/demandGrowthPollenRange,0,1)"),
+        new CycleFormula("demandNurseIncrease","demandRegionNurseGain*ratio"),
+        new CycleFormula("demandHeatIncrease","demandRegionHeatGain*ratio"),
+        new CycleFormula("demandBuildCandidate","amount/max(available,demandCandidateWorkFloor)/(1+need/demandCandidateLoadScale)"),
+        new CycleFormula("demandClearCandidate","amount/max(available,demandCandidateFoodFloor)/(1+need/demandCandidateLoadScale)"),
+        new CycleFormula("demandLayCandidate","amount*ratio"),
+        new CycleFormula("demandDailySugar","amount*demandDailyAdultSugar+available*demandDailyBroodSugar"),
+        new CycleFormula("demandDailyPollen","amount*demandDailyAdultPollen+available*demandDailyBroodPollen"),
+        new CycleFormula("demandSupplyTarget","amount*available*demandSupplyMinutes*demandForecastForagerFraction"),
+        new CycleFormula("demandReservedCells","amount*ratio")
+    };
     public static List<CycleFormula> Defaults()=>new List<CycleFormula>{
         new CycleFormula("deficit","clamp(1-amount/max(available,0.000000001),0,1)"),
         new CycleFormula("commandChance","1"),
