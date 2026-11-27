@@ -27,6 +27,10 @@ public sealed class FrameCellArtwork
     public Sprite chestnutNectarOutside;
     public Sprite wildflowerNectarOutside;
     public Sprite cappedPupa;
+    public Texture2D cappingTexture;
+    [Min(.01f)] public float cappingTextureScale = 1f;
+    [Range(0f,1f)] public float cappingTextureOpacity = 1f;
+    public PollenTextureBlend cappingTextureBlend = PollenTextureBlend.Multiply;
     public Sprite pollen;
     public Texture2D pollenTexture;
     [Min(.01f), Tooltip("화분 내부 질감의 크기 배율. 1은 기존 크기이며, 2는 무늬가 두 배 커집니다. 화분 이미지 크기는 바뀌지 않습니다.")]
@@ -156,6 +160,7 @@ public class FrameCellMesh : MaskableGraphic
     private FrameCellArtwork artwork;
     private Texture primaryTexture;
     private Material pollenStyleMaterial;
+    private Material cappingStyleMaterial;
     private readonly List<FrameCellSpriteLayer> layers = new List<FrameCellSpriteLayer>();
     private sealed class SpriteGeometry
     {
@@ -331,10 +336,11 @@ public class FrameCellMesh : MaskableGraphic
             Sprite occupant = cell.Occupant == 1 ? artwork.pollen : cell.Occupant == 2 ? artwork.egg : cell.Occupant == 3 ? artwork.larva : cell.Occupant == 4 ? artwork.cappedPupa : null;
             // Supplied square artwork shares a canvas: preserve its aspect and
             // internal whitespace (the egg is intentionally much smaller than the cap).
-            if (occupant != null) DrawSprite(vh, texture, occupant, center, cell.Occupant == 1 ? new Vector2(57, 63) : new Vector2(96, 96), new Vector2(.5f, .5f),
+            if (occupant != null) DrawSprite(vh, texture, occupant, center, cell.Occupant == 1 ? new Vector2(57, 63) : cell.Occupant == 4 ? new Vector2(57,57f*72f/68f) : new Vector2(96, 96), new Vector2(.5f, .5f),
                 scale * (cell.Occupant == 1 ? cell.PollenScale : cell.Occupant == 3 ? larvaMaximum*Mathf.Lerp(larvaMinimum,1,cell.BroodProgress) : 1),
                 cell.Occupant == 2 ? Mathf.Lerp(eggAngleMin,eggAngleMax,PollenRandom(cell.BroodSeed,6)) : cell.Occupant == 3 ? PollenRandom(cell.BroodSeed,5)*360f : 0, 1, true, cell.Occupant == 1 ? cell.PollenSeed : 0,
-                cell.Occupant == 4 ? Color.Lerp(pupaStart,pupaEnd,cell.BroodProgress) : (Color?)null);
+                cell.Occupant == 4 ? Color.Lerp(pupaStart,pupaEnd,cell.BroodProgress) : (Color?)null,
+                cell.Occupant == 4 ? cell.BroodSeed : 0);
         }
         foreach (var node in nodes)
         {
@@ -372,6 +378,14 @@ public class FrameCellMesh : MaskableGraphic
             if(canvas != null) canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
         }
         material = null;
+        if(artwork.pollenShader!=null&&artwork.cappedPupa!=null)
+        {
+            cappingStyleMaterial=new Material(artwork.pollenShader){hideFlags=HideFlags.HideAndDontSave};
+            cappingStyleMaterial.SetTexture("_DetailTex",artwork.cappingTexture!=null?artwork.cappingTexture:Texture2D.whiteTexture);
+            cappingStyleMaterial.SetFloat("_DetailOpacity",artwork.cappingTexture!=null?Mathf.Clamp01(artwork.cappingTextureOpacity):0f);
+            cappingStyleMaterial.SetFloat("_DetailBlend",(float)artwork.cappingTextureBlend);
+            if(canvas!=null)canvas.additionalShaderChannels|=AdditionalCanvasShaderChannels.TexCoord1;
+        }
         var textures = new HashSet<Texture>();
         var sprites = new[] { artwork.completeCell, artwork.rapeSeedNectar, artwork.cherryBlossomNectar,
             artwork.blackLocustNectar, artwork.chestnutNectar, artwork.wildflowerNectar,
@@ -384,7 +398,7 @@ public class FrameCellMesh : MaskableGraphic
             if (!geometry.ContainsKey(sprite)) geometry.Add(sprite, new SpriteGeometry
                 { Vertices = sprite.vertices, UV = sprite.uv, Triangles = sprite.triangles });
             if (!textures.Add(sprite.texture)) continue;
-            if (primaryTexture == null) { primaryTexture = sprite.texture; if(artwork.pollen!=null && sprite.texture==artwork.pollen.texture)material=pollenStyleMaterial; continue; }
+            if (primaryTexture == null) { primaryTexture = sprite.texture; if(artwork.pollen!=null && sprite.texture==artwork.pollen.texture)material=pollenStyleMaterial; if(sprite==artwork.cappedPupa)material=cappingStyleMaterial; continue; }
             var child = new GameObject("CellSprite_" + sprite.name, typeof(RectTransform), typeof(CanvasRenderer));
             child.transform.SetParent(transform, false);
             var rect = (RectTransform)child.transform;
@@ -392,6 +406,7 @@ public class FrameCellMesh : MaskableGraphic
             var layer = child.AddComponent<FrameCellSpriteLayer>();
             layer.Owner = this; layer.Texture = sprite.texture; layer.raycastTarget = false;
             if(artwork.pollen!=null && sprite.texture==artwork.pollen.texture)layer.material=pollenStyleMaterial;
+            if(sprite==artwork.cappedPupa)layer.material=cappingStyleMaterial;
             layers.Add(layer);
         }
     }
@@ -399,7 +414,7 @@ public class FrameCellMesh : MaskableGraphic
     // Use actual Sprite geometry/UVs, including sliced and tightly packed sprites.
     // Reference dimensions preserve the SVG layout regardless of image resolution.
     private void DrawSprite(VertexHelper vh, Texture texture, Sprite sprite, Vector2 anchor,
-        Vector2 size, Vector2 topLeftPivot, float scale, float angle, float alpha, bool preserveOrientation = false, uint pollenSeed = 0, Color? tintOverride = null)
+        Vector2 size, Vector2 topLeftPivot, float scale, float angle, float alpha, bool preserveOrientation = false, uint pollenSeed = 0, Color? tintOverride = null, uint cappingSeed = 0)
     {
         if (sprite == null || sprite.texture != texture) return;
         var source = geometry[sprite];
@@ -408,8 +423,9 @@ public class FrameCellMesh : MaskableGraphic
         var matrix = transform.localToWorldMatrix;
         bool unmirror = preserveOrientation && matrix.m00 * matrix.m11 - matrix.m01 * matrix.m10 < 0;
         var tint = tintOverride ?? (pollenSeed == 0 ? Color.white : Color.Lerp(artwork.pollenColorA, artwork.pollenColorB, PollenRandom(pollenSeed,1)));
-        float rotation=PollenRandom(pollenSeed,2)*Mathf.PI*2;
-        var offset=new Vector2(PollenRandom(pollenSeed,3),PollenRandom(pollenSeed,4));
+        uint detailSeed=cappingSeed!=0?cappingSeed:pollenSeed;
+        float rotation=PollenRandom(detailSeed,2)*Mathf.PI*2;
+        var offset=new Vector2(PollenRandom(detailSeed,3),PollenRandom(detailSeed,4));
         for (int i = 0; i < source.Vertices.Length; i++)
         {
             Vector2 pixel = source.Vertices[i] * sprite.pixelsPerUnit + sprite.pivot;
@@ -422,8 +438,8 @@ public class FrameCellMesh : MaskableGraphic
             var vertex = UIVertex.simpleVert;
             vertex.position = anchor + p;
             vertex.color = new Color(tint.r, tint.g, tint.b, alpha);
-            var uv=new Vector2(pixel.x/sprite.rect.width-.5f,pixel.y/sprite.rect.height-.5f) / Mathf.Max(.01f,artwork.pollenTextureScale);
-            vertex.uv1 = new Vector4(uv.x*Mathf.Cos(rotation)-uv.y*Mathf.Sin(rotation)+offset.x,uv.x*Mathf.Sin(rotation)+uv.y*Mathf.Cos(rotation)+offset.y,pollenSeed==0?0:1,0);
+            var uv=new Vector2(pixel.x/sprite.rect.width-.5f,pixel.y/sprite.rect.height-.5f) / Mathf.Max(.01f,cappingSeed!=0?artwork.cappingTextureScale:artwork.pollenTextureScale);
+            vertex.uv1 = new Vector4(uv.x*Mathf.Cos(rotation)-uv.y*Mathf.Sin(rotation)+offset.x,uv.x*Mathf.Sin(rotation)+uv.y*Mathf.Cos(rotation)+offset.y,detailSeed==0?0:1,0);
             vertex.uv0 = source.UV[i];
             vh.AddVert(vertex);
         }
@@ -436,9 +452,10 @@ public class FrameCellMesh : MaskableGraphic
     }
     private void ReleasePollenMaterial()
     {
-        if(pollenStyleMaterial==null)return;
-        if(Application.isPlaying)Destroy(pollenStyleMaterial);else DestroyImmediate(pollenStyleMaterial);
+        if(pollenStyleMaterial!=null){if(Application.isPlaying)Destroy(pollenStyleMaterial);else DestroyImmediate(pollenStyleMaterial);}
         pollenStyleMaterial=null;
+        if(cappingStyleMaterial!=null){if(Application.isPlaying)Destroy(cappingStyleMaterial);else DestroyImmediate(cappingStyleMaterial);}
+        cappingStyleMaterial=null;
     }
     protected override void OnDestroy(){ReleasePollenMaterial();base.OnDestroy();}
 

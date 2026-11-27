@@ -30,6 +30,31 @@ public static class CombPreviewTests
    var expectedWorld=new GameWorld(new WeatherSimulator(WeatherSimulator.DefaultSeed,WeatherAssetLoader.LoadBaseline()));try{expectedWorld.BeeCycle.SeedDemo();var expectedFace=ThermalWorld.Items(expectedWorld).First(i=>i.Kind==ItemKind.Frame&&i.GetContent<FrameData>().Front.CountCompletedCells()>0).GetContent<FrameData>().Front;for(int y=0;y<previewFace.Height;y++)for(int x=0;x<previewFace.Width;x++){Check(previewFace.GetCell(x,y).Content==expectedFace.GetCell(x,y).Content,"initial layout role");Check(Math.Abs(previewFace.GetPollenMassMg(x,y)-expectedFace.GetPollenMassMg(x,y))<.001&&Math.Abs(previewFace.GetTotalSugarMassMg(x,y)-expectedFace.GetTotalSugarMassMg(x,y))<.001&&Math.Abs(previewFace.GetWaterMassMg(x,y)-expectedFace.GetWaterMassMg(x,y))<.001,"initial quantities match");}}finally{expectedWorld.Thermal?.Dispose();}
 
    var art=(FrameCellArtwork)typeof(FrameCellPresenter).GetField("artwork",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(presenter);
+   Check(art.cappedPupa.name.StartsWith("Capping_Base"),"new capping sprite bound");
+   var cappingUV=new System.Collections.Generic.List<Vector2>();
+   foreach(var mesh in meshes)using(var vh=new VertexHelper()){
+    typeof(FrameCellMesh).GetMethod("PopulateTexture",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(mesh,new object[]{vh,art.cappedPupa.texture});
+    for(int i=0;i<vh.currentVertCount;i++){var v=new UIVertex();vh.PopulateUIVertex(ref v,i);Check(v.uv1.z==1,"capping detail enabled");cappingUV.Add(new Vector2(v.uv1.x,v.uv1.y));}
+   }
+   Check(cappingUV.Count>0&&cappingUV.Distinct().Count()>art.cappedPupa.vertices.Length,"different brood have different texture transforms");
+   foreach(var blend in new[]{0,1,2,3}){
+    data.FindProperty("artwork.cappingTexture").objectReferenceValue=art.pollenTexture;
+    data.FindProperty("artwork.cappingTextureOpacity").floatValue=.35f;
+    data.FindProperty("artwork.cappingTextureBlend").enumValueIndex=blend;data.ApplyModifiedProperties();preview.Update(presenter);
+    foreach(var layer in preview.Root.GetComponentsInChildren<FrameCellSpriteLayer>().Where(l=>l.mainTexture==art.cappedPupa.texture)){
+     Check(layer.material.GetTexture("_DetailTex")==art.pollenTexture,"capping texture assigned");
+     Check(Math.Abs(layer.material.GetFloat("_DetailOpacity")-.35f)<.001f&&layer.material.GetFloat("_DetailBlend")==blend,"capping material controls");
+    }
+   }
+   data.FindProperty("artwork.cappingTexture").objectReferenceValue=null;
+   data.FindProperty("artwork.cappingTextureOpacity").floatValue=1;
+   data.FindProperty("artwork.cappingTextureBlend").enumValueIndex=1;data.ApplyModifiedProperties();preview.Update(presenter);
+   var restoredUV=new System.Collections.Generic.List<Vector2>();
+   foreach(var mesh in preview.Root.GetComponentsInChildren<FrameCellMesh>())using(var vh=new VertexHelper()){
+    typeof(FrameCellMesh).GetMethod("PopulateTexture",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(mesh,new object[]{vh,art.cappedPupa.texture});
+    for(int i=0;i<vh.currentVertCount;i++){var v=new UIVertex();vh.PopulateUIVertex(ref v,i);restoredUV.Add(new Vector2(v.uv1.x,v.uv1.y));}
+   }
+   Check(cappingUV.SequenceEqual(restoredUV),"capping pattern stable after rebuild");meshes=preview.Root.GetComponentsInChildren<FrameCellMesh>();
    float dry=data.FindProperty("dryNectarAlpha").floatValue,wet=data.FindProperty("wetNectarAlpha").floatValue;
    data.FindProperty("dryNectarAlpha").floatValue=.2f;data.FindProperty("wetNectarAlpha").floatValue=.2f;data.ApplyModifiedProperties();preview.Update(presenter);
    for(int kind=0;kind<5;kind++){
