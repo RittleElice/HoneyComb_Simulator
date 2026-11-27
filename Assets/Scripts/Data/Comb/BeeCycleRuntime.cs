@@ -101,7 +101,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     public BeeCycleRuntime(GameWorld world){World=world;LastMinute=world.CurrentGameMinute;rules=new BeeCycleRules(Settings);}
     public void ApplySettings(BeeCycleSettings settings)
     {
-        var next=new BeeCycleRules(settings);Settings=settings;rules=next;unitInputs.Clear();scalarInputs.Clear();developmentInputs.Clear();ResetForageSelection();storageChoices.Clear();freshMovements.Clear();ClearDirections();
+        var next=new BeeCycleRules(settings);Settings=settings;rules=next;unitInputs.Clear();scalarInputs.Clear();developmentInputs.Clear();ResetForageSelection();storageChoices.Clear();freshMovements.Clear();ClearDirections();movementAccess.Clear();movementEnergy.Clear();
     }
     public double RepresentedBees(CycleBee b)=>b.queen?1:Settings.representativeScale;
     public double ReserveTarget(CycleBee b)=>Settings.reserveTarget*RepresentedBees(b);
@@ -250,7 +250,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             cancellation.ThrowIfCancellationRequested();
             if(Bees.Count==0){LastMinute=minute;return;}
             World.Thermal.Refresh();await RefreshRegionsAsync(slice);RefreshApiaryPlacement();RefreshCommands();stimulusCache.Clear();decayCache.Clear();requests.Clear();forageRequests.Clear();heat.Clear();lastHeatSum=null;lastHeatOwner=null;
-            ResetForageSelection();storageChoices.Clear();directedMovements.Clear();forageSelectionActive=true;
+            ResetForageSelection();storageChoices.Clear();directedMovements.Clear();forageSelectionActive=true;movementAccess.Clear();movementEnergy.Clear();
             BeginRelocationTick();
             int count=Bees.Count;
             for(int i=0;i<count;i++)
@@ -564,13 +564,36 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     double DistanceUncached(BeeGridPosition a,BeeGridPosition b)
     {var x=World.BeeLocations.Topology(World).SupportCell(a);var y=World.BeeLocations.Topology(World).SupportCell(b);return Math.Max(5,Math.Abs(x.X-y.X)*(x.Dx+y.Dx)/2+Math.Abs(x.Y-y.Y)*(x.Dy+y.Dy)/2+Math.Abs(x.Z-y.Z)*(x.Dz+y.Dz)/2);}
     double PathLength(BeeGridPosition p,List<CyclePoint> path){double n=0;foreach(var q in path){n+=Distance(p,q.Grid);p=q.Grid;}return n;}
+    struct MovementAccess { internal bool Allowed,Exposed,CrossGroup; }
+    readonly Dictionary<(BeeGridPosition,BeeGridPosition),MovementAccess> movementAccess=new Dictionary<(BeeGridPosition,BeeGridPosition),MovementAccess>();
+    readonly Dictionary<long,double> movementEnergy=new Dictionary<long,double>();
+    MovementAccess AccessForMovement(BeeGridPosition start,BeeGridPosition target)
+    {
+        var key=(start,target);
+        if(forageSelectionActive&&movementAccess.TryGetValue(key,out var prior))return prior;
+        var result=new MovementAccess{Allowed=AllowedSurfaceEdge(start,target)};
+        if(result.Allowed){
+            var topology=World.BeeLocations.Topology(World);result.Exposed=topology.IsExposed(target);
+            if(result.Exposed&&Settings.apiaryMovementEnabled!=0)result.CrossGroup=topology.SupportCell(start).Group!=topology.SupportCell(target).Group;
+        }
+        if(forageSelectionActive&&movementAccess.Count<32768)movementAccess.Add(key,result);
+        return result;
+    }
+    double MovementEnergy(double time)
+    {
+        if(!forageSelectionActive)return F("movementEnergyCost",new CycleInputs{time=time});
+        long key=BitConverter.DoubleToInt64Bits(time);
+        if(movementEnergy.TryGetValue(key,out var cached))return cached;
+        double result=F("movementEnergyCost",new CycleInputs{time=time});
+        if(movementEnergy.Count<8192)movementEnergy.Add(key,result);
+        return result;
+    }
     bool Move(CycleBee b,BeeGridPosition target,ref double time)
     {
         if(!BeePosition(b,out var start)){End(b,CycleEnd.PathBlocked);return false;}
-        if(!AllowedSurfaceEdge(start,target)){End(b,CycleEnd.PathBlocked);return false;}
-        var topology=World.BeeLocations.Topology(World);
-        if(!topology.IsExposed(target)){End(b,CycleEnd.PathBlocked);return false;}
-        if(Settings.apiaryMovementEnabled!=0&&topology.SupportCell(start).Group!=topology.SupportCell(target).Group){
+        var access=AccessForMovement(start,target);
+        if(!access.Allowed||!access.Exposed){End(b,CycleEnd.PathBlocked);return false;}
+        if(access.CrossGroup){
             if(!apiaryEntries.TryGetValue(start.EquipmentId,out var exit)||!apiaryEquipment.ContainsKey(target.EquipmentId)){End(b,CycleEnd.PathBlocked);return false;}
             if(!MoveLocal(b,exit,ref time))return false;
             if(!StartApiary(b,3,target,ref time))return false;
@@ -629,7 +652,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
         // No yield or observer notification occurs between path steps.
         // Publish each bee's final location before subsequent action accounting.
         if(advanced){World.BeeLocations.Set(World,b.id,here);InvalidateBeePosition(b);}
-        double used=original-time;b.energy=Math.Max(0,b.energy-F("movementEnergyCost",new CycleInputs{time=used}));Act(b,CycleAction.Move,used);
+        double used=original-time;b.energy=Math.Max(0,b.energy-MovementEnergy(used));Act(b,CycleAction.Move,used);
         return here.Equals(target)&&time>1e-12;
     }
     EquipmentSpatialCell CombCell(BeeGridPosition p)

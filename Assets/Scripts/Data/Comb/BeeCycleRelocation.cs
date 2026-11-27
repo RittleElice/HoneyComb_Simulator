@@ -4,8 +4,7 @@ using System.Collections.Generic;
 public sealed partial class BeeCycleRuntime
 {
     struct RelocationSite { public BeeGridPosition Position; public int Group; public EquipmentThermalState Owner; public int Index; public RelocationCell Cell; }
-    struct RelocationContribution { public (EquipmentThermalState,int) Here,Target; public bool HasHere,HasTarget; public double Amount; }
-    readonly Dictionary<(EquipmentThermalState,int),double> relocationOccupancy=new Dictionary<(EquipmentThermalState,int),double>();
+    struct RelocationContribution { public RelocationCell Here,Target; public bool HasHere,HasTarget; public double Amount; }
     readonly Dictionary<long,RelocationContribution> relocationContributions=new Dictionary<long,RelocationContribution>();
     // Derived state only. Counts use the original sequential additions/subtractions.
     sealed class RelocationCell
@@ -73,7 +72,7 @@ public sealed partial class BeeCycleRuntime
     void BeginRelocationTick()
     {
         relocationNeighbours.Clear();
-        relocationOccupancy.Clear();relocationContributions.Clear();
+        relocationContributions.Clear();
         foreach(var cell in relocationCells.Values){cell.Count=0;cell.Seen=0;}relocationSelectionStamp=0;
         if(Settings.relocateEnabled==0)return;
         var topology=World.BeeLocations.Topology(World);
@@ -90,12 +89,13 @@ public sealed partial class BeeCycleRuntime
         if(owner.AirVolumeM3[index]<=0)return false;
         var key=(owner,index);
         if(!relocationCells.TryGetValue(key,out var cell)){
-            cell=new RelocationCell();relocationOccupancy.TryGetValue(key,out cell.Count);relocationCells.Add(key,cell);
+            cell=new RelocationCell();relocationCells.Add(key,cell);
         }
         site=new RelocationSite{Position=p,Group=air.Group,Owner=owner,Index=index,Cell=cell};return true;
     }
     void ChangeRelocationCount((EquipmentThermalState,int) key,double amount)
-    {relocationOccupancy.TryGetValue(key,out var old);double next=old+amount;relocationOccupancy[key]=next;if(relocationCells.TryGetValue(key,out var cell))cell.Count=next;}
+    {if(!relocationCells.TryGetValue(key,out var cell)){cell=new RelocationCell();relocationCells.Add(key,cell);}ChangeRelocationCount(cell,amount);}
+    static void ChangeRelocationCount(RelocationCell cell,double amount)=>cell.Count=cell.Count+amount;
     void TrackRelocationBee(CycleBee bee)
     {
         if(Settings.relocateEnabled==0)return;
@@ -105,16 +105,16 @@ public sealed partial class BeeCycleRuntime
             relocationContributions.Remove(bee.id);
         }
         if(bee.stage!=CycleStage.Adult||bee.outside||!BeePosition(bee,out var p)||!RelocationSiteAt(p,out var here))return;
-        var entry=new RelocationContribution{HasHere=true,Here=(here.Owner,here.Index),Amount=RepresentedBees(bee)};
+        var entry=new RelocationContribution{HasHere=true,Here=here.Cell,Amount=RepresentedBees(bee)};
         ChangeRelocationCount(entry.Here,entry.Amount);
         if(bee.task==CycleTask.Relocate&&bee.hasTarget&&RelocationSiteAt(bee.target.Grid,out var target)){
-            entry.Target=(target.Owner,target.Index);entry.HasTarget=!entry.Target.Equals(entry.Here);
+            entry.Target=target.Cell;entry.HasTarget=!ReferenceEquals(entry.Target,entry.Here);
             if(entry.HasTarget)ChangeRelocationCount(entry.Target,entry.Amount);
         }
         relocationContributions[bee.id]=entry;
     }
     double RelocationDensity(RelocationSite site,double incoming=0)
-    {relocationOccupancy.TryGetValue((site.Owner,site.Index),out var count);return Math.Max(0,count+incoming)/(site.Owner.AirVolumeM3[site.Index]*1e6);}
+    {return Math.Max(0,site.Cell.Count+incoming)/(site.Owner.AirVolumeM3[site.Index]*1e6);}
     double RelocationTemperatureScore(double temperature)
     {return F("relocateTemperatureDesire",new CycleInputs{ratio=Math.Max(Settings.relocateColdStop-temperature,temperature-Settings.relocateHotStop)/Settings.relocateTemperatureScale});}
     double RelocationCrowdingScore(double density)
