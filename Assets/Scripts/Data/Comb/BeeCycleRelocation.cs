@@ -1,25 +1,63 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 public sealed partial class BeeCycleRuntime
 {
-    struct RelocationSite { public BeeGridPosition Position; public int Group; public EquipmentThermalState Owner; public int Index; }
+    struct RelocationSite { public BeeGridPosition Position; public int Group; public EquipmentThermalState Owner; public int Index; public RelocationCell Cell; }
     struct RelocationContribution { public (EquipmentThermalState,int) Here,Target; public bool HasHere,HasTarget; public double Amount; }
-    readonly List<RelocationSite> relocationSites=new List<RelocationSite>();
     readonly Dictionary<(EquipmentThermalState,int),double> relocationOccupancy=new Dictionary<(EquipmentThermalState,int),double>();
     readonly Dictionary<long,RelocationContribution> relocationContributions=new Dictionary<long,RelocationContribution>();
-    readonly HashSet<(EquipmentThermalState,int)> relocationSeen=new HashSet<(EquipmentThermalState,int)>();
-    readonly Dictionary<int,List<RelocationSite>> relocationByGroup=new Dictionary<int,List<RelocationSite>>();
+    // Derived state only. Counts use the original sequential additions/subtractions.
+    sealed class RelocationCell
+    {
+        internal double Count,TemperatureRatio,CrowdingRatio,TemperatureScore,CrowdingScore;
+        internal bool TemperatureReady,CrowdingReady;
+        internal BeeCycleRules Rules;
+        internal int Seen;
+    }
+    readonly Dictionary<(EquipmentThermalState,int),RelocationCell> relocationCells=new Dictionary<(EquipmentThermalState,int),RelocationCell>();
+    int relocationSelectionStamp;
+    void PrepareRelocationScores(RelocationCell cell)
+    {
+        if(ReferenceEquals(cell.Rules,rules))return;
+        cell.Rules=rules;cell.TemperatureReady=cell.CrowdingReady=false;
+    }
+    double CachedRelocationTemperature(RelocationSite site)
+    {
+        var cell=site.Cell;PrepareRelocationScores(cell);
+        double temperature=site.Owner.TemperatureC(site.Index);
+        double ratio=Math.Max(Settings.relocateColdStop-temperature,temperature-Settings.relocateHotStop)/Settings.relocateTemperatureScale;
+        if(!cell.TemperatureReady||BitConverter.DoubleToInt64Bits(cell.TemperatureRatio)!=BitConverter.DoubleToInt64Bits(ratio)){
+            cell.TemperatureScore=DestinationRelocationScore("relocateTemperatureDesire",ratio);cell.TemperatureRatio=ratio;cell.TemperatureReady=true;
+        }
+        return cell.TemperatureScore;
+    }
+    double CachedRelocationCrowding(RelocationSite site,double incoming=0)
+    {
+        var cell=site.Cell;PrepareRelocationScores(cell);
+        double density=Math.Max(0,cell.Count+incoming)/(site.Owner.AirVolumeM3[site.Index]*1e6);
+        double ratio=(density-Settings.relocateDensityStop)/(Settings.relocateDensityStart-Settings.relocateDensityStop);
+        if(!cell.CrowdingReady||BitConverter.DoubleToInt64Bits(cell.CrowdingRatio)!=BitConverter.DoubleToInt64Bits(ratio)){
+            cell.CrowdingScore=DestinationRelocationScore("relocateCrowdingDesire",ratio);cell.CrowdingRatio=ratio;cell.CrowdingReady=true;
+        }
+        return cell.CrowdingScore;
+    }
+    double DestinationRelocationScore(string formula,double ratio)
+    {
+        double score=F(formula,new CycleInputs{ratio=ratio});
+        // The default desire is capped at ratio 1. Retain an excess-pressure
+        // gradient for choosing destinations, scaled by the configured formula at 1.
+        return ratio>1?score+(ratio-1)*FRatio(formula,1):score;
+    }
     int relocationTopology=-1;
     void BeginRelocationTick()
     {
         relocationOccupancy.Clear();relocationContributions.Clear();
+        foreach(var cell in relocationCells.Values){cell.Count=0;cell.Seen=0;}relocationSelectionStamp=0;
         if(Settings.relocateEnabled==0)return;
         var topology=World.BeeLocations.Topology(World);
         if(relocationTopology!=topology.Builds){
-            relocationSites.Clear();
-            foreach(var p in topology.Positions)if(RelocationSiteAt(p,out var site))relocationSites.Add(site);
-            relocationByGroup.Clear();foreach(var site in relocationSites){if(!relocationByGroup.TryGetValue(site.Group,out var list))relocationByGroup.Add(site.Group,list=new List<RelocationSite>());list.Add(site);}
+            relocationCells.Clear();
             relocationTopology=topology.Builds;
         }
         foreach(var bee in Bees)TrackRelocationBee(bee);
@@ -29,10 +67,14 @@ public sealed partial class BeeCycleRuntime
         site=default;var air=Air(p);if(air?.Grid==null)return false;
         var owner=Owner(air);int index=OwnerIndex(air);
         if(owner.AirVolumeM3[index]<=0)return false;
-        site=new RelocationSite{Position=p,Group=air.Group,Owner=owner,Index=index};return true;
+        var key=(owner,index);
+        if(!relocationCells.TryGetValue(key,out var cell)){
+            cell=new RelocationCell();relocationOccupancy.TryGetValue(key,out cell.Count);relocationCells.Add(key,cell);
+        }
+        site=new RelocationSite{Position=p,Group=air.Group,Owner=owner,Index=index,Cell=cell};return true;
     }
     void ChangeRelocationCount((EquipmentThermalState,int) key,double amount)
-    {relocationOccupancy.TryGetValue(key,out var old);relocationOccupancy[key]=old+amount;}
+    {relocationOccupancy.TryGetValue(key,out var old);double next=old+amount;relocationOccupancy[key]=next;if(relocationCells.TryGetValue(key,out var cell))cell.Count=next;}
     void TrackRelocationBee(CycleBee bee)
     {
         if(Settings.relocateEnabled==0)return;
@@ -67,21 +109,50 @@ public sealed partial class BeeCycleRuntime
     bool StartRelocation(CycleBee bee)
     {
         if(!RelocationEligible(bee)||!BeePosition(bee,out var p)||!RelocationSiteAt(p,out var here))return false;
-        double currentT=RelocationTemperatureScore(here.Owner.TemperatureC(here.Index)),currentD=RelocationCrowdingScore(RelocationDensity(here));
-        double total=0;bool found=false;BeeGridPosition selected=default;relocationSeen.Clear();
-        foreach(var site in relocationByGroup[here.Group]){
-            var key=(site.Owner,site.Index);if(site.Group!=here.Group||key.Equals((here.Owner,here.Index))||relocationSeen.Contains(key))continue;
-            double t=RelocationTemperatureScore(site.Owner.TemperatureC(site.Index)),d=RelocationCrowdingScore(RelocationDensity(site,RepresentedBees(bee)));
-            double improvement=currentT+currentD-t-d;
-            if(t>currentT||d>currentD||improvement<=Settings.relocateMinImprovement)continue;
-            double distance=RouteDistance(p,site.Position,bee.queen);if(double.IsPositiveInfinity(distance))continue;
-            relocationSeen.Add(key);double weight=F("relocateDestination",new CycleInputs{amount=improvement,distance=distance});if(weight<=0)continue;
-            total+=weight;if(Random()*total<weight){selected=site.Position;found=true;}
-        }
+        bool found=SelectLocalRelocation(bee,p,here,out var selected);
         if(!found){Counters.relocationNoTarget++;return false;}
         if(bee.task!=CycleTask.None)End(bee,CycleEnd.Interrupted);
-        Counters.relocationStarted++;bee.task=CycleTask.Relocate;bee.target=new CyclePoint(selected);bee.hasTarget=true;bee.elapsed=0;
+        Counters.relocationStarted++;bee.task=CycleTask.Relocate;SetLocalRelocationTarget(bee,selected);bee.elapsed=0;
         return true;
+    }
+    bool SelectLocalRelocation(CycleBee bee,BeeGridPosition p,RelocationSite here,out BeeGridPosition selected)
+    {
+        double currentT=CachedRelocationTemperature(here),currentD=CachedRelocationCrowding(here);
+        double currentDensity=RelocationDensity(here);
+        bool avoidCrowding=FRatio("relocateCrowdingDesire",1)>0;
+        double total=0;bool found=false;selected=default;
+        if(relocationSelectionStamp==int.MaxValue){foreach(var cell in relocationCells.Values)cell.Seen=0;relocationSelectionStamp=0;}
+        int stamp=++relocationSelectionStamp;
+        // Only directly traversable surface neighbours; keep topology order and queen gates.
+        foreach(var move in World.BeeLocations.GetNeighbours(World,p)){
+            if((bee.queen&&!move.AllowsQueen)||!AllowedSurfaceEdge(p,move.Target)||!RelocationSiteAt(move.Target,out var site))continue;
+            var cell=site.Cell;
+            if(site.Group!=here.Group||ReferenceEquals(cell,here.Cell)||cell.Seen==stamp)continue;
+            double t=CachedRelocationTemperature(site),d=CachedRelocationCrowding(site,RepresentedBees(bee));
+            double improvement=currentT+currentD-t-d;
+            // Never make an already uncomfortable density worse, including a bee's
+            // projected arrival and existing reservations. Allow temperature/crowding
+            // tradeoffs only when the combined destination discomfort improves.
+            double nextDensity=RelocationDensity(site,RepresentedBees(bee));
+            if((avoidCrowding&&nextDensity>Math.Max(currentDensity,Settings.relocateDensityStop))||improvement<=Settings.relocateMinImprovement)continue;
+            cell.Seen=stamp;
+            double weight=F("relocateDestination",new CycleInputs{amount=improvement,distance=Distance(p,site.Position)});if(weight<=0)continue;
+            total+=weight;if(Random()*total<weight){selected=site.Position;found=true;}
+        }
+        return found;
+    }
+    void SetLocalRelocationTarget(CycleBee bee,BeeGridPosition selected)
+    {
+        bee.target=new CyclePoint(selected);bee.hasTarget=true;bee.hasWaypoint=false;bee.directionActive=false;
+        // The chosen neighbour is already connected: retain the regular movement/energy
+        // accounting with a one-edge path, avoiding a whole-space BFS for a single step.
+        bee.path.Clear();bee.path.Add(bee.target);bee.pathIndex=0;bee.progress=0;bee.topologyVersion=topologyVersion;
+    }
+    void CompleteLocalRelocation(CycleBee bee,double time)
+    {
+        Counters.relocationCompleted++;End(bee,CycleEnd.Completed);bee.task=CycleTask.Rest;
+        TrackRelocationBee(bee);
+        if(time>1e-12)Rest(bee,time);
     }
     void TryRelocateFromRest(CycleBee bee)
     {
@@ -92,10 +163,24 @@ public sealed partial class BeeCycleRuntime
     void RunRelocation(CycleBee bee,ref double time)
     {
         if(!RelocationEligible(bee)){End(bee,CycleEnd.Interrupted);bee.task=CycleTask.Rest;return;}
-        if(!bee.hasTarget||!BeePosition(bee,out var p)||!RelocationSiteAt(p,out var site)){End(bee,CycleEnd.PathBlocked);return;}
-        if(RelocationTemperatureScore(site.Owner.TemperatureC(site.Index))+RelocationCrowdingScore(RelocationDensity(site))<=0||Move(bee,bee.target.Grid,ref time)){
-            Counters.relocationCompleted++;End(bee,CycleEnd.Completed);bee.task=CycleTask.Rest;
-            if(time>1e-12)Rest(bee,time);
+        while(true){
+            if(!RelocationEligible(bee)){End(bee,CycleEnd.Interrupted);bee.task=CycleTask.Rest;TrackRelocationBee(bee);if(time>1e-12)Rest(bee,time);return;}
+            if(!BeePosition(bee,out var p)||!RelocationSiteAt(p,out var site)){End(bee,CycleEnd.PathBlocked);return;}
+            if(!bee.hasTarget&&RelocationTemperatureScore(site.Owner.TemperatureC(site.Index))+RelocationCrowdingScore(RelocationDensity(site))<=0){CompleteLocalRelocation(bee,time);return;}
+            if(!bee.hasTarget){
+                if(!SelectLocalRelocation(bee,p,site,out var selected)){CompleteLocalRelocation(bee,time);return;}
+                SetLocalRelocationTarget(bee,selected);
+            }
+            if(time<=1e-12)return;
+            // A saved in-progress distant target is finished before choosing local neighbours.
+            if(!p.Equals(bee.target.Grid)){
+                Move(bee,bee.target.Grid,ref time);
+                if(bee.task!=CycleTask.Relocate||!BeePosition(bee,out p)||!p.Equals(bee.target.Grid))return;
+            }
+            // Reassess even at an exact minute boundary; a selected next edge is saved
+            // in the existing target/path layout and is traversed when time is available.
+            bee.hasTarget=bee.hasWaypoint=false;bee.directionActive=false;bee.progress=0;bee.path.Clear();bee.pathIndex=0;
+            TrackRelocationBee(bee);
         }
     }
 }

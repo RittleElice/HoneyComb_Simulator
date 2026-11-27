@@ -763,7 +763,7 @@ MonoBehaviour:
   inspectionHeight: 500
   raisedHoldDuration: 0.2
   animationDuration: 0.3
-  inspectionScale: 1
+  inspectionScale: 1.1
   displayWidth: 800
   displayHeight: 1200
 --- !u!114 &1261923422

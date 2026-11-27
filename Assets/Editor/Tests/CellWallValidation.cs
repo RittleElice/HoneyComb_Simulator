@@ -14,7 +14,7 @@ public static class CellWallValidation
     static void Check(bool ok, string label) { checks++; if (!ok) throw new Exception(label); }
     static void Late(FrameCellPresenter p) => typeof(FrameCellPresenter).GetMethod("LateUpdate", Flags).Invoke(p, null);
     static Sprite Load(string name) => AssetDatabase.LoadAllAssetsAtPath("Assets/Art/CellObservation/" + name + ".png").OfType<Sprite>().First();
-    static FrameCellArtwork Art() => new FrameCellArtwork { wallTwoArm=Load("Cell_Unit_001"),wallThreeArm=Load("Cell_Unit_002"),completeCell=Load("Cell_Complete"),rapeSeedNectar=Load("Nactar_RapeSeed"),wildflowerNectar=Load("Nactar_Wildflower"),cherryBlossomNectar=Load("Nectar_CherryBlossom"),blackLocustNectar=Load("Nectar_BlackLocust"),chestnutNectar=Load("Nectar_Chestnut") };
+    static FrameCellArtwork Art() => new FrameCellArtwork { wallTwoArm=Load("Cell_Unit_001"),wallThreeArm=Load("Cell_Unit_002"),completeCell=Load("Cell_Complete"),rapeSeedNectar=Load("Nectar_RapeSeed_Inside"),wildflowerNectar=Load("Nectar_Wildflower_Inside"),cherryBlossomNectar=Load("Nectar_CherryBlossom_Inside"),blackLocustNectar=Load("Nectar_BlackLocust_Inside"),chestnutNectar=Load("Nectar_Chestnut_Inside") };
     static void Draw(FrameCellMesh mesh, Sprite sprite, VertexHelper vh) => typeof(FrameCellMesh).GetMethod("PopulateTexture", Flags).Invoke(mesh, new object[]{vh,sprite.texture});
     static int Count(FrameCellMesh mesh, Sprite sprite) { using(var vh=new VertexHelper()){Draw(mesh,sprite,vh);return vh.currentVertCount;} }
     static void Deposit(FrameSurface s,int source,float sugar,float water=0) => Check(s.TryAddNectar(0,0,source,sugar,water),"deposit");

@@ -91,9 +91,11 @@ public sealed class FrameCellPresenterEditor : Editor
             "wallMinimumAlpha", "최소 불투명도", "wallMaximumAlpha", "최대 불투명도");
         Group("완성 소방", "artwork.completeCell", "이미지", "completeCellOpacity", "불투명도", "completeCellColor", "색상");
         Group("화밀",
-            "artwork.rapeSeedNectar", "유채 이미지", "artwork.cherryBlossomNectar", "벚꽃 이미지",
-            "artwork.blackLocustNectar", "아까시 이미지", "artwork.chestnutNectar", "밤 이미지",
-            "artwork.wildflowerNectar", "잡화 이미지", "representativeNectarPercent", "대표 밀원 기준 (%)",
+            "artwork.rapeSeedNectar", "유채 내부 (Inside)", "artwork.rapeSeedNectarOutside", "유채 외곽 (Outside)",
+            "artwork.cherryBlossomNectar", "벚꽃 내부 (Inside)", "artwork.cherryBlossomNectarOutside", "벚꽃 외곽 (Outside)",
+            "artwork.blackLocustNectar", "아까시 내부 (Inside)", "artwork.blackLocustNectarOutside", "아까시 외곽 (Outside)",
+            "artwork.chestnutNectar", "밤 내부 (Inside)", "artwork.chestnutNectarOutside", "밤 외곽 (Outside)",
+            "artwork.wildflowerNectar", "잡화 내부 (Inside)", "artwork.wildflowerNectarOutside", "잡화 외곽 (Outside)", "representativeNectarPercent", "대표 밀원 기준 (%)",
             "nectarMinimumScale", "최소 크기 (최대 대비)", "nectarMaximumScale", "최대 크기 배율",
             "dryNectarAlpha", "수분 0% 불투명도", "wetNectarAlpha", "수분 100% 불투명도");
         Group("화분",

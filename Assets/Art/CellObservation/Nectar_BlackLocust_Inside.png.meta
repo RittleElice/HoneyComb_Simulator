@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 5bf90569848b11a458dc10f59b4324a2
+guid: 857ae3dba0cc8c94bb0bb019f6644d06
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -7799938274841935448
-    second: Nectar_Chestnut_0
+      213: 3569363649506028208
+    second: Nectar_BlackLocust_Inside_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Nectar_Chestnut_0
+      name: Nectar_BlackLocust_Inside_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 8a1c212077d01c390800000000000000
-      internalID: -7799938274841935448
+      spriteID: 0baaff2f35de88130800000000000000
+      internalID: 3569363649506028208
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Nectar_Chestnut_0: -7799938274841935448
+      Nectar_BlackLocust_Inside_0: 3569363649506028208
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

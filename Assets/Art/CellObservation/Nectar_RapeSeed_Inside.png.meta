@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 0f58421a18c267447a5a3eaede1d4a4e
+guid: 2e542ed39505d1a439bc94b92201c3ab
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 31525823278318573
-    second: Nectar_CherryBlossom_0
+      213: -5147078041171246039
+    second: Nectar_RapeSeed_Inside_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Nectar_CherryBlossom_0
+      name: Nectar_RapeSeed_Inside_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: de381c9b190007000800000000000000
-      internalID: 31525823278318573
+      spriteID: 92446ccbac7e198b0800000000000000
+      internalID: -5147078041171246039
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Nectar_CherryBlossom_0: 31525823278318573
+      Nectar_RapeSeed_Inside_0: -5147078041171246039
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

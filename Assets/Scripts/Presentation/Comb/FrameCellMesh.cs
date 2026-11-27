@@ -21,6 +21,11 @@ public sealed class FrameCellArtwork
     public Sprite blackLocustNectar;
     public Sprite chestnutNectar;
     public Sprite wildflowerNectar;
+    public Sprite rapeSeedNectarOutside;
+    public Sprite cherryBlossomNectarOutside;
+    public Sprite blackLocustNectarOutside;
+    public Sprite chestnutNectarOutside;
+    public Sprite wildflowerNectarOutside;
     public Sprite cappedPupa;
     public Sprite pollen;
     public Texture2D pollenTexture;
@@ -36,6 +41,18 @@ public sealed class FrameCellArtwork
     public Sprite egg;
     public Sprite larva;
 
+    public Sprite NectarOutside(int kind)
+    {
+        switch(kind)
+        {
+            case 0:return rapeSeedNectarOutside;
+            case 1:return cherryBlossomNectarOutside;
+            case 2:return blackLocustNectarOutside;
+            case 3:return chestnutNectarOutside;
+            case 4:return wildflowerNectarOutside;
+            default:return null;
+        }
+    }
     public Sprite Nectar(int kind)
     {
         switch (kind)
@@ -306,7 +323,11 @@ public class FrameCellMesh : MaskableGraphic
             var center = origin + new Vector2(Mathf.Sqrt(3f) * radius * (x + .5f + (y & 1) * .5f), radius + y * 1.5f * radius);
             var cell = Cached(index);
             if (cell.Complete) DrawSprite(vh, texture, artwork.completeCell, center, new Vector2(60, 69), new Vector2(.5f, .5f), scale, 0, completeOpacity, true, 0, completeTint);
-            if (cell.Nectar > 0) DrawSprite(vh, texture, artwork.Nectar(cell.NectarKind), center, new Vector2(57, 63), new Vector2(.5f, .5f), scale * cell.Nectar, 0, cell.NectarAlpha, true);
+            if (cell.Nectar > 0)
+            {
+                DrawSprite(vh, texture, artwork.Nectar(cell.NectarKind), center, new Vector2(57, 63), new Vector2(.5f, .5f), scale * cell.Nectar, 0, cell.NectarAlpha, true);
+                DrawSprite(vh, texture, artwork.NectarOutside(cell.NectarKind), center, new Vector2(57, 63), new Vector2(.5f, .5f), scale * cell.Nectar, 0, 1f, true);
+            }
             Sprite occupant = cell.Occupant == 1 ? artwork.pollen : cell.Occupant == 2 ? artwork.egg : cell.Occupant == 3 ? artwork.larva : cell.Occupant == 4 ? artwork.cappedPupa : null;
             // Supplied square artwork shares a canvas: preserve its aspect and
             // internal whitespace (the egg is intentionally much smaller than the cap).
@@ -354,6 +375,8 @@ public class FrameCellMesh : MaskableGraphic
         var textures = new HashSet<Texture>();
         var sprites = new[] { artwork.completeCell, artwork.rapeSeedNectar, artwork.cherryBlossomNectar,
             artwork.blackLocustNectar, artwork.chestnutNectar, artwork.wildflowerNectar,
+            artwork.rapeSeedNectarOutside, artwork.cherryBlossomNectarOutside,
+            artwork.blackLocustNectarOutside, artwork.chestnutNectarOutside, artwork.wildflowerNectarOutside,
             artwork.pollen, artwork.egg, artwork.larva, artwork.cappedPupa, artwork.wallTwoArm, artwork.wallThreeArm };
         foreach (var sprite in sprites)
         {
