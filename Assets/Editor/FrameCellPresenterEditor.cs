@@ -97,7 +97,9 @@ public sealed class FrameCellPresenterEditor : Editor
             "artwork.chestnutNectar", "밤 내부 (Inside)", "artwork.chestnutNectarOutside", "밤 외곽 (Outside)",
             "artwork.wildflowerNectar", "잡화 내부 (Inside)", "artwork.wildflowerNectarOutside", "잡화 외곽 (Outside)", "representativeNectarPercent", "대표 밀원 기준 (%)",
             "nectarMinimumScale", "최소 크기 (최대 대비)", "nectarMaximumScale", "최대 크기 배율",
-            "dryNectarAlpha", "수분 0% 불투명도", "wetNectarAlpha", "수분 100% 불투명도");
+            "dryNectarAlpha", "내부 수분 0% 불투명도", "wetNectarAlpha", "내부 수분 100% 불투명도",
+            "artwork.nectarOutsideDryAlpha", "외곽 최대 불투명도 (수분 0%)",
+            "artwork.nectarOutsideWetAlpha", "외곽 최소 불투명도 (수분 100%)");
         Group("화분",
             "artwork.pollen", "이미지", "pollenMinimumScale", "최소 크기 (최대 대비)",
             "pollenMaximumScale", "최대 크기 배율", "artwork.pollenColorA", "기본색 범위 시작",

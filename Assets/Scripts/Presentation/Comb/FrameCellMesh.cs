@@ -26,6 +26,10 @@ public sealed class FrameCellArtwork
     public Sprite blackLocustNectarOutside;
     public Sprite chestnutNectarOutside;
     public Sprite wildflowerNectarOutside;
+    [Range(0f,1f), Tooltip("수분 0%일 때 화밀 외곽의 불투명도. 1은 원본, 0은 투명입니다.")]
+    public float nectarOutsideDryAlpha = 1f;
+    [Range(0f,1f), Tooltip("수분 100%일 때 화밀 외곽의 불투명도. 중간 수분에서는 두 값 사이를 보간합니다.")]
+    public float nectarOutsideWetAlpha = 1f;
     public Sprite cappedPupa;
     [Min(.01f), Tooltip("봉개 이미지 전체 크기 배율. 1은 기본 크기입니다. 텍스처 무늬 크기는 별도로 조절합니다.")]
     public float cappingImageScale = 1f;
@@ -124,12 +128,13 @@ public class FrameCellMesh : MaskableGraphic
         public float Nectar;
         public int NectarKind;
         public float NectarAlpha;
+        public float NectarOutsideAlpha;
         public int Occupant;
         public float PollenScale;
         public uint PollenSeed;
         public float BroodProgress;
         public uint BroodSeed;
-        public bool Same(State other) => BroodProgress == other.BroodProgress && BroodSeed == other.BroodSeed && PollenSeed == other.PollenSeed && Construction == other.Construction && Complete == other.Complete && Nectar == other.Nectar && NectarKind == other.NectarKind && NectarAlpha == other.NectarAlpha && Occupant == other.Occupant && PollenScale == other.PollenScale;
+        public bool Same(State other) => BroodProgress == other.BroodProgress && BroodSeed == other.BroodSeed && PollenSeed == other.PollenSeed && Construction == other.Construction && Complete == other.Complete && Nectar == other.Nectar && NectarKind == other.NectarKind && NectarAlpha == other.NectarAlpha && NectarOutsideAlpha == other.NectarOutsideAlpha && Occupant == other.Occupant && PollenScale == other.PollenScale;
     }
     private FrameSurface surface;
     private BeeCycleRuntime broodRuntime;
@@ -239,6 +244,8 @@ public class FrameCellMesh : MaskableGraphic
             NectarKind = present ? RepresentativeNectar(surface, index % columns, index / columns, representativePercent) : 4,
             NectarAlpha = NectarOpacity(surface.GetTotalSugarMassMg(index % columns, index / columns),
                 surface.GetWaterMassMg(index % columns, index / columns), dryAlpha, wetAlpha),
+            NectarOutsideAlpha = NectarOpacity(surface.GetTotalSugarMassMg(index % columns,index / columns),
+                surface.GetWaterMassMg(index % columns,index / columns),Mathf.Clamp01(artwork.nectarOutsideDryAlpha),Mathf.Clamp01(artwork.nectarOutsideWetAlpha)),
             Nectar = present ? nectarMaximum * Mathf.Lerp(nectarMinimum, 1, Mathf.Clamp01(fill)) : 0 };
     }
 
@@ -333,7 +340,7 @@ public class FrameCellMesh : MaskableGraphic
             if (cell.Nectar > 0)
             {
                 DrawSprite(vh, texture, artwork.Nectar(cell.NectarKind), center, new Vector2(57, 63), new Vector2(.5f, .5f), scale * cell.Nectar, 0, cell.NectarAlpha, true);
-                DrawSprite(vh, texture, artwork.NectarOutside(cell.NectarKind), center, new Vector2(57, 63), new Vector2(.5f, .5f), scale * cell.Nectar, 0, 1f, true);
+                DrawSprite(vh, texture, artwork.NectarOutside(cell.NectarKind), center, new Vector2(57, 63), new Vector2(.5f, .5f), scale * cell.Nectar, 0, cell.NectarOutsideAlpha, true);
             }
             Sprite occupant = cell.Occupant == 1 ? artwork.pollen : cell.Occupant == 2 ? artwork.egg : cell.Occupant == 3 ? artwork.larva : cell.Occupant == 4 ? artwork.cappedPupa : null;
             // Supplied square artwork shares a canvas: preserve its aspect and
