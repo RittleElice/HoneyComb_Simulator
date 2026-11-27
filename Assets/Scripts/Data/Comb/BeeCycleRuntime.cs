@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -24,7 +24,11 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     readonly Dictionary<long,CycleBee> byId=new Dictionary<long,CycleBee>();
     readonly List<Request> requests=new List<Request>();
     readonly Dictionary<BeeGridPosition,List<CycleBee>> occupants=new Dictionary<BeeGridPosition,List<CycleBee>>();
-    readonly Dictionary<(EquipmentThermalState,int),double> heat=new Dictionary<(EquipmentThermalState,int),double>();
+    sealed class BeeHeatSum { internal double Joules; }
+    readonly Dictionary<(EquipmentThermalState,int),BeeHeatSum> heat=new Dictionary<(EquipmentThermalState,int),BeeHeatSum>();
+    EquipmentThermalState lastHeatOwner;
+    int lastHeatIndex;
+    BeeHeatSum lastHeatSum;
     long nextId=1;
     // Derived topology-scoped data only. The original BFS still chooses every predecessor.
     const int RouteByteBudget=32*1024*1024;
@@ -245,7 +249,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             if(minute!=LastMinute+1)throw new InvalidOperationException("Bee minute mismatch.");
             cancellation.ThrowIfCancellationRequested();
             if(Bees.Count==0){LastMinute=minute;return;}
-            World.Thermal.Refresh();await RefreshRegionsAsync(slice);RefreshApiaryPlacement();RefreshCommands();stimulusCache.Clear();decayCache.Clear();requests.Clear();forageRequests.Clear();heat.Clear();
+            World.Thermal.Refresh();await RefreshRegionsAsync(slice);RefreshApiaryPlacement();RefreshCommands();stimulusCache.Clear();decayCache.Clear();requests.Clear();forageRequests.Clear();heat.Clear();lastHeatSum=null;lastHeatOwner=null;
             ResetForageSelection();storageChoices.Clear();directedMovements.Clear();forageSelectionActive=true;
             BeginRelocationTick();
             int count=Bees.Count;
@@ -265,7 +269,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             activePositionBee=null;
             await ResolveForageRequestsAsync(slice);
             await ResolveRequestsAsync(slice);
-            foreach(var h in heat)h.Key.Item1.QueueBeeHeat(h.Key.Item2,h.Value);
+            foreach(var h in heat)h.Key.Item1.QueueBeeHeat(h.Key.Item2,h.Value.Joules);
             LastMinute=minute;
         }
         catch(Exception e){Failure=e;throw;}
@@ -646,7 +650,13 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     {
         if(b.outside||!BeePosition(b,out var p))return;var air=Air(p);if(air?.Grid==null)return;
         var comb=Settings.broodThermalCoupling!=0&&(contactHeat||b.stage!=CycleStage.Adult)?CombCell(p):null;
-        var key=comb!=null?(comb.Equipment.ThermalState,comb.Index):(Owner(air),OwnerIndex(air));heat.TryGetValue(key,out var old);heat[key]=old+joules;Counters.heatJ+=joules;
+        var key=comb!=null?(comb.Equipment.ThermalState,comb.Index):(Owner(air),OwnerIndex(air));// Preserve per-bee addition order, including basal and contact heat.
+        var sum=lastHeatSum;
+        if(sum==null||!ReferenceEquals(lastHeatOwner,key.Item1)||lastHeatIndex!=key.Item2){
+            if(!heat.TryGetValue(key,out sum)){sum=new BeeHeatSum();heat.Add(key,sum);}
+            lastHeatOwner=key.Item1;lastHeatIndex=key.Item2;lastHeatSum=sum;
+        }
+        sum.Joules+=joules;Counters.heatJ+=joules;
     }
     double DevelopmentLimit(CycleBee b)=>b.queen?Settings.queenMaxDevelopment:Settings.maxDevelopment;
     void Die(CycleBee b)
