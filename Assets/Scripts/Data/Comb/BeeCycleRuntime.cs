@@ -581,7 +581,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     {
         if(Settings.directionRoutingEnabled!=0&&b.path.Count==0&&(b.directionActive||WantsDirections(target,b.queen)))return MoveDirected(b,target,ref time);
         bool done=MoveLegacy(b,target,ref time);
-        if(b.pathIndex>=b.path.Count){b.path.Clear();if(Settings.directionRoutingEnabled!=0)b.path.TrimExcess();b.pathIndex=0;}
+        if(b.pathIndex>=b.path.Count){b.path.Clear();if(Settings.directionRoutingEnabled!=0&&(b.task!=CycleTask.Relocate||b.path.Capacity>4))b.path.TrimExcess();b.pathIndex=0;}
         return done;
     }
     bool MoveLegacy(CycleBee b,BeeGridPosition target,ref double time)

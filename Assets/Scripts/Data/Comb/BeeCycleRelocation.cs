@@ -16,6 +16,25 @@ public sealed partial class BeeCycleRuntime
         internal int Seen;
     }
     readonly Dictionary<(EquipmentThermalState,int),RelocationCell> relocationCells=new Dictionary<(EquipmentThermalState,int),RelocationCell>();
+    sealed class RelocationNeighbour
+    {
+        internal RelocationSite Site;
+        internal bool AllowsQueen,DistanceReady;
+        internal double Distance;
+    }
+    readonly Dictionary<BeeGridPosition,RelocationNeighbour[]> relocationNeighbours=new Dictionary<BeeGridPosition,RelocationNeighbour[]>();
+    RelocationNeighbour[] RelocationNeighbours(BeeGridPosition p)
+    {
+        if(forageSelectionActive&&relocationNeighbours.TryGetValue(p,out var cached))return cached;
+        var result=new List<RelocationNeighbour>();
+        foreach(var move in World.BeeLocations.GetNeighbours(World,p))
+            if(AllowedSurfaceEdge(p,move.Target)&&RelocationSiteAt(move.Target,out var site))
+                result.Add(new RelocationNeighbour{Site=site,AllowsQueen=move.AllowsQueen});
+        var entries=result.ToArray();
+        // Derived, tick-local geometry only. Live counts and scores are never frozen.
+        if(forageSelectionActive){if(relocationNeighbours.Count>=16384)relocationNeighbours.Clear();relocationNeighbours.Add(p,entries);}
+        return entries;
+    }
     int relocationSelectionStamp;
     void PrepareRelocationScores(RelocationCell cell)
     {
@@ -32,10 +51,11 @@ public sealed partial class BeeCycleRuntime
         }
         return cell.TemperatureScore;
     }
-    double CachedRelocationCrowding(RelocationSite site,double incoming=0)
+    double CachedRelocationCrowding(RelocationSite site,double incoming=0)=>CachedRelocationCrowding(site,incoming,out _);
+    double CachedRelocationCrowding(RelocationSite site,double incoming,out double density)
     {
         var cell=site.Cell;PrepareRelocationScores(cell);
-        double density=Math.Max(0,cell.Count+incoming)/(site.Owner.AirVolumeM3[site.Index]*1e6);
+        density=Math.Max(0,cell.Count+incoming)/(site.Owner.AirVolumeM3[site.Index]*1e6);
         double ratio=(density-Settings.relocateDensityStop)/(Settings.relocateDensityStart-Settings.relocateDensityStop);
         if(!cell.CrowdingReady||BitConverter.DoubleToInt64Bits(cell.CrowdingRatio)!=BitConverter.DoubleToInt64Bits(ratio)){
             cell.CrowdingScore=DestinationRelocationScore("relocateCrowdingDesire",ratio);cell.CrowdingRatio=ratio;cell.CrowdingReady=true;
@@ -52,6 +72,7 @@ public sealed partial class BeeCycleRuntime
     int relocationTopology=-1;
     void BeginRelocationTick()
     {
+        relocationNeighbours.Clear();
         relocationOccupancy.Clear();relocationContributions.Clear();
         foreach(var cell in relocationCells.Values){cell.Count=0;cell.Seen=0;}relocationSelectionStamp=0;
         if(Settings.relocateEnabled==0)return;
@@ -117,26 +138,25 @@ public sealed partial class BeeCycleRuntime
     }
     bool SelectLocalRelocation(CycleBee bee,BeeGridPosition p,RelocationSite here,out BeeGridPosition selected)
     {
-        double currentT=CachedRelocationTemperature(here),currentD=CachedRelocationCrowding(here);
-        double currentDensity=RelocationDensity(here);
+        double currentT=CachedRelocationTemperature(here),currentD=CachedRelocationCrowding(here,0,out double currentDensity);
         bool avoidCrowding=FRatio("relocateCrowdingDesire",1)>0;
         double total=0;bool found=false;selected=default;
         if(relocationSelectionStamp==int.MaxValue){foreach(var cell in relocationCells.Values)cell.Seen=0;relocationSelectionStamp=0;}
         int stamp=++relocationSelectionStamp;
         // Only directly traversable surface neighbours; keep topology order and queen gates.
-        foreach(var move in World.BeeLocations.GetNeighbours(World,p)){
-            if((bee.queen&&!move.AllowsQueen)||!AllowedSurfaceEdge(p,move.Target)||!RelocationSiteAt(move.Target,out var site))continue;
-            var cell=site.Cell;
+        foreach(var entry in RelocationNeighbours(p)){
+            if(bee.queen&&!entry.AllowsQueen)continue;
+            var site=entry.Site;var cell=site.Cell;
             if(site.Group!=here.Group||ReferenceEquals(cell,here.Cell)||cell.Seen==stamp)continue;
-            double t=CachedRelocationTemperature(site),d=CachedRelocationCrowding(site,RepresentedBees(bee));
+            double t=CachedRelocationTemperature(site),d=CachedRelocationCrowding(site,RepresentedBees(bee),out double nextDensity);
             double improvement=currentT+currentD-t-d;
             // Never make an already uncomfortable density worse, including a bee's
             // projected arrival and existing reservations. Allow temperature/crowding
             // tradeoffs only when the combined destination discomfort improves.
-            double nextDensity=RelocationDensity(site,RepresentedBees(bee));
             if((avoidCrowding&&nextDensity>Math.Max(currentDensity,Settings.relocateDensityStop))||improvement<=Settings.relocateMinImprovement)continue;
             cell.Seen=stamp;
-            double weight=F("relocateDestination",new CycleInputs{amount=improvement,distance=Distance(p,site.Position)});if(weight<=0)continue;
+            if(!entry.DistanceReady){entry.Distance=Distance(p,site.Position);entry.DistanceReady=true;}
+            double weight=F("relocateDestination",new CycleInputs{amount=improvement,distance=entry.Distance});if(weight<=0)continue;
             total+=weight;if(Random()*total<weight){selected=site.Position;found=true;}
         }
         return found;
