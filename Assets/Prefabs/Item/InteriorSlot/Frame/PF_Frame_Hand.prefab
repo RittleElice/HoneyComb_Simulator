@@ -128,6 +128,8 @@ MonoBehaviour:
     blackLocustNectarOutside: {fileID: 7190240437396000629, guid: b8417ce78a6a8744aa5829a8929214d4, type: 3}
     chestnutNectarOutside: {fileID: 7679477449304720846, guid: 345a37df81c7ce544955b4e6ad5fe079, type: 3}
     wildflowerNectarOutside: {fileID: 2570316317307430386, guid: 4c69887ccd66b7f42bf45669625c9984, type: 3}
+    nectarOutsideDryAlpha: 0.6
+    nectarOutsideWetAlpha: 0.6
     cappedPupa: {fileID: 4787532661322305568, guid: 360cf03485342a340b735dc80af30130, type: 3}
     cappingImageScale: 1.2
     cappingTexture: {fileID: 2800000, guid: 23bb1e8157ca99c4798d3f35a95664d0, type: 3}

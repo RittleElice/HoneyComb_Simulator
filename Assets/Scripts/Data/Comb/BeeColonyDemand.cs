@@ -51,7 +51,7 @@ public sealed partial class BeeCycleRuntime {
   foreach(var other in members)if(other!=r&&!other.clearing){sugar+=other.freeSugar;pollen+=other.freePollen;}
   return r.sugar<=sugar&&r.pollen<=pollen;
  }
- double ClearCellCount(Region r){double n=0;Cells(r,(x,y)=>{var c=r.surface.GetCell(x,y);if(c.IsComplete&&!c.IsCapped&&(r.surface.GetTotalSugarMassMg(x,y)>0||r.surface.GetPollenMassMg(x,y)>0))n++;});return n;}
+ double ClearCellCount(Region r){Scan(r);return r.demandClearCells;}
  // One-minute pulses. Demand persistence never depends on command completion.
  void RefreshDemandCommands(){
   Commands.Clear();activeCommands.Clear();commandIndex.Clear();demandAnchors.Clear();colonyDemandIndex.Clear();regionDemandIndex.Clear();demandBuildPulse.Clear();demandClearPulse.Clear();
@@ -64,8 +64,7 @@ public sealed partial class BeeCycleRuntime {
   foreach(var pair in groups){
    int group=pair.Key,anchor=DemandAnchor(group);if(anchor==0||!groupRegions.TryGetValue(group,out var members))continue;touched.Add(anchor);
    if(!colonyDemandIndex.TryGetValue(anchor,out var d)){d=new ColonyDemandState{anchor=anchor};ColonyDemands.Add(d);colonyDemandIndex.Add(anchor,d);}
-   var g=pair.Value;double workers=0,adults=0,brood=0,physicalWorkers=0;CycleBee queen=null;
-   foreach(var b in Bees){if(b.stage==CycleStage.Dead||!Position(b,out var p)||Air(p)?.Group!=group)continue;if(b.stage==CycleStage.Adult){adults++;if(b.queen)queen=b;else{workers++;physicalWorkers+=RepresentedBees(b);}}else brood++;}
+   var g=pair.Value;double workers=g.demandWorkers,adults=g.count,brood=g.demandBrood,physicalWorkers=g.demandPhysicalWorkers;CycleBee queen=g.demandQueen;
    double complete=0,unfinished=0,freeSugar=0,freePollen=0,reserved=0;bool transferable=false;
    foreach(var r in members){var rd=DemandAt(r);complete+=20-r.unfinished;unfinished+=r.unfinished;freeSugar+=r.freeSugar;freePollen+=r.freePollen;bool clear=CanClear(r,members);transferable|=clear;
     reserved+=F("demandReservedCells",new CycleInputs{amount=r.unfinished,ratio=rd.build/100});if(clear)reserved+=F("demandReservedCells",new CycleInputs{amount=ClearCellCount(r),ratio=rd.clear/100});}

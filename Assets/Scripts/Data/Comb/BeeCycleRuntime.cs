@@ -90,12 +90,16 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     public sealed class Region
     {
         public BeeGridPosition position;public FrameSurface surface;public ItemData frame;public int x,z,group,box;
-        public int revision=-1,empty,unfinished,finishable;public double sugar,pollen,freeSugar,freePollen,buildRemaining,height,temperature;
+        public int revision=-1,empty,unfinished,finishable;internal int demandClearCells;public double sugar,pollen,freeSugar,freePollen,buildRemaining,height,temperature;
         public double nurseSugar,nursePollen;public readonly List<CycleBee> brood=new List<CycleBee>();
         public readonly List<CycleBee> workers=new List<CycleBee>();
         public bool clearing;
     }
-    sealed class Group { public int count,brood;public double sugar,pollen,representedAdults;public int empty; }
+    sealed class Group { public int count,brood;public double sugar,pollen,representedAdults;public int empty;
+        // Tick-start demand snapshot, collected during the required region membership pass.
+        // Brood here includes every located non-adult, including those off comb regions.
+        public double demandWorkers,demandBrood,demandPhysicalWorkers;public CycleBee demandQueen;
+    }
     struct Request { public CycleBee bee;public Region region;public double amount;public int kind; }
     public IReadOnlyList<Region> Regions=>regions;
     public BeeCycleRuntime(GameWorld world){World=world;LastMinute=world.CurrentGameMinute;rules=new BeeCycleRules(Settings);}
@@ -180,7 +184,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             groupRegions.Clear();foreach(var region in regions){if(!groupRegions.TryGetValue(region.group,out var members)){members=new List<Region>();groupRegions.Add(region.group,members);}members.Add(region);}
             topologyVersion=t.Builds;
         }
-        foreach(var g in groups.Values){g.count=0;g.brood=0;g.sugar=g.pollen=g.representedAdults=0;g.empty=0;}
+        foreach(var g in groups.Values){g.count=0;g.brood=0;g.sugar=g.pollen=g.representedAdults=0;g.empty=0;g.demandWorkers=g.demandBrood=g.demandPhysicalWorkers=0;g.demandQueen=null;}
         foreach(var r in regions)
         {
             Scan(r);r.brood.Clear();r.workers.Clear();r.nurseSugar=r.nursePollen=0;r.clearing=false;
@@ -194,7 +198,10 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             if(b.stage==CycleStage.Dead)continue;
             if(!Position(b,out var p))continue;
             var air=Air(p);if(air==null)continue;
-            if(b.stage==CycleStage.Adult){groups[air.Group].count++;groups[air.Group].representedAdults+=RepresentedBees(b);if(!b.outside&&regionAt.TryGetValue(p,out var r))r.workers.Add(b);}
+            var demandGroup=groups[air.Group];
+            if(b.stage==CycleStage.Adult){if(b.queen)demandGroup.demandQueen=b;else{demandGroup.demandWorkers++;demandGroup.demandPhysicalWorkers+=RepresentedBees(b);}}
+            else demandGroup.demandBrood++;
+            if(b.stage==CycleStage.Adult){demandGroup.count++;demandGroup.representedAdults+=RepresentedBees(b);if(!b.outside&&regionAt.TryGetValue(p,out var r))r.workers.Add(b);}
             else if(regionAt.TryGetValue(p,out var r))
             {
                 r.brood.Add(b);groups[r.group].brood++;
@@ -205,7 +212,7 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
     void Scan(Region r)
     {
         if(r.revision==r.surface.Revision)return;
-        r.empty=r.unfinished=r.finishable=0;r.sugar=r.pollen=r.freeSugar=r.freePollen=r.buildRemaining=0;
+        r.empty=r.unfinished=r.finishable=r.demandClearCells=0;r.sugar=r.pollen=r.freeSugar=r.freePollen=r.buildRemaining=0;
         Cells(r,(x,y)=>{
             var c=r.surface.GetCell(x,y);
             if(c.Construction<100)r.finishable++;
@@ -213,7 +220,8 @@ public sealed partial class BeeCycleRuntime : ISlicedGameMinuteParticipant
             if(!c.IsComplete){r.unfinished++;if(Settings.workDesireEnabled==0)r.buildRemaining+=100-c.Construction;return;}
             if(c.Content==CellContentKind.Empty)r.empty++;
             if(c.IsCapped)return;
-            r.sugar+=r.surface.GetTotalSugarMassMg(x,y);r.pollen+=r.surface.GetPollenMassMg(x,y);
+            double sugar=r.surface.GetTotalSugarMassMg(x,y),pollen=r.surface.GetPollenMassMg(x,y);
+            r.sugar+=sugar;r.pollen+=pollen;if(sugar>0||pollen>0)r.demandClearCells++;
             r.freeSugar+=Free(r.surface,x,y,false);r.freePollen+=Free(r.surface,x,y,true);
         });r.revision=r.surface.Revision;
     }
